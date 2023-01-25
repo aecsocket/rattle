@@ -10,7 +10,12 @@ allprojects {
     description = "API for integrating physics engines into Minecraft"
 }
 
+kotlin {
+    jvmToolchain(17)
+}
+
 subprojects {
+    apply<JavaLibraryPlugin>()
     apply(plugin = "org.jetbrains.kotlin.jvm")
     apply(plugin = "org.jetbrains.dokka")
     apply(plugin = "maven-publish")

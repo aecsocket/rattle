@@ -1,10 +1,17 @@
 package io.gitlab.aecsocket.ignacio.bullet
 
+import com.jme3.bullet.PhysicsSpace
+import com.jme3.bullet.collision.shapes.BoxCollisionShape
+import com.jme3.bullet.collision.shapes.CollisionShape
+import com.jme3.bullet.collision.shapes.PlaneCollisionShape
+import com.jme3.bullet.collision.shapes.SphereCollisionShape
 import com.jme3.bullet.joints.New6Dof
 import com.jme3.bullet.objects.PhysicsRigidBody
+import com.jme3.math.Plane
+import com.jme3.math.Vector3f
 import com.jme3.system.JmeSystem
 import com.jme3.system.Platform
-import io.gitlab.aecsocket.ignacio.core.IgnacioBackend
+import io.gitlab.aecsocket.ignacio.core.*
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import java.io.File
 import java.net.URL
@@ -35,7 +42,7 @@ fun Platform.nativePathSuffix(): String {
     }
 }
 
-class BulletBackend(root: File, settings: Settings, logger: Logger) : IgnacioBackend {
+class BltBackend(root: File, settings: Settings, logger: Logger) : IgnacioBackend {
     @ConfigSerializable
     data class Settings(
         val buildType: JmeBuildType = JmeBuildType.RELEASE,
@@ -77,5 +84,31 @@ class BulletBackend(root: File, settings: Settings, logger: Logger) : IgnacioBac
         New6Dof.logger2.level = Level.WARNING
 
         logger.info("Initialized Bullet v$JME_VERSION backend")
+    }
+
+    override fun createSpace(settings: IgSpaceSettings): IgPhysicsSpace {
+        val handle = PhysicsSpace(PhysicsSpace.BroadphaseType.DBVT)
+        handle.gravity = settings.gravity
+        return BltPhysicsSpace(handle)
+    }
+
+    fun bltShapeOf(shape: IgShape): CollisionShape {
+        return when (shape) {
+            is IgSphereShape -> SphereCollisionShape(shape.radius.toFloat())
+            is IgBoxShape -> BoxCollisionShape(shape.halfExtent.btSp())
+            is IgPlaneShape -> PlaneCollisionShape(Plane(Vector3f.UNIT_X, 0f))
+        }
+    }
+
+    override fun createStaticBody(shape: IgShape, transform: Transform): IgStaticBody {
+        val handle = PhysicsRigidBody(bltShapeOf(shape), PhysicsRigidBody.massForStatic)
+        handle.transform = transform
+        return BltRigidBody(handle)
+    }
+
+    override fun createDynamicBody(shape: IgShape, transform: Transform, dynamics: IgBodyDynamics): IgDynamicBody {
+        val handle = PhysicsRigidBody(bltShapeOf(shape), dynamics.mass.toFloat())
+        handle.transform = transform
+        return BltRigidBody(handle)
     }
 }

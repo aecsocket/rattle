@@ -16,10 +16,6 @@ dependencies {
     api(projects.ignacioPhysx)
     paperDevBundle("$minecraft-R0.1-SNAPSHOT")
 
-    implementation(libs.caffeine)
-
-    implementation(libs.adventureSerializerConfigurate)
-
     implementation(libs.configurateCore)
     implementation(libs.configurateExtraKotlin)
     implementation(libs.configurateHocon)
@@ -31,7 +27,6 @@ dependencies {
     // kt-runtime
     compileOnly(libs.kotlinReflect)
     compileOnly(libs.kotlinxCoroutines)
-
 
     testImplementation(platform("org.junit:junit-bom:5.9.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
@@ -46,21 +41,21 @@ tasks {
         exclude("kotlinx/")
 
         // LibBulletJme is *not* shaded to prevent issues with native library
-        listOf(
-            "com.github.benmanes.caffeine",
-            "com.google.errorprone",
-            "org.checkerframework",
-
-            "io.leangen.geantyref",
-            "com.typesafe.config",
-            "org.spongepowered.configurate",
-
-            "cloud.commandframework",
-        ).forEach { relocate(it, "${project.group}.ignacio.lib.$it") }
+//        listOf(
+//            "com.github.benmanes.caffeine",
+//            "com.google.errorprone",
+//            "org.checkerframework",
+//
+//            "io.leangen.geantyref",
+//            "com.typesafe.config",
+//            "org.spongepowered.configurate",
+//
+//            "cloud.commandframework",
+//        ).forEach { relocate(it, "${project.group}.ignacio.lib.$it") }
     }
 
     assemble {
-        dependsOn(shadowJar)
+        //dependsOn(shadowJar)
     }
 
     runServer {
