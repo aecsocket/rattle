@@ -1,0 +1,9 @@
+name: "Ignacio"
+description: "@description@"
+main: "@group@.ignacio.paper.Ignacio"
+version: "@version@"
+api-version: "1.13"
+authors: [ "aecsocket" ]
+website: "https://phosphorous.gitlab.io/ignacio"
+
+depend: [ "KtRuntime" ]

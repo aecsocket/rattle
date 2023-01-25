@@ -1,0 +1,19 @@
+image: gradle:jdk18
+
+variables:
+  GRADLE_USER_HOME: "${CI_PROJECT_DIR}/.gradle"
+
+build:
+  cache:
+    key:
+      files:
+        - "gradle/wrapper/gradle-wrapper.properties"
+    paths:
+      - "cache/caches/"
+      - "cache/notifications/"
+      - "cache/wrapper/"
+  artifacts:
+    paths:
+      - "*/build/libs/*.jar"
+  script:
+    - "./gradlew --build-cache --gradle-user-home cache/ build reobfJar publish"
