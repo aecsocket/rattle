@@ -1,8 +1,8 @@
 package io.gitlab.aecsocket.ignacio.paper
 
-import io.gitlab.aecsocket.ignacio.bullet.BltBackend
+import io.gitlab.aecsocket.ignacio.bullet.BulletBackend
 import io.gitlab.aecsocket.ignacio.core.*
-import io.gitlab.aecsocket.ignacio.physx.PhxBackend
+import io.gitlab.aecsocket.ignacio.physx.PhysxBackend
 import org.bukkit.Bukkit
 import org.bukkit.World
 import org.bukkit.plugin.java.JavaPlugin
@@ -16,15 +16,11 @@ import org.spongepowered.configurate.util.NamingSchemes
 import java.util.UUID
 
 private const val PATH_SETTINGS = "settings.conf"
-private const val BACKEND = "backend"
 
 private lateinit var instance: Ignacio
 val IgnacioAPI get() = instance
 
-enum class IgnacioDefaultBackend(val key: String) {
-    BULLET  ("bullet"),
-    PHYSX   ("physx")
-}
+enum class IgBackends { BULLET, PHYSX, NONE }
 
 private val configOptions = ConfigurationOptions.defaults()
     .serializers {
@@ -44,13 +40,17 @@ class Ignacio : JavaPlugin() {
 
     @ConfigSerializable
     data class Settings(
-        val space: IgSpaceSettings = IgSpaceSettings()
+        val backend: IgBackends = IgBackends.NONE,
+        val bullet: BulletBackend.Settings = BulletBackend.Settings(),
+        val physx: PhysxBackend.Settings = PhysxBackend.Settings(),
+        val space: IgPhysicsSpace.Settings = IgPhysicsSpace.Settings()
     )
 
+    val physicsThread = IgPhysicsThread(logger)
     private val _spaces = HashMap<UUID, IgPhysicsSpace>()
     val spaces: Map<UUID, IgPhysicsSpace> get() = _spaces
 
-    lateinit var backend: IgnacioBackend private set
+    lateinit var backend: IgBackend<*> private set
     lateinit var settings: Settings private set
 
     init {
@@ -63,25 +63,40 @@ class Ignacio : JavaPlugin() {
         .build().load()
 
     override fun onLoad() {
-        val node = try {
+        if (!dataFolder.exists()) {
+            saveResource(PATH_SETTINGS, false)
+        }
+
+        try {
             val node = loadSettingsNode()
             settings = node.igForce()
-            node
         } catch (ex: Exception) {
             throw RuntimeException("Could not load settings", ex)
         }
 
-        val backendType = node.node(BACKEND).igForce<IgnacioDefaultBackend>()
-        val backendNode = node.node(backendType.key)
-        backend = when (backendType) {
-            IgnacioDefaultBackend.BULLET -> BltBackend(dataFolder, backendNode.igForce(), logger)
-            IgnacioDefaultBackend.PHYSX -> PhxBackend(dataFolder, backendNode.igForce(), logger)
+        backend = when (settings.backend) {
+            IgBackends.BULLET -> BulletBackend(settings.bullet, dataFolder, logger)
+            IgBackends.PHYSX -> PhysxBackend(settings.physx, logger)
+            else -> throw RuntimeException("Ignacio has not been set up with a backend - specify `backend` in $PATH_SETTINGS")
         }
     }
 
     override fun onEnable() {
         IgnacioCommand(this)
         Bukkit.getPluginManager().registerEvents(IgnacioEventListener(this), this)
+        Bukkit.getScheduler().scheduleSyncRepeatingTask(this, {
+            _spaces.forEach { (_, space) ->
+                physicsThread.execute {
+                    space.step()
+                }
+            }
+        }, 0, 1)
+        physicsThread.start()
+    }
+
+    override fun onDisable() {
+        backend.destroy()
+        physicsThread.destroy()
     }
 
     fun reload() {
@@ -92,6 +107,11 @@ class Ignacio : JavaPlugin() {
             ex.printStackTrace()
             Settings()
         }
+
+        when (val backend = backend) {
+            is BulletBackend -> backend.reload(settings.bullet)
+            is PhysxBackend -> backend.reload(settings.physx)
+        }
     }
 
     fun spaceOf(world: World) = _spaces.computeIfAbsent(world.uid) {
@@ -100,7 +120,7 @@ class Ignacio : JavaPlugin() {
 
     fun removeSpace(world: World) {
         _spaces.remove(world.uid)?.let { space ->
-            space.destroy()
+            backend.destroySpace(space)
         }
     }
 }

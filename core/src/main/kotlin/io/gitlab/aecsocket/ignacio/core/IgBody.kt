@@ -9,6 +9,8 @@ data class IgBodyDynamics(
 
 interface IgBody {
     var transform: Transform
+
+    fun destroy()
 }
 
 interface IgRigidBody : IgBody {

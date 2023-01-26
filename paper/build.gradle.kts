@@ -12,8 +12,8 @@ repositories {
 
 dependencies {
     api(projects.ignacioCore)
-    api(projects.ignacioBullet)
-    api(projects.ignacioPhysx)
+    implementation(projects.ignacioBullet)
+    implementation(projects.ignacioPhysx)
     paperDevBundle("$minecraft-R0.1-SNAPSHOT")
 
     implementation(libs.configurateCore)
@@ -39,19 +39,20 @@ tasks {
         // kt-runtime
         exclude("kotlin/")
         exclude("kotlinx/")
+        exclude("META-INF/versions/19/")
 
         // LibBulletJme is *not* shaded to prevent issues with native library
-//        listOf(
-//            "com.github.benmanes.caffeine",
-//            "com.google.errorprone",
-//            "org.checkerframework",
-//
-//            "io.leangen.geantyref",
-//            "com.typesafe.config",
-//            "org.spongepowered.configurate",
-//
-//            "cloud.commandframework",
-//        ).forEach { relocate(it, "${project.group}.ignacio.lib.$it") }
+        listOf(
+            "com.github.benmanes.caffeine",
+            "com.google.errorprone",
+            "org.checkerframework",
+
+            "io.leangen.geantyref",
+            "com.typesafe.config",
+            "org.spongepowered.configurate",
+
+            "cloud.commandframework",
+        ).forEach { relocate(it, "${project.group}.ignacio.lib.$it") }
     }
 
     assemble {

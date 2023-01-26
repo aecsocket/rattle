@@ -11,6 +11,20 @@ data class Vec3(val x: IgScalar, val y: IgScalar, val z: IgScalar) {
     }
 
     constructor(n: IgScalar) : this(n, n, n)
+
+    @JvmName("add")
+    operator fun plus(v: Vec3) = Vec3(x+v.x, y+v.y, z+v.z)
+    @JvmName("add")
+    operator fun plus(s: IgScalar) = Vec3(x+s, y+s, z+s)
+
+    @JvmName("sub")
+    operator fun minus(v: Vec3) = Vec3(x-v.x, y-v.y, z-v.z)
+    @JvmName("sub")
+    operator fun minus(s: IgScalar) = Vec3(x-s, y-s, z-s)
+
+    fun asString(fmt: String = "%f") = "($fmt, $fmt, $fmt)".format(x, y, z)
+
+    override fun toString() = asString("%.3f")
 }
 
 object Vec3Serializer : TypeSerializer<Vec3> {

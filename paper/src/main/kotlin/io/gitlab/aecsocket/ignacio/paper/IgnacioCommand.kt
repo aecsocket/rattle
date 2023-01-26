@@ -3,11 +3,14 @@ package io.gitlab.aecsocket.ignacio.paper
 import cloud.commandframework.ArgumentDescription
 import cloud.commandframework.arguments.standard.StringArgument
 import cloud.commandframework.bukkit.CloudBukkitCapabilities
+import cloud.commandframework.bukkit.parsers.location.LocationArgument
 import cloud.commandframework.execution.CommandExecutionCoordinator
 import cloud.commandframework.minecraft.extras.MinecraftHelp
 import cloud.commandframework.paper.PaperCommandManager
 import io.gitlab.aecsocket.ignacio.core.*
 import net.kyori.adventure.text.Component
+import org.bukkit.Bukkit
+import org.bukkit.Location
 import org.bukkit.entity.Player
 import kotlin.math.sqrt
 
@@ -52,25 +55,25 @@ internal class IgnacioCommand(private val ignacio: Ignacio) {
 
         manager.command(root
             .literal("test")
+            .argument(LocationArgument.of("location"))
             .handler { ctx ->
                 val player = ctx.sender as Player
-                val world = player.world
+                val location = ctx.get<Location>("location")
+                val world = location.world
 
                 val physSpace = ignacio.spaceOf(world)
-                val r = 1.0 / sqrt(2.0)
-                val groundPlane = ignacio.backend.createStaticBody(
-                    IgPlaneShape,
-                    Transform(Vec3.Zero, Quat(0.0, 0.0, r, r))
-                )
                 val box = ignacio.backend.createDynamicBody(
                     IgBoxShape(Vec3(0.5)),
-                    Transform(Vec3(0.0, 5.0, 0.0), Quat.Identity),
+                    Transform(location.vec3(), Quat.Identity),
                     IgBodyDynamics(
                         mass = 1.0
                     )
                 )
-                physSpace.addBody(groundPlane)
                 physSpace.addBody(box)
+
+                Bukkit.getScheduler().scheduleSyncRepeatingTask(ignacio, {
+                    player.sendActionBar(Component.text("Box @ ${box.transform.position}"))
+                }, 0, 1)
             })
     }
 }

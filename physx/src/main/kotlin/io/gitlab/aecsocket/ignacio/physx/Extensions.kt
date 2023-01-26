@@ -11,6 +11,8 @@ import physx.geometry.PxBoxGeometry
 import physx.geometry.PxGeometry
 import physx.geometry.PxPlaneGeometry
 import physx.geometry.PxSphereGeometry
+import physx.physics.PxRigidActor
+import physx.physics.PxRigidStatic
 import physx.physics.PxSceneDesc
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.InvocationKind
@@ -73,3 +75,11 @@ fun MemoryStack.pxGeometryOf(shape: IgShape): PxGeometry {
         is IgPlaneShape -> pxPlaneGeometry()
     }
 }
+
+var PxRigidActor.transform: Transform
+    get() = globalPose.ig()
+    set(value) {
+        igUseMemory {
+            globalPose = pxTransform(value)
+        }
+    }

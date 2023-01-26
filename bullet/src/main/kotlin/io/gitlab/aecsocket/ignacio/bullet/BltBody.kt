@@ -8,6 +8,8 @@ open class BltBody(open val handle: PhysicsCollisionObject) : IgBody {
     override var transform: Transform
         get() = handle.transform
         set(value) { handle.transform = value }
+
+    override fun destroy() {}
 }
 
 class BltRigidBody(override val handle: PhysicsRigidBody) : BltBody(handle), IgStaticBody, IgDynamicBody {

@@ -19,7 +19,7 @@ import java.nio.file.Files
 import java.util.logging.Level
 import java.util.logging.Logger
 
-const val JME_VERSION = "17.5.2"
+const val JME_VERSION = "17.5.4"
 
 enum class JmeBuildType(val key: String) {
     RELEASE ("Release"),
@@ -42,12 +42,21 @@ fun Platform.nativePathSuffix(): String {
     }
 }
 
-class BltBackend(root: File, settings: Settings, logger: Logger) : IgnacioBackend {
+class BulletBackend(
+    settings: Settings,
+    root: File,
+    logger: Logger
+) : IgBackend<BulletBackend.Settings> {
     @ConfigSerializable
     data class Settings(
         val buildType: JmeBuildType = JmeBuildType.RELEASE,
-        val flavor: JmeFlavor = JmeFlavor.DP_MT
+        val flavor: JmeFlavor = JmeFlavor.DP_MT,
+        val maxSubSteps: Int = 4,
     )
+
+    var settings: Settings = settings
+        private set
+    val spaces = HashMap<Long, BltPhysicsSpace>()
 
     init {
         val platform = JmeSystem.getPlatform()
@@ -86,10 +95,27 @@ class BltBackend(root: File, settings: Settings, logger: Logger) : IgnacioBacken
         logger.info("Initialized Bullet v$JME_VERSION backend")
     }
 
-    override fun createSpace(settings: IgSpaceSettings): IgPhysicsSpace {
+    override fun reload(settings: Settings) {
+        this.settings = settings
+    }
+
+    override fun createSpace(settings: IgPhysicsSpace.Settings): BltPhysicsSpace {
         val handle = PhysicsSpace(PhysicsSpace.BroadphaseType.DBVT)
         handle.gravity = settings.gravity
-        return BltPhysicsSpace(handle)
+
+        val ground = PhysicsRigidBody(PlaneCollisionShape(Plane(Vector3f.UNIT_Y, 0f)))
+        ground.position = Vec3(0.0, settings.groundPlaneY, 0.0)
+        handle.addCollisionObject(ground)
+
+        val space = BltPhysicsSpace(this, handle, settings, ground)
+        spaces[handle.nativeId()] = space
+        return space
+    }
+
+    override fun destroySpace(space: IgPhysicsSpace) {
+        space as BltPhysicsSpace
+        spaces.remove(space.handle.nativeId())
+        space.handle.destroy()
     }
 
     fun bltShapeOf(shape: IgShape): CollisionShape {
@@ -100,15 +126,21 @@ class BltBackend(root: File, settings: Settings, logger: Logger) : IgnacioBacken
         }
     }
 
-    override fun createStaticBody(shape: IgShape, transform: Transform): IgStaticBody {
+    override fun createStaticBody(shape: IgShape, transform: Transform): BltRigidBody {
         val handle = PhysicsRigidBody(bltShapeOf(shape), PhysicsRigidBody.massForStatic)
         handle.transform = transform
         return BltRigidBody(handle)
     }
 
-    override fun createDynamicBody(shape: IgShape, transform: Transform, dynamics: IgBodyDynamics): IgDynamicBody {
+    override fun createDynamicBody(shape: IgShape, transform: Transform, dynamics: IgBodyDynamics): BltRigidBody {
         val handle = PhysicsRigidBody(bltShapeOf(shape), dynamics.mass.toFloat())
         handle.transform = transform
         return BltRigidBody(handle)
+    }
+
+    override fun destroy() {
+        spaces.forEach { (_, space) ->
+            destroySpace(space)
+        }
     }
 }
