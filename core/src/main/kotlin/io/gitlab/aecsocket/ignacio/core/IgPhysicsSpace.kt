@@ -13,6 +13,8 @@ interface IgPhysicsSpace {
 
     var settings: Settings
 
+    fun countBodies(): Int
+
     fun step()
 
     fun addBody(body: IgBody)

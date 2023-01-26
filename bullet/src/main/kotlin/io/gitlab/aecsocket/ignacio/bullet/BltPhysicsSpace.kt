@@ -18,8 +18,15 @@ class BltPhysicsSpace(
             ground.position = Vec3(0.0, settings.groundPlaneY, 0.0)
         }
 
+    var stepping = false
+
+    override fun countBodies() = handle.countRigidBodies()
+
     override fun step() {
+        if (stepping) return
+        stepping = true
         handle.update(settings.stepInterval.toFloat(), backend.settings.maxSubSteps)
+        stepping = false
     }
 
     override fun addBody(body: IgBody) {

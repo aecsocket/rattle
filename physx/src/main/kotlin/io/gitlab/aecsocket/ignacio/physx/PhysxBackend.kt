@@ -72,10 +72,9 @@ class PhysxBackend(settings: Settings, logger: Logger) : IgBackend<PhysxBackend.
             handle = physics.createScene(desc)
         }
 
-        val r = 1.0 / sqrt(2.0)
         val ground = createStaticBody(
             IgPlaneShape,
-            Transform(Vec3(0.0, settings.groundPlaneY, 0.0), Quat(0.0, 0.0, r, r))
+            Transform(Vec3(0.0, settings.groundPlaneY, 0.0), planeQuat)
         )
         val space = PhxPhysicsSpace(this, handle, settings, ground)
         space.addBody(ground)

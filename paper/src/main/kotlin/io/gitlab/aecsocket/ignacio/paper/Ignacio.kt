@@ -8,6 +8,7 @@ import io.gitlab.aecsocket.ignacio.core.*
 import io.gitlab.aecsocket.ignacio.core.math.Vec3
 import io.gitlab.aecsocket.ignacio.core.math.Vec3Serializer
 import io.gitlab.aecsocket.ignacio.physx.PhysxBackend
+import net.kyori.adventure.text.Component
 import org.bukkit.Bukkit
 import org.bukkit.World
 import org.bukkit.entity.Player
@@ -102,7 +103,14 @@ class Ignacio : JavaPlugin() {
             meshes.update()
             _spaces.forEach { (_, space) ->
                 physicsThread.execute {
+                    val start = System.nanoTime()
                     space.step()
+                    val end = System.nanoTime()
+                    Bukkit.getOnlinePlayers().forEach { player ->
+                        player.sendActionBar(
+                            Component.text("Bodies: ${space.countBodies()} | Last step time = %.1f ms".format((end - start) / 1.0e6))
+                        )
+                    }
                 }
             }
         }, 0, 1)
@@ -111,7 +119,9 @@ class Ignacio : JavaPlugin() {
 
     override fun onDisable() {
         PacketEvents.getAPI().terminate()
-        backend.destroy()
+        physicsThread.execute {
+            backend.destroy()
+        }
         physicsThread.destroy()
     }
 
@@ -128,6 +138,10 @@ class Ignacio : JavaPlugin() {
             is BulletBackend -> backend.reload(settings.bullet)
             is PhysxBackend -> backend.reload(settings.physx)
         }
+    }
+
+    fun executePhysics(task: Runnable) {
+        physicsThread.execute(task)
     }
 
     fun spaceOf(world: World) = _spaces.computeIfAbsent(world.uid) {

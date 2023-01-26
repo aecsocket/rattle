@@ -1,6 +1,7 @@
 package io.gitlab.aecsocket.ignacio.paper
 
 import cloud.commandframework.ArgumentDescription
+import cloud.commandframework.arguments.standard.IntegerArgument
 import cloud.commandframework.arguments.standard.StringArgument
 import cloud.commandframework.bukkit.CloudBukkitCapabilities
 import cloud.commandframework.bukkit.parsers.location.LocationArgument
@@ -17,6 +18,8 @@ import org.bukkit.Location
 import org.bukkit.Material
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
+import org.bukkit.util.Vector
+import kotlin.random.Random
 
 private const val ROOT = "ignacio"
 
@@ -31,6 +34,14 @@ internal class IgnacioCommand(private val ignacio: Ignacio) {
         { it }, { it }
     )
     private val root = manager.commandBuilder(ROOT, desc("Core command plugin."))
+
+    data class Box(
+        val space: IgPhysicsSpace,
+        val body: IgDynamicBody,
+        val mesh: IgMesh,
+    )
+
+    val boxes = ArrayList<Box>()
 
     init {
         if (manager.hasCapability(CloudBukkitCapabilities.BRIGADIER))
@@ -58,38 +69,72 @@ internal class IgnacioCommand(private val ignacio: Ignacio) {
             })
 
         manager.command(root
-            .literal("test")
+            .literal("create")
             .argument(LocationArgument.of("location"))
+            .argument(IntegerArgument.of("amount"))
+            .argument(LocationArgument.of("spread"))
             .handler { ctx ->
                 val player = ctx.sender as Player
                 val location = ctx.get<Location>("location")
+                val amount = ctx.get<Int>("amount")
+                val spread = ctx.get<Location>("spread")
                 val world = location.world
 
                 val physSpace = ignacio.spaceOf(world)
-                val box = ignacio.backend.createDynamicBody(
-                    IgBoxShape(Vec3(0.5)),
-                    Transform(location.vec3(), Quat.Identity),
-                    IgBodyDynamics(
-                        mass = 1.0
+
+                val from = location.clone().subtract(spread.toVector().multiply(0.5))
+                repeat(amount) {
+                    val pos = Location(
+                        world,
+                        from.x + Random.nextDouble() * spread.x,
+                        from.y + Random.nextDouble() * spread.y,
+                        from.z + Random.nextDouble() * spread.z
+                    ).vec3()
+                    val box = ignacio.backend.createDynamicBody(
+                        IgBoxShape(Vec3(0.5)),
+                        Transform(pos, Quat.Identity),
+                        IgBodyDynamics(
+                            mass = 1.0
+                        )
                     )
-                )
-                physSpace.addBody(box)
-
-                val mesh = ignacio.meshes.createItem(
-                    Transform(location.vec3(), Quat.Identity),
-                    { setOf(player) },
-                    IgMesh.Settings(interpolate = false, small = true),
-                    ItemStack(Material.STICK).apply {
-                        editMeta { meta ->
-                            meta.setCustomModelData(2)
-                        }
+                    ignacio.executePhysics {
+                        physSpace.addBody(box)
                     }
-                )
-                mesh.spawn(player)
 
-                Bukkit.getScheduler().scheduleSyncRepeatingTask(ignacio, {
-                    mesh.transform = box.transform
-                }, 0, 1)
+                    val mesh = ignacio.meshes.createItem(
+                        Transform(pos, Quat.Identity),
+                        { setOf(player) },
+                        IgMesh.Settings(interpolate = false, small = true),
+                        ItemStack(Material.STICK).apply {
+                            editMeta { meta ->
+                                meta.setCustomModelData(2)
+                            }
+                        }
+                    )
+                    mesh.spawn(player)
+
+                    boxes.add(Box(physSpace, box, mesh))
+                }
             })
+        manager.command(root
+            .literal("remove")
+            .handler { ctx ->
+                boxes.forEach { box ->
+                    ignacio.executePhysics {
+                        box.space.removeBody(box.body)
+                        box.body.destroy()
+                    }
+                    box.mesh.despawn()
+                }
+                boxes.clear()
+            })
+
+        Bukkit.getScheduler().scheduleSyncRepeatingTask(ignacio, {
+            ignacio.executePhysics {
+                boxes.forEach { box ->
+                    box.mesh.transform = box.body.transform
+                }
+            }
+        }, 0, 1)
     }
 }

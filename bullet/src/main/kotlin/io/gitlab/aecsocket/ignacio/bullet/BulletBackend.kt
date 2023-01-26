@@ -105,7 +105,7 @@ class BulletBackend(
         val handle = PhysicsSpace(PhysicsSpace.BroadphaseType.DBVT)
         handle.gravity = settings.gravity
 
-        val ground = PhysicsRigidBody(PlaneCollisionShape(Plane(Vector3f.UNIT_Y, 0f)))
+        val ground = PhysicsRigidBody(PlaneCollisionShape(Plane(Vector3f.UNIT_Y, 0f)), PhysicsRigidBody.massForStatic)
         ground.position = Vec3(0.0, settings.groundPlaneY, 0.0)
         handle.addCollisionObject(ground)
 
