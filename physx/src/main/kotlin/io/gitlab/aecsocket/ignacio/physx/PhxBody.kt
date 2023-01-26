@@ -1,6 +1,7 @@
 package io.gitlab.aecsocket.ignacio.physx
 
 import io.gitlab.aecsocket.ignacio.core.*
+import io.gitlab.aecsocket.ignacio.core.math.Transform
 import physx.physics.PxRigidActor
 import physx.physics.PxRigidDynamic
 import physx.physics.PxRigidStatic

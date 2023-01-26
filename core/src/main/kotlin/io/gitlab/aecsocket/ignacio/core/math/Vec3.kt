@@ -1,5 +1,7 @@
-package io.gitlab.aecsocket.ignacio.core
+package io.gitlab.aecsocket.ignacio.core.math
 
+import io.gitlab.aecsocket.ignacio.core.IgScalar
+import io.gitlab.aecsocket.ignacio.core.igForce
 import org.spongepowered.configurate.ConfigurationNode
 import org.spongepowered.configurate.serialize.SerializationException
 import org.spongepowered.configurate.serialize.TypeSerializer
@@ -24,7 +26,7 @@ data class Vec3(val x: IgScalar, val y: IgScalar, val z: IgScalar) {
 
     fun asString(fmt: String = "%f") = "($fmt, $fmt, $fmt)".format(x, y, z)
 
-    override fun toString() = asString("%.3f")
+    override fun toString() = asString(DECIMAL_FORMAT)
 }
 
 object Vec3Serializer : TypeSerializer<Vec3> {

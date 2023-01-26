@@ -10,9 +10,9 @@ import com.jme3.math.TransformDp
 import com.jme3.math.Vector3f
 import com.simsilica.mathd.Quatd
 import com.simsilica.mathd.Vec3d
-import io.gitlab.aecsocket.ignacio.core.Quat
-import io.gitlab.aecsocket.ignacio.core.Transform
-import io.gitlab.aecsocket.ignacio.core.Vec3
+import io.gitlab.aecsocket.ignacio.core.math.Quat
+import io.gitlab.aecsocket.ignacio.core.math.Transform
+import io.gitlab.aecsocket.ignacio.core.math.Vec3
 
 fun Vec3.btDp() = Vec3d(x, y, z)
 fun Vec3.btSp() = Vector3f(x.toFloat(), y.toFloat(), z.toFloat())

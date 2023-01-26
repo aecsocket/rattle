@@ -3,6 +3,7 @@ package io.gitlab.aecsocket.ignacio.bullet
 import com.jme3.bullet.collision.PhysicsCollisionObject
 import com.jme3.bullet.objects.PhysicsRigidBody
 import io.gitlab.aecsocket.ignacio.core.*
+import io.gitlab.aecsocket.ignacio.core.math.Transform
 
 open class BltBody(open val handle: PhysicsCollisionObject) : IgBody {
     override var transform: Transform

@@ -1,5 +1,7 @@
 package io.gitlab.aecsocket.ignacio.core
 
+import io.gitlab.aecsocket.ignacio.core.math.Vec3
+
 sealed interface IgShape
 
 data class IgSphereShape(val radius: IgScalar) : IgShape

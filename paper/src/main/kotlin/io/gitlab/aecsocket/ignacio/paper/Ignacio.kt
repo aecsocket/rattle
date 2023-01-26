@@ -1,10 +1,16 @@
 package io.gitlab.aecsocket.ignacio.paper
 
+import com.github.retrooper.packetevents.PacketEvents
+import com.github.retrooper.packetevents.wrapper.PacketWrapper
+import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder
 import io.gitlab.aecsocket.ignacio.bullet.BulletBackend
 import io.gitlab.aecsocket.ignacio.core.*
+import io.gitlab.aecsocket.ignacio.core.math.Vec3
+import io.gitlab.aecsocket.ignacio.core.math.Vec3Serializer
 import io.gitlab.aecsocket.ignacio.physx.PhysxBackend
 import org.bukkit.Bukkit
 import org.bukkit.World
+import org.bukkit.entity.Player
 import org.bukkit.plugin.java.JavaPlugin
 import org.spongepowered.configurate.ConfigurationOptions
 import org.spongepowered.configurate.hocon.HoconConfigurationLoader
@@ -47,6 +53,7 @@ class Ignacio : JavaPlugin() {
     )
 
     val physicsThread = IgPhysicsThread(logger)
+    val meshes = Meshes()
     private val _spaces = HashMap<UUID, IgPhysicsSpace>()
     val spaces: Map<UUID, IgPhysicsSpace> get() = _spaces
 
@@ -63,6 +70,12 @@ class Ignacio : JavaPlugin() {
         .build().load()
 
     override fun onLoad() {
+        PacketEvents.setAPI(SpigotPacketEventsBuilder.build(this))
+        PacketEvents.getAPI().settings
+            .checkForUpdates(false)
+            .bStats(true)
+        PacketEvents.getAPI().load()
+
         if (!dataFolder.exists()) {
             saveResource(PATH_SETTINGS, false)
         }
@@ -82,9 +95,11 @@ class Ignacio : JavaPlugin() {
     }
 
     override fun onEnable() {
+        PacketEvents.getAPI().init()
         IgnacioCommand(this)
         Bukkit.getPluginManager().registerEvents(IgnacioEventListener(this), this)
         Bukkit.getScheduler().scheduleSyncRepeatingTask(this, {
+            meshes.update()
             _spaces.forEach { (_, space) ->
                 physicsThread.execute {
                     space.step()
@@ -95,6 +110,7 @@ class Ignacio : JavaPlugin() {
     }
 
     override fun onDisable() {
+        PacketEvents.getAPI().terminate()
         backend.destroy()
         physicsThread.destroy()
     }
@@ -124,3 +140,6 @@ class Ignacio : JavaPlugin() {
         }
     }
 }
+
+internal fun Player.sendPacket(packet: PacketWrapper<*>) =
+    PacketEvents.getAPI().playerManager.sendPacket(this, packet)

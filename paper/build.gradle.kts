@@ -8,6 +8,7 @@ val minecraft = libs.versions.minecraft.get()
 
 repositories {
     maven("https://repo.papermc.io/repository/maven-public/")
+    maven("https://repo.codemc.io/repository/maven-snapshots/")
 }
 
 dependencies {
@@ -23,6 +24,8 @@ dependencies {
     implementation(libs.cloudCore)
     implementation(libs.cloudPaper)
     implementation(libs.cloudMinecraftExtras)
+
+    implementation(libs.packetEventsSpigot)
 
     // kt-runtime
     compileOnly(libs.kotlinReflect)
@@ -46,12 +49,12 @@ tasks {
             "com.github.benmanes.caffeine",
             "com.google.errorprone",
             "org.checkerframework",
-
             "io.leangen.geantyref",
             "com.typesafe.config",
             "org.spongepowered.configurate",
-
             "cloud.commandframework",
+            "com.github.retrooper.packetevents",
+            "io.github.retrooper.packetevents",
         ).forEach { relocate(it, "${project.group}.ignacio.lib.$it") }
     }
 

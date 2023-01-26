@@ -8,11 +8,15 @@ import cloud.commandframework.execution.CommandExecutionCoordinator
 import cloud.commandframework.minecraft.extras.MinecraftHelp
 import cloud.commandframework.paper.PaperCommandManager
 import io.gitlab.aecsocket.ignacio.core.*
+import io.gitlab.aecsocket.ignacio.core.math.Quat
+import io.gitlab.aecsocket.ignacio.core.math.Transform
+import io.gitlab.aecsocket.ignacio.core.math.Vec3
 import net.kyori.adventure.text.Component
 import org.bukkit.Bukkit
 import org.bukkit.Location
+import org.bukkit.Material
 import org.bukkit.entity.Player
-import kotlin.math.sqrt
+import org.bukkit.inventory.ItemStack
 
 private const val ROOT = "ignacio"
 
@@ -71,8 +75,20 @@ internal class IgnacioCommand(private val ignacio: Ignacio) {
                 )
                 physSpace.addBody(box)
 
+                val mesh = ignacio.meshes.createItem(
+                    Transform(location.vec3(), Quat.Identity),
+                    { setOf(player) },
+                    IgMesh.Settings(interpolate = false, small = true),
+                    ItemStack(Material.STICK).apply {
+                        editMeta { meta ->
+                            meta.setCustomModelData(2)
+                        }
+                    }
+                )
+                mesh.spawn(player)
+
                 Bukkit.getScheduler().scheduleSyncRepeatingTask(ignacio, {
-                    player.sendActionBar(Component.text("Box @ ${box.transform.position}"))
+                    mesh.transform = box.transform
                 }, 0, 1)
             })
     }

@@ -1,6 +1,9 @@
 package io.gitlab.aecsocket.ignacio.physx
 
 import io.gitlab.aecsocket.ignacio.core.*
+import io.gitlab.aecsocket.ignacio.core.math.Quat
+import io.gitlab.aecsocket.ignacio.core.math.Transform
+import io.gitlab.aecsocket.ignacio.core.math.Vec3
 import org.lwjgl.system.MemoryStack
 import physx.common.PxIDENTITYEnum
 import physx.common.PxQuat
@@ -12,7 +15,6 @@ import physx.geometry.PxGeometry
 import physx.geometry.PxPlaneGeometry
 import physx.geometry.PxSphereGeometry
 import physx.physics.PxRigidActor
-import physx.physics.PxRigidStatic
 import physx.physics.PxSceneDesc
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.InvocationKind

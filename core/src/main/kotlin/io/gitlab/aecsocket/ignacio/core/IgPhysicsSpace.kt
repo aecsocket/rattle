@@ -1,5 +1,6 @@
 package io.gitlab.aecsocket.ignacio.core
 
+import io.gitlab.aecsocket.ignacio.core.math.Vec3
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 
 interface IgPhysicsSpace {

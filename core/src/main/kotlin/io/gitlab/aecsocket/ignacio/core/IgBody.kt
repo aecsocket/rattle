@@ -1,5 +1,6 @@
 package io.gitlab.aecsocket.ignacio.core
 
+import io.gitlab.aecsocket.ignacio.core.math.Transform
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 
 @ConfigSerializable

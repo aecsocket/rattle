@@ -12,6 +12,8 @@ import com.jme3.math.Vector3f
 import com.jme3.system.JmeSystem
 import com.jme3.system.Platform
 import io.gitlab.aecsocket.ignacio.core.*
+import io.gitlab.aecsocket.ignacio.core.math.Transform
+import io.gitlab.aecsocket.ignacio.core.math.Vec3
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import java.io.File
 import java.net.URL

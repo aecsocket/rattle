@@ -1,6 +1,9 @@
 package io.gitlab.aecsocket.ignacio.physx
 
 import io.gitlab.aecsocket.ignacio.core.*
+import io.gitlab.aecsocket.ignacio.core.math.Quat
+import io.gitlab.aecsocket.ignacio.core.math.Transform
+import io.gitlab.aecsocket.ignacio.core.math.Vec3
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import physx.PxTopLevelFunctions.*
 import physx.common.*

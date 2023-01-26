@@ -1,4 +1,4 @@
-package io.gitlab.aecsocket.ignacio.core
+package io.gitlab.aecsocket.ignacio.core.math
 
 data class Transform(
     val position: Vec3,

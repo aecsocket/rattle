@@ -1,4 +1,6 @@
-package io.gitlab.aecsocket.ignacio.core
+package io.gitlab.aecsocket.ignacio.core.math
+
+import io.gitlab.aecsocket.ignacio.core.IgScalar
 
 data class Quat(val x: IgScalar, val y: IgScalar, val z: IgScalar, val w: IgScalar) {
     companion object {
@@ -7,5 +9,5 @@ data class Quat(val x: IgScalar, val y: IgScalar, val z: IgScalar, val w: IgScal
 
     fun asString(fmt: String = "%f") = "($fmt + ${fmt}i + ${fmt}j + ${fmt}k)".format(w, x, y, z)
 
-    override fun toString() = asString("%.3f")
+    override fun toString() = asString(DECIMAL_FORMAT)
 }

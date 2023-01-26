@@ -10,6 +10,7 @@ configurate = "4.1.2"
 libBulletJme = "17.5.4"
 physxJni = "2.0.4"
 cloud = "1.8.0"
+packetEvents = "2.0.0-SNAPSHOT"
 
 [libraries]
 
@@ -31,3 +32,6 @@ physxJni = { group = "de.fabmax", name = "physx-jni", version.ref = "physxJni" }
 cloudCore = { group = "cloud.commandframework", name = "cloud-core", version.ref = "cloud" }
 cloudPaper = { group = "cloud.commandframework", name = "cloud-paper", version.ref = "cloud" }
 cloudMinecraftExtras = { group = "cloud.commandframework", name = "cloud-minecraft-extras", version.ref = "cloud" }
+
+packetEventsApi = { group = "com.github.retrooper.packetevents", name = "api", version.ref = "packetEvents" }
+packetEventsSpigot = { group = "com.github.retrooper.packetevents", name = "spigot", version.ref = "packetEvents" }

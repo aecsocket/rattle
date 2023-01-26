@@ -1,5 +1,7 @@
 package io.gitlab.aecsocket.ignacio.core
 
+import io.gitlab.aecsocket.ignacio.core.math.Transform
+
 typealias IgScalar = Double
 
 interface IgBackend<S> {

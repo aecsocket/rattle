@@ -1,14 +1,10 @@
 package io.gitlab.aecsocket.ignacio.bullet
 
 import com.jme3.bullet.PhysicsSpace
-import com.jme3.bullet.collision.shapes.PlaneCollisionShape
 import com.jme3.bullet.objects.PhysicsRigidBody
-import com.jme3.math.Plane
-import com.jme3.math.Vector3f
 import io.gitlab.aecsocket.ignacio.core.IgBody
 import io.gitlab.aecsocket.ignacio.core.IgPhysicsSpace
-import io.gitlab.aecsocket.ignacio.core.Vec3
-import java.util.UUID
+import io.gitlab.aecsocket.ignacio.core.math.Vec3
 
 class BltPhysicsSpace(
     private val backend: BulletBackend,

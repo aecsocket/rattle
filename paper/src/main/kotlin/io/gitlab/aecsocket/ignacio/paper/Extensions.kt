@@ -1,6 +1,6 @@
 package io.gitlab.aecsocket.ignacio.paper
 
-import io.gitlab.aecsocket.ignacio.core.Vec3
+import io.gitlab.aecsocket.ignacio.core.math.Vec3
 import org.bukkit.Location
 import org.bukkit.World
 
