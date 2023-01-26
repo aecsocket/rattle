@@ -7,6 +7,8 @@ internal const val DECIMAL_FORMAT = "%.3f"
 const val EPSILON = 0.000001
 const val ONE_EPSILON = 0.999999
 
+fun sqr(x: Float) = x*x
+fun sqr(x: Double) = x*x
 fun clamp(value: Double, min: Double, max: Double) = min(max, max(min, value))
 fun clamp(value: Float, min: Float, max: Float) = min(max, max(min, value))
 fun clamp(value: Int, min: Int, max: Int) = min(max, max(min, value))

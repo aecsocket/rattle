@@ -5,6 +5,8 @@ import com.github.retrooper.packetevents.wrapper.PacketWrapper
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder
 import io.gitlab.aecsocket.ignacio.bullet.BulletBackend
 import io.gitlab.aecsocket.ignacio.core.*
+import io.gitlab.aecsocket.ignacio.core.math.Quat
+import io.gitlab.aecsocket.ignacio.core.math.QuatSerializer
 import io.gitlab.aecsocket.ignacio.core.math.Vec3
 import io.gitlab.aecsocket.ignacio.core.math.Vec3Serializer
 import io.gitlab.aecsocket.ignacio.physx.PhysxBackend
@@ -19,6 +21,8 @@ import org.spongepowered.configurate.kotlin.dataClassFieldDiscoverer
 import org.spongepowered.configurate.kotlin.extensions.get
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import org.spongepowered.configurate.objectmapping.ObjectMapper
+import org.spongepowered.configurate.serialize.TypeSerializer
+import org.spongepowered.configurate.serialize.TypeSerializerCollection
 import org.spongepowered.configurate.util.NamingSchemes
 import java.util.UUID
 
@@ -29,9 +33,13 @@ val IgnacioAPI get() = instance
 
 enum class IgBackends { BULLET, PHYSX, NONE }
 
+private inline fun <reified T> TypeSerializerCollection.Builder.registerExact(serializer: TypeSerializer<T>) =
+    registerExact(T::class.java, serializer)
+
 private val configOptions = ConfigurationOptions.defaults()
     .serializers {
-        it.registerExact(Vec3::class.java, Vec3Serializer)
+        it.registerExact(Vec3Serializer)
+        it.registerExact(QuatSerializer)
         it.registerAnnotatedObjects(ObjectMapper.factoryBuilder()
             .addDiscoverer(dataClassFieldDiscoverer())
             .defaultNamingScheme(NamingSchemes.SNAKE_CASE)
@@ -54,7 +62,7 @@ class Ignacio : JavaPlugin() {
     )
 
     val physicsThread = IgPhysicsThread(logger)
-    val meshes = Meshes()
+    val meshes = IgMeshes()
     private val _spaces = HashMap<UUID, IgPhysicsSpace>()
     val spaces: Map<UUID, IgPhysicsSpace> get() = _spaces
 

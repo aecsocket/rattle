@@ -83,7 +83,7 @@ interface IgMesh {
     fun glowing(state: Boolean) = glowing(state, trackedPlayers())
 }
 
-class Meshes internal constructor() {
+class IgMeshes internal constructor() {
     private val _meshes = HashMap<UUID, BaseMesh>()
     val meshes: Map<UUID, IgMesh> get() = _meshes
 

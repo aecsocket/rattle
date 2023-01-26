@@ -38,22 +38,22 @@ val PxIdentity inline get() = PxIDENTITYEnum.PxIdentity
 
 fun MemoryStack.pxVec3(x: Float, y: Float, z: Float) =
     PxVec3.createAt(this, MemoryStack::nmalloc, x, y, z)
-fun MemoryStack.pxVec3(vec: Vec3): PxVec3 =
-    PxVec3.createAt(this, MemoryStack::nmalloc, vec.x.toFloat(), vec.y.toFloat(), vec.z.toFloat())
+fun MemoryStack.pxVec3(v: Vec3): PxVec3 =
+    PxVec3.createAt(this, MemoryStack::nmalloc, v.x.toFloat(), v.y.toFloat(), v.z.toFloat())
 fun MemoryStack.pxVec3() =
     PxVec3.createAt(this, MemoryStack::nmalloc, 0f, 0f, 0f)
 
 fun MemoryStack.pxQuat(x: Float, y: Float, z: Float, w: Float) =
     PxQuat.createAt(this, MemoryStack::nmalloc, x, y, z, w)
-fun MemoryStack.pxQuat(quat: Quat) =
-    PxQuat.createAt(this, MemoryStack::nmalloc, quat.x.toFloat(), quat.y.toFloat(), quat.z.toFloat(), quat.w.toFloat())
+fun MemoryStack.pxQuat(q: Quat) =
+    PxQuat.createAt(this, MemoryStack::nmalloc, q.x.toFloat(), q.y.toFloat(), q.z.toFloat(), q.w.toFloat())
 fun MemoryStack.pxQuat() =
     PxQuat.createAt(this, MemoryStack::nmalloc)
 
-fun MemoryStack.pxTransform(vec: PxVec3, quat: PxQuat) =
-    PxTransform.createAt(this, MemoryStack::nmalloc, vec, quat)
-fun MemoryStack.pxTransform(tf: Transform) =
-    PxTransform.createAt(this, MemoryStack::nmalloc, pxVec3(tf.position), pxQuat(tf.rotation))
+fun MemoryStack.pxTransform(v: PxVec3, q: PxQuat) =
+    PxTransform.createAt(this, MemoryStack::nmalloc, v, q)
+fun MemoryStack.pxTransform(t: Transform) =
+    PxTransform.createAt(this, MemoryStack::nmalloc, pxVec3(t.position), pxQuat(t.rotation))
 fun MemoryStack.pxTransform() =
     PxTransform.createAt(this, MemoryStack::nmalloc, PxIdentity)
 
@@ -66,17 +66,6 @@ fun MemoryStack.pxPlaneGeometry() =
 
 fun MemoryStack.pxSceneDesc(scale: PxTolerancesScale) =
     PxSceneDesc.createAt(this, MemoryStack::nmalloc, scale)
-
-fun MemoryStack.pxGeometryOf(shape: IgShape): PxGeometry {
-    return when (shape) {
-        is IgSphereShape -> pxSphereGeometry(shape.radius.toFloat())
-        is IgBoxShape -> {
-            val (hx, hy, hz) = shape.halfExtent
-            pxBoxGeometry(hx.toFloat(), hy.toFloat(), hz.toFloat())
-        }
-        is IgPlaneShape -> pxPlaneGeometry()
-    }
-}
 
 var PxRigidActor.transform: Transform
     get() = globalPose.ig()

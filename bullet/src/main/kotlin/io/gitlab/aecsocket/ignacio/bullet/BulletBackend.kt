@@ -3,6 +3,7 @@ package io.gitlab.aecsocket.ignacio.bullet
 import com.jme3.bullet.PhysicsSpace
 import com.jme3.bullet.collision.shapes.BoxCollisionShape
 import com.jme3.bullet.collision.shapes.CollisionShape
+import com.jme3.bullet.collision.shapes.EmptyShape
 import com.jme3.bullet.collision.shapes.PlaneCollisionShape
 import com.jme3.bullet.collision.shapes.SphereCollisionShape
 import com.jme3.bullet.joints.New6Dof
@@ -43,6 +44,9 @@ fun Platform.nativePathSuffix(): String {
         else -> throw IllegalArgumentException("Platform $this has no native path suffix")
     }
 }
+
+private val emptyShape = EmptyShape(false)
+private val planeShape = PlaneCollisionShape(Plane(Vector3f.UNIT_X, 0f))
 
 class BulletBackend(
     settings: Settings,
@@ -122,9 +126,10 @@ class BulletBackend(
 
     fun bltShapeOf(shape: IgShape): CollisionShape {
         return when (shape) {
+            is IgEmptyShape -> emptyShape
+            is IgPlaneShape -> planeShape
             is IgSphereShape -> SphereCollisionShape(shape.radius.toFloat())
             is IgBoxShape -> BoxCollisionShape(shape.halfExtent.btSp())
-            is IgPlaneShape -> PlaneCollisionShape(Plane(Vector3f.UNIT_X, 0f))
         }
     }
 

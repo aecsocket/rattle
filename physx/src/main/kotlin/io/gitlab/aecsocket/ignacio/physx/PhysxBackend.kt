@@ -1,15 +1,16 @@
 package io.gitlab.aecsocket.ignacio.physx
 
 import io.gitlab.aecsocket.ignacio.core.*
-import io.gitlab.aecsocket.ignacio.core.math.Quat
 import io.gitlab.aecsocket.ignacio.core.math.Transform
 import io.gitlab.aecsocket.ignacio.core.math.Vec3
+import org.lwjgl.system.MemoryStack
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import physx.PxTopLevelFunctions.*
 import physx.common.*
+import physx.geometry.PxGeometry
+import physx.geometry.PxPlaneGeometry
 import physx.physics.*
 import java.util.logging.Logger
-import kotlin.math.sqrt
 
 class PhysxBackend(settings: Settings, logger: Logger) : IgBackend<PhysxBackend.Settings> {
     @ConfigSerializable
@@ -32,6 +33,8 @@ class PhysxBackend(settings: Settings, logger: Logger) : IgBackend<PhysxBackend.
     val stdFilterData: PxFilterData
     val stdMaterial: PxMaterial // TODO
 
+    private val planeGeom: PxPlaneGeometry
+
     init {
         numThreads = if (settings.numThreads < 0) Runtime.getRuntime().availableProcessors() else settings.numThreads
 
@@ -51,6 +54,8 @@ class PhysxBackend(settings: Settings, logger: Logger) : IgBackend<PhysxBackend.
             0     // unused
         )
         stdMaterial = physics.createMaterial(0.5f, 0.5f, 0f) // TODO
+
+        planeGeom = PxPlaneGeometry()
 
         val versionMajor = version shr 24
         val versionMinor = (version shr 16) and 0xff
@@ -93,32 +98,48 @@ class PhysxBackend(settings: Settings, logger: Logger) : IgBackend<PhysxBackend.
         space.handle.release()
     }
 
-    override fun createStaticBody(shape: IgShape, transform: Transform): PhxStaticBody {
-        val phxShape: PxShape
-        val phxBody: PxRigidStatic
-        igUseMemory {
-            val geom = pxGeometryOf(shape)
-            phxShape = physics.createShape(geom, stdMaterial, true) // todo material
-            phxShape.simulationFilterData = stdFilterData
-            phxBody = physics.createRigidStatic(pxTransform(transform))
+    fun MemoryStack.pxGeometryOf(shape: IgShape): PxGeometry? {
+        return when (shape) {
+            is IgEmptyShape -> null
+            is IgPlaneShape -> pxPlaneGeometry()
+            is IgSphereShape -> pxSphereGeometry(shape.radius.toFloat())
+            is IgBoxShape -> {
+                val (hx, hy, hz) = shape.halfExtent
+                pxBoxGeometry(hx.toFloat(), hy.toFloat(), hz.toFloat())
+            }
         }
-        val body = PhxStaticBody(phxBody)
-        body.attachShape(phxShape)
+    }
+
+    private fun <B : PxRigidActor> createBody(
+        shape: IgShape,
+        transform: Transform,
+        factory: (PxTransform) -> B
+    ): Pair<B, PxShape?> {
+        val phxShape: PxShape?
+        val phxBody: B
+        igUseMemory {
+            phxShape = pxGeometryOf(shape)?.let { geom ->
+                physics.createShape(geom, stdMaterial, true).also { // todo material
+                    it.simulationFilterData = stdFilterData
+                }
+            }
+            phxBody = factory(pxTransform(transform))
+        }
+        return phxBody to phxShape
+    }
+
+    override fun createStaticBody(shape: IgShape, transform: Transform): PhxStaticBody {
+        val (handle, pxShape) = createBody(shape, transform, physics::createRigidStatic)
+        val body = PhxStaticBody(handle)
+        pxShape?.let { body.attachShape(it) }
         return body
     }
 
     override fun createDynamicBody(shape: IgShape, transform: Transform, dynamics: IgBodyDynamics): PhxDynamicBody {
-        val phxShape: PxShape
-        val phxBody: PxRigidDynamic
-        igUseMemory {
-            val geom = pxGeometryOf(shape)
-            phxShape = physics.createShape(geom, stdMaterial, true) // todo material
-            phxShape.simulationFilterData = stdFilterData
-            phxBody = physics.createRigidDynamic(pxTransform(transform))
-        }
-        phxBody.mass = dynamics.mass.toFloat()
-        val body = PhxDynamicBody(phxBody)
-        body.attachShape(phxShape)
+        val (handle, pxShape) = createBody(shape, transform, physics::createRigidDynamic)
+        handle.mass = dynamics.mass.toFloat()
+        val body = PhxDynamicBody(handle)
+        pxShape?.let { body.attachShape(it) }
         return body
     }
 
