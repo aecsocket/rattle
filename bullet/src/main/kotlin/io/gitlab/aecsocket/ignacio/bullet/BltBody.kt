@@ -15,8 +15,16 @@ data class BltShape(
     override fun destroy() {}
 }
 
+private data class IgShapeImpl(
+    override val geometry: IgGeometry
+) : IgShape {
+    override val transform get() = Transform.Identity
+
+    override fun destroy() {}
+}
+
 sealed class BltBody(
-    protected val backend: BulletBackend,
+    private val backend: BulletBackend,
     open val handle: PhysicsCollisionObject
 ) : IgBody {
     override var transform: Transform
@@ -31,7 +39,9 @@ sealed class BltBody(
 
     val mShapes = HashMap<Long, IgShape>()
     var mCompound: CompoundCollisionShape? = null
-    override val shapes get() = mShapes.values
+    override val shapes get() = mGeometry?.let {
+        setOf(IgShapeImpl(it))
+    } ?: mShapes.values
 
     private inline fun assertThread() = backend.assertThread()
 

@@ -139,7 +139,6 @@ class Ignacio : JavaPlugin() {
                 val physSpace = physicsSpaceOfOrNull(player.world) ?: return@forEach
                 executePhysics {
                     val nearby = physSpace.nearbyBodies(player.location.vec3(), 16.0)
-                    player.sendActionBar(Component.text("nearby = ${nearby.size}"))
                 }
             }
 
