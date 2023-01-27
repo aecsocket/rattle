@@ -18,4 +18,6 @@ interface IgPhysicsSpace {
     fun removeBody(body: IgBody)
 
     fun countBodies(onlyAwake: Boolean = false): Int
+
+    fun nearbyBodies(position: Vec3, radius: IgScalar): List<IgBody>
 }

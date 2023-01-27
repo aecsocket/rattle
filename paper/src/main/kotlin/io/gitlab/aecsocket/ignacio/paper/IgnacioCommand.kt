@@ -1,7 +1,6 @@
 package io.gitlab.aecsocket.ignacio.paper
 
 import cloud.commandframework.ArgumentDescription
-import cloud.commandframework.arguments.standard.BooleanArgument
 import cloud.commandframework.arguments.standard.IntegerArgument
 import cloud.commandframework.arguments.standard.StringArgument
 import cloud.commandframework.bukkit.CloudBukkitCapabilities
@@ -107,7 +106,7 @@ internal class IgnacioCommand(private val ignacio: Ignacio) {
                 }
 
                 val worlds = Bukkit.getWorlds().map { world ->
-                    WorldData(world.name, ignacio.spaceOfOrNull(world))
+                    WorldData(world.name, ignacio.physicsSpaceOfOrNull(world))
                 }
 
                 sender.sendMessage(text("Fetching...", cP3))
@@ -166,15 +165,6 @@ internal class IgnacioCommand(private val ignacio: Ignacio) {
                     }
                 }
             })
-        manager.command(root
-            .literal("stats", desc("Show physics engine statistics."))
-            .argument(BooleanArgument.of("show"), desc("If stats should be shown in the boss bar."))
-            .permission(perm("stats"))
-            .senderType(Player::class.java)
-            .handler { ctx ->
-                val player = ctx.sender as Player
-
-            })
 
         manager.command(root
             .literal("create")
@@ -220,16 +210,16 @@ internal class IgnacioCommand(private val ignacio: Ignacio) {
                 }
 
                 ignacio.executePhysics {
-                    val physSpace = ignacio.spaceOf(world)
+                    val physSpace = ignacio.physicsSpaceOf(world)
 
                     newBoxes.forEach { box ->
                         val body = ignacio.backend.createDynamicBody(
-                            IgBoxShape(Vec3(0.5)),
                             Transform(box.pos, Quat.Identity),
                             IgBodyDynamics(
                                 mass = 1.0
                             )
                         )
+                        body.setGeometry(IgBoxGeometry(Vec3(0.5)))
                         physSpace.addBody(body)
 
                         boxes.add(Box(physSpace, body, box.mesh))

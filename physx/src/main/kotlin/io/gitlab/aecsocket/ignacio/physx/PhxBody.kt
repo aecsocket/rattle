@@ -7,7 +7,20 @@ import physx.physics.PxRigidDynamic
 import physx.physics.PxRigidStatic
 import physx.physics.PxShape
 
-open class PhxBody(open val handle: PxRigidActor) : IgBody {
+data class PhxShape(
+    val handle: PxShape,
+    override val geometry: IgGeometry,
+    override val transform: Transform
+) : IgShape {
+    override fun destroy() {
+        handle.release()
+    }
+}
+
+sealed class PhxBody(
+    private val backend: PhysxBackend,
+    open val handle: PxRigidActor
+) : IgBody {
     override var transform: Transform
         get() = handle.globalPose.ig()
         set(value) {
@@ -17,30 +30,59 @@ open class PhxBody(open val handle: PxRigidActor) : IgBody {
             }
         }
 
-    val shapes = HashMap<Long, PxShape>()
+    val mShapes = HashMap<Long, PhxShape>()
+    override val shapes get() = mShapes.values
 
-    fun attachShape(shape: PxShape) {
-        shapes[shape.address] = shape
-        handle.attachShape(shape)
+    private inline fun assertThread() = backend.assertThread()
+
+    override fun setGeometry(geometry: IgGeometry) {
+        assertThread()
+        detachAllShapes()
+        igUseMemory {
+            attachShape(backend.createShape(geometry))
+        }
     }
 
-    fun detachShape(shape: PxShape) {
-        shapes.remove(shape.address)
-        handle.detachShape(shape)
+    override fun attachShape(shape: IgShape) {
+        assertThread()
+        shape as PhxShape
+        mShapes[shape.handle.address] = shape
+        handle.attachShape(shape.handle)
+    }
+
+    override fun detachShape(shape: IgShape) {
+        assertThread()
+        shape as PhxShape
+        mShapes.remove(shape.handle.address)
+        handle.detachShape(shape.handle)
+    }
+
+    override fun detachAllShapes() {
+        assertThread()
+        mShapes.forEach { (_, shape) ->
+            handle.detachShape(shape.handle)
+        }
+        mShapes.clear()
     }
 
     override fun destroy() {
-        shapes.forEach { (_, shape) ->
-            shape.release()
+        mShapes.forEach { (_, shape) ->
+            shape.handle.release()
         }
         handle.release()
     }
 }
 
-class PhxStaticBody(override val handle: PxRigidStatic) : PhxBody(handle), IgStaticBody {
+class PhxStaticBody(
+    backend: PhysxBackend,
+    override val handle: PxRigidStatic
+) : PhxBody(backend, handle), IgStaticBody {
 }
 
-class PhxDynamicBody(override val handle: PxRigidDynamic) : PhxBody(handle), IgDynamicBody {
+class PhxDynamicBody(
+    backend: PhysxBackend,
+    override val handle: PxRigidDynamic
+) : PhxBody(backend, handle), IgDynamicBody {
     override val sleeping: Boolean
         get() = handle.isSleeping
 

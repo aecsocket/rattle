@@ -21,6 +21,7 @@ import java.net.URL
 import java.nio.file.Files
 import java.util.logging.Level
 import java.util.logging.Logger
+import kotlin.collections.HashMap
 
 const val JME_VERSION = "17.5.4"
 
@@ -45,9 +46,6 @@ fun Platform.nativePathSuffix(): String {
     }
 }
 
-private val emptyShape = EmptyShape(false)
-private val planeShape = PlaneCollisionShape(Plane(Vector3f.UNIT_X, 0f))
-
 class BulletBackend(
     settings: Settings,
     val physicsThread: IgPhysicsThread,
@@ -63,7 +61,6 @@ class BulletBackend(
 
     var settings: Settings = settings
         private set
-    val spaces = HashMap<Long, BltPhysicsSpace>()
 
     init {
         val platform = JmeSystem.getPlatform()
@@ -102,22 +99,57 @@ class BulletBackend(
         logger.info("Initialized Bullet v$JME_VERSION backend")
     }
 
+    val spaces = HashMap<Long, BltPhysicsSpace>()
+
+    val emptyShape = EmptyShape(false)
+    val planeShape = PlaneCollisionShape(Plane(Vector3f.UNIT_X, 0f))
+
     override fun reload(settings: Settings) {
         this.settings = settings
     }
 
     internal inline fun assertThread() = physicsThread.assertThread()
 
+    fun btShapeOf(geometry: IgGeometry): CollisionShape {
+        return when (geometry) {
+            is IgPlaneGeometry -> planeShape
+            is IgSphereGeometry -> SphereCollisionShape(geometry.radius.toFloat())
+            is IgBoxGeometry -> BoxCollisionShape(geometry.halfExtent.btSp())
+        }
+    }
+
+    override fun createShape(geometry: IgGeometry, transform: Transform): IgShape {
+        val handle = btShapeOf(geometry)
+        return BltShape(handle, geometry, transform)
+    }
+
+    private fun createBody(transform: Transform, mass: Float): BltRigidBody {
+        val handle = PhysicsRigidBody(emptyShape, mass)
+        handle.transform = transform
+        return BltRigidBody(this, handle)
+    }
+
+    override fun createStaticBody(transform: Transform): BltRigidBody {
+        return createBody(transform, PhysicsRigidBody.massForStatic)
+    }
+
+    override fun createDynamicBody(transform: Transform, dynamics: IgBodyDynamics): BltRigidBody {
+        val body = createBody(transform, dynamics.mass.toFloat())
+        return body
+    }
+
     override fun createSpace(settings: IgPhysicsSpace.Settings): BltPhysicsSpace {
         assertThread()
         val handle = PhysicsSpace(PhysicsSpace.BroadphaseType.DBVT)
         handle.gravity = settings.gravity
 
-        val ground = PhysicsRigidBody(PlaneCollisionShape(Plane(Vector3f.UNIT_Y, 0f)), PhysicsRigidBody.massForStatic)
-        ground.position = Vec3(0.0, settings.groundPlaneY, 0.0)
-        handle.addCollisionObject(ground)
-
+        val ground = createStaticBody(
+            Transform(Vec3(0.0, settings.groundPlaneY, 0.0), groundPlaneQuat)
+        )
+        ground.setGeometry(IgPlaneGeometry)
         val space = BltPhysicsSpace(this, handle, settings, ground)
+        space.addBody(ground)
+
         spaces[handle.nativeId()] = space
         return space
     }
@@ -127,27 +159,6 @@ class BulletBackend(
         space as BltPhysicsSpace
         spaces.remove(space.handle.nativeId())
         space.handle.destroy()
-    }
-
-    fun bltShapeOf(shape: IgShape): CollisionShape {
-        return when (shape) {
-            is IgEmptyShape -> emptyShape
-            is IgPlaneShape -> planeShape
-            is IgSphereShape -> SphereCollisionShape(shape.radius.toFloat())
-            is IgBoxShape -> BoxCollisionShape(shape.halfExtent.btSp())
-        }
-    }
-
-    override fun createStaticBody(shape: IgShape, transform: Transform): BltRigidBody {
-        val handle = PhysicsRigidBody(bltShapeOf(shape), PhysicsRigidBody.massForStatic)
-        handle.transform = transform
-        return BltRigidBody(handle)
-    }
-
-    override fun createDynamicBody(shape: IgShape, transform: Transform, dynamics: IgBodyDynamics): BltRigidBody {
-        val handle = PhysicsRigidBody(bltShapeOf(shape), dynamics.mass.toFloat())
-        handle.transform = transform
-        return BltRigidBody(handle)
     }
 
     override fun step(spaces: Iterable<IgPhysicsSpace>) {

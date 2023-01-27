@@ -25,6 +25,7 @@ fun Quatd.ig() = Quat(x, y, z, w)
 fun Quaternion.ig() = Quat(x.toDouble(), y.toDouble(), z.toDouble(), w.toDouble())
 
 fun Transform.btDp() = TransformDp(position.btDp(), rotation.btDp())
+fun Transform.btSp() = com.jme3.math.Transform(position.btSp(), rotation.btSp())
 fun TransformDp.ig() = Transform(translation.ig(), rotation.ig())
 
 var PhysicsSpace.gravity: Vec3

@@ -73,6 +73,47 @@ class PhysxBackend(
 
     internal inline fun assertThread() = physicsThread.assertThread()
 
+    @JvmName("_pxGeometryOf")
+    fun MemoryStack.pxGeometryOf(shape: IgGeometry): PxGeometry {
+        return when (shape) {
+            is IgPlaneGeometry -> pxPlaneGeometry()
+            is IgSphereGeometry -> pxSphereGeometry(shape.radius.toFloat())
+            is IgBoxGeometry -> {
+                val (hx, hy, hz) = shape.halfExtent
+                pxBoxGeometry(hx.toFloat(), hy.toFloat(), hz.toFloat())
+            }
+        }
+    }
+
+    fun pxGeometryOf(mem: MemoryStack, geometry: IgGeometry) = mem.pxGeometryOf(geometry)
+
+    override fun createShape(geometry: IgGeometry, transform: Transform): IgShape {
+        val pxShape: PxShape
+        igUseMemory {
+            val pxGeom = pxGeometryOf(geometry)
+            pxShape = physics.createShape(pxGeom, stdMaterial /* TODO */, true)
+        }
+        pxShape.simulationFilterData = stdFilterData
+        return PhxShape(pxShape, geometry, transform)
+    }
+
+    override fun createStaticBody(transform: Transform): PhxStaticBody {
+        val handle: PxRigidStatic
+        igUseMemory {
+            handle = physics.createRigidStatic(pxTransform(transform))
+        }
+        return PhxStaticBody(this, handle)
+    }
+
+    override fun createDynamicBody(transform: Transform, dynamics: IgBodyDynamics): PhxDynamicBody {
+        val handle: PxRigidDynamic
+        igUseMemory {
+            handle = physics.createRigidDynamic(pxTransform(transform))
+        }
+        handle.mass = dynamics.mass.toFloat()
+        return PhxDynamicBody(this, handle)
+    }
+
     override fun createSpace(settings: IgPhysicsSpace.Settings): PhxPhysicsSpace {
         assertThread()
         val handle: PxScene
@@ -85,11 +126,12 @@ class PhysxBackend(
         }
 
         val ground = createStaticBody(
-            IgPlaneShape,
-            Transform(Vec3(0.0, settings.groundPlaneY, 0.0), planeQuat)
+            Transform(Vec3(0.0, settings.groundPlaneY, 0.0), groundPlaneQuat)
         )
+        ground.attachShape(createShape(IgPlaneGeometry))
         val space = PhxPhysicsSpace(this, handle, settings, ground)
         space.addBody(ground)
+
         spaces[handle.address] = space
         return space
     }
@@ -104,51 +146,6 @@ class PhysxBackend(
             body.destroy()
         }
         space.handle.release()
-    }
-
-    fun MemoryStack.pxGeometryOf(shape: IgShape): PxGeometry? {
-        return when (shape) {
-            is IgEmptyShape -> null
-            is IgPlaneShape -> pxPlaneGeometry()
-            is IgSphereShape -> pxSphereGeometry(shape.radius.toFloat())
-            is IgBoxShape -> {
-                val (hx, hy, hz) = shape.halfExtent
-                pxBoxGeometry(hx.toFloat(), hy.toFloat(), hz.toFloat())
-            }
-        }
-    }
-
-    private fun <B : PxRigidActor> createBody(
-        shape: IgShape,
-        transform: Transform,
-        factory: (PxTransform) -> B
-    ): Pair<B, PxShape?> {
-        val phxShape: PxShape?
-        val phxBody: B
-        igUseMemory {
-            phxShape = pxGeometryOf(shape)?.let { geom ->
-                physics.createShape(geom, stdMaterial, true).also { // todo material
-                    it.simulationFilterData = stdFilterData
-                }
-            }
-            phxBody = factory(pxTransform(transform))
-        }
-        return phxBody to phxShape
-    }
-
-    override fun createStaticBody(shape: IgShape, transform: Transform): PhxStaticBody {
-        val (handle, pxShape) = createBody(shape, transform, physics::createRigidStatic)
-        val body = PhxStaticBody(handle)
-        pxShape?.let { body.attachShape(it) }
-        return body
-    }
-
-    override fun createDynamicBody(shape: IgShape, transform: Transform, dynamics: IgBodyDynamics): PhxDynamicBody {
-        val (handle, pxShape) = createBody(shape, transform, physics::createRigidDynamic)
-        handle.mass = dynamics.mass.toFloat()
-        val body = PhxDynamicBody(handle)
-        pxShape?.let { body.attachShape(it) }
-        return body
     }
 
     override fun step(spaces: Iterable<IgPhysicsSpace>) {

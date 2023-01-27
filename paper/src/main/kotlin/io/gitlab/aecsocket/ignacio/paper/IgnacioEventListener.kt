@@ -27,7 +27,7 @@ internal class IgnacioEventListener(private val ignacio: Ignacio) : Listener {
 
     @EventHandler
     fun on(event: WorldLoadEvent) {
-        ignacio.spaceOf(event.world)
+        ignacio.physicsSpaceOf(event.world)
     }
 
     @EventHandler

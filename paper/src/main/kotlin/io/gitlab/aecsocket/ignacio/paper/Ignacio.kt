@@ -9,10 +9,13 @@ import io.gitlab.aecsocket.ignacio.core.math.QuatSerializer
 import io.gitlab.aecsocket.ignacio.core.math.Vec3Serializer
 import io.gitlab.aecsocket.ignacio.core.util.TimedCache
 import io.gitlab.aecsocket.ignacio.core.util.timeNanos
+import io.gitlab.aecsocket.ignacio.physx.PhxPhysicsSpace
 import io.gitlab.aecsocket.ignacio.physx.PhysxBackend
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.future.await
 import kotlinx.coroutines.runBlocking
+import net.kyori.adventure.text.Component
+import org.bukkit.Bukkit
 import org.bukkit.World
 import org.bukkit.entity.Player
 import org.bukkit.plugin.java.JavaPlugin
@@ -121,6 +124,7 @@ class Ignacio : JavaPlugin() {
 
         runRepeating {
             meshes.update()
+
             if (!stepping.get()) {
                 executePhysics {
                     stepping.set(true)
@@ -129,6 +133,18 @@ class Ignacio : JavaPlugin() {
                     }
                     stepping.set(false)
                 }
+            }
+
+            Bukkit.getOnlinePlayers().forEach { player ->
+                val physSpace = physicsSpaceOfOrNull(player.world) ?: return@forEach
+                executePhysics {
+                    val nearby = physSpace.nearbyBodies(player.location.vec3(), 16.0)
+                    player.sendActionBar(Component.text("nearby = ${nearby.size}"))
+                }
+            }
+
+            executePhysics {
+                postStep()
             }
         }
         physicsThread.start()
@@ -175,9 +191,9 @@ class Ignacio : JavaPlugin() {
         return future
     }
 
-    fun spaceOfOrNull(world: World) = _spaces[world.uid]
+    fun physicsSpaceOfOrNull(world: World) = _spaces[world.uid]
 
-    fun spaceOf(world: World) = _spaces.computeIfAbsent(world.uid) {
+    fun physicsSpaceOf(world: World) = _spaces.computeIfAbsent(world.uid) {
         backend.createSpace(settings.space)
     }
 
@@ -185,6 +201,10 @@ class Ignacio : JavaPlugin() {
         _spaces.remove(world.uid)?.let { space ->
             backend.destroySpace(space)
         }
+    }
+
+    private fun postStep() {
+
     }
 }
 
