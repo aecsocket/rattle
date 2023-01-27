@@ -74,3 +74,9 @@ var PhysicsCollisionObject.transform: Transform
         position = value.position
         rotation = value.rotation
     }
+
+private typealias JRandom = java.util.Random
+private typealias KRandom = kotlin.random.Random
+
+fun JRandom.nextVec3() = Vec3(nextDouble(), nextDouble(), nextDouble())
+fun KRandom.nextVec3() = Vec3(nextDouble(), nextDouble(), nextDouble())

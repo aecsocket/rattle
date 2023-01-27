@@ -5,13 +5,14 @@ import com.github.retrooper.packetevents.wrapper.PacketWrapper
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder
 import io.gitlab.aecsocket.ignacio.bullet.BulletBackend
 import io.gitlab.aecsocket.ignacio.core.*
-import io.gitlab.aecsocket.ignacio.core.math.Quat
 import io.gitlab.aecsocket.ignacio.core.math.QuatSerializer
-import io.gitlab.aecsocket.ignacio.core.math.Vec3
 import io.gitlab.aecsocket.ignacio.core.math.Vec3Serializer
+import io.gitlab.aecsocket.ignacio.core.util.TimedCache
+import io.gitlab.aecsocket.ignacio.core.util.timeNanos
 import io.gitlab.aecsocket.ignacio.physx.PhysxBackend
-import net.kyori.adventure.text.Component
-import org.bukkit.Bukkit
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.future.await
+import kotlinx.coroutines.runBlocking
 import org.bukkit.World
 import org.bukkit.entity.Player
 import org.bukkit.plugin.java.JavaPlugin
@@ -25,6 +26,9 @@ import org.spongepowered.configurate.serialize.TypeSerializer
 import org.spongepowered.configurate.serialize.TypeSerializerCollection
 import org.spongepowered.configurate.util.NamingSchemes
 import java.util.UUID
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.function.Supplier
 
 private const val PATH_SETTINGS = "settings.conf"
 
@@ -58,16 +62,21 @@ class Ignacio : JavaPlugin() {
         val backend: IgBackends = IgBackends.NONE,
         val bullet: BulletBackend.Settings = BulletBackend.Settings(),
         val physx: PhysxBackend.Settings = PhysxBackend.Settings(),
-        val space: IgPhysicsSpace.Settings = IgPhysicsSpace.Settings()
+        val space: IgPhysicsSpace.Settings = IgPhysicsSpace.Settings(),
+        val stepTimeIntervals: List<Double> = listOf(5.0, 15.0, 60.0)
     )
 
     val physicsThread = IgPhysicsThread(logger)
     val meshes = IgMeshes()
+    val lastStepTimes = TimedCache<Long>(0)
+
     private val _spaces = HashMap<UUID, IgPhysicsSpace>()
     val spaces: Map<UUID, IgPhysicsSpace> get() = _spaces
 
     lateinit var backend: IgBackend<*> private set
     lateinit var settings: Settings private set
+
+    private val stepping = AtomicBoolean(false)
 
     init {
         instance = this
@@ -97,31 +106,31 @@ class Ignacio : JavaPlugin() {
         }
 
         backend = when (settings.backend) {
-            IgBackends.BULLET -> BulletBackend(settings.bullet, dataFolder, logger)
-            IgBackends.PHYSX -> PhysxBackend(settings.physx, logger)
+            IgBackends.BULLET -> BulletBackend(settings.bullet, physicsThread, dataFolder, logger)
+            IgBackends.PHYSX -> PhysxBackend(settings.physx, physicsThread, logger)
             else -> throw RuntimeException("Ignacio has not been set up with a backend - specify `backend` in $PATH_SETTINGS")
         }
+        loadInternal()
     }
 
     override fun onEnable() {
         PacketEvents.getAPI().init()
         IgnacioCommand(this)
-        Bukkit.getPluginManager().registerEvents(IgnacioEventListener(this), this)
-        Bukkit.getScheduler().scheduleSyncRepeatingTask(this, {
+
+        registerEvents(IgnacioEventListener(this))
+
+        runRepeating {
             meshes.update()
-            _spaces.forEach { (_, space) ->
-                physicsThread.execute {
-                    val start = System.nanoTime()
-                    space.step()
-                    val end = System.nanoTime()
-                    Bukkit.getOnlinePlayers().forEach { player ->
-                        player.sendActionBar(
-                            Component.text("Bodies: ${space.countBodies()} | Last step time = %.1f ms".format((end - start) / 1.0e6))
-                        )
+            if (!stepping.get()) {
+                executePhysics {
+                    stepping.set(true)
+                    lastStepTimes.timeNanos {
+                        backend.step(_spaces.values)
                     }
+                    stepping.set(false)
                 }
             }
-        }, 0, 1)
+        }
         physicsThread.start()
     }
 
@@ -131,6 +140,10 @@ class Ignacio : JavaPlugin() {
             backend.destroy()
         }
         physicsThread.destroy()
+    }
+
+    private fun loadInternal() {
+        lastStepTimes.buffer = (settings.stepTimeIntervals.max() * 1000).toLong()
     }
 
     fun reload() {
@@ -146,11 +159,23 @@ class Ignacio : JavaPlugin() {
             is BulletBackend -> backend.reload(settings.bullet)
             is PhysxBackend -> backend.reload(settings.physx)
         }
+        loadInternal()
     }
 
     fun executePhysics(task: Runnable) {
         physicsThread.execute(task)
     }
+
+    fun <T> executePhysics(task: Supplier<T>): CompletableFuture<T> {
+        val future = CompletableFuture<T>()
+        executePhysics {
+            val result = task.get()
+            future.complete(result)
+        }
+        return future
+    }
+
+    fun spaceOfOrNull(world: World) = _spaces[world.uid]
 
     fun spaceOf(world: World) = _spaces.computeIfAbsent(world.uid) {
         backend.createSpace(settings.space)
@@ -161,6 +186,12 @@ class Ignacio : JavaPlugin() {
             backend.destroySpace(space)
         }
     }
+}
+
+suspend fun <T> Ignacio.runPhysics(block: suspend CoroutineScope.() -> T): T {
+    return executePhysics(Supplier {
+        runBlocking { block() }
+    }).await()
 }
 
 internal fun Player.sendPacket(packet: PacketWrapper<*>) =

@@ -29,7 +29,7 @@ dependencies {
 
     // kt-runtime
     compileOnly(libs.kotlinReflect)
-    compileOnly(libs.kotlinxCoroutines)
+    compileOnly(libs.kotlinxCoroutinesJdk8)
 
     testImplementation(platform("org.junit:junit-bom:5.9.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")

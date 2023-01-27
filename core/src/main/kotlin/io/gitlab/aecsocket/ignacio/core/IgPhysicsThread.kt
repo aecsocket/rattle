@@ -26,6 +26,11 @@ class IgPhysicsThread(private val logger: Logger) : Thread("Physics thread"), Ex
         tasks.add(command)
     }
 
+    fun assertThread() {
+        if (currentThread() !== this)
+            throw IllegalStateException("Must run physics operation on physics thread")
+    }
+
     fun destroy() {
         running.set(false)
 

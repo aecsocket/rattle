@@ -41,4 +41,10 @@ class PhxStaticBody(override val handle: PxRigidStatic) : PhxBody(handle), IgSta
 }
 
 class PhxDynamicBody(override val handle: PxRigidDynamic) : PhxBody(handle), IgDynamicBody {
+    override val sleeping: Boolean
+        get() = handle.isSleeping
+
+    override fun wake() {
+        handle.wakeUp()
+    }
 }

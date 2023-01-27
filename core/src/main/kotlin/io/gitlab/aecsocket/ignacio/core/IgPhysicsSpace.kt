@@ -13,11 +13,9 @@ interface IgPhysicsSpace {
 
     var settings: Settings
 
-    fun countBodies(): Int
-
-    fun step()
-
     fun addBody(body: IgBody)
 
     fun removeBody(body: IgBody)
+
+    fun countBodies(onlyAwake: Boolean = false): Int
 }

@@ -21,6 +21,7 @@ import io.gitlab.aecsocket.ignacio.core.math.EulerOrder
 import io.gitlab.aecsocket.ignacio.core.math.Transform
 import io.gitlab.aecsocket.ignacio.core.math.degrees
 import io.gitlab.aecsocket.ignacio.core.math.euler
+import io.papermc.paper.util.TickThread
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer
@@ -28,6 +29,7 @@ import org.bukkit.Bukkit
 import org.bukkit.Material
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
+import org.spigotmc.AsyncCatcher
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import java.util.*
 import kotlin.collections.HashMap
@@ -96,6 +98,8 @@ class IgMeshes internal constructor() {
         mode: IgMesh.Mode,
         item: ItemStack
     ): IgMesh {
+        if (!TickThread.isTickThread())
+            throw IllegalStateException("Must run mesh creation on tick thread")
         val id = UUID.randomUUID()
         val mesh = if (settings.interpolate)
             InterpolatingMesh(id, transform, playerTracker, mode, item, settings.small)
@@ -119,6 +123,8 @@ class IgMeshes internal constructor() {
     ) = create(transform, playerTracker, settings, IgMesh.Mode.TEXT, air)
 
     fun remove(mesh: IgMesh, send: Boolean = true) {
+        if (!TickThread.isTickThread())
+            throw IllegalStateException("Must run mesh removal on tick thread")
         _meshes.remove(mesh.id)
         if (send) {
             mesh.despawn()

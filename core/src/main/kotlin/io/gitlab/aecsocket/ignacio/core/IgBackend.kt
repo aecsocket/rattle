@@ -15,5 +15,7 @@ interface IgBackend<S> {
 
     fun createDynamicBody(shape: IgShape, transform: Transform, dynamics: IgBodyDynamics): IgDynamicBody
 
+    fun step(spaces: Iterable<IgPhysicsSpace>)
+
     fun destroy()
 }

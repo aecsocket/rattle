@@ -4,7 +4,9 @@ import io.gitlab.aecsocket.ignacio.core.*
 import io.gitlab.aecsocket.ignacio.core.math.Quat
 import io.gitlab.aecsocket.ignacio.core.math.Transform
 import io.gitlab.aecsocket.ignacio.core.math.Vec3
-import physx.common.PxQuat
+import io.gitlab.aecsocket.ignacio.core.util.TimedCache
+import io.gitlab.aecsocket.ignacio.core.util.timeNanos
+import physx.physics.PxRigidDynamic
 import physx.physics.PxScene
 import kotlin.math.sqrt
 
@@ -24,27 +26,27 @@ class PhxPhysicsSpace(
 
     val bodies = HashMap<Long, PhxBody>()
 
-    var stepping = false
-
-    override fun countBodies() = bodies.size
-
-    override fun step() {
-        if (stepping) return
-        stepping = true
-        handle.simulate(settings.stepInterval.toFloat())
-        handle.fetchResults(true)
-        stepping = false
-    }
+    private inline fun assertThread() = backend.assertThread()
 
     override fun addBody(body: IgBody) {
+        assertThread()
         body as PhxBody
         this.bodies[body.handle.address] = body
         handle.addActor(body.handle)
     }
 
     override fun removeBody(body: IgBody) {
+        assertThread()
         body as PhxBody
         this.bodies.remove(body.handle.address)
         handle.removeActor(body.handle)
+    }
+
+    override fun countBodies(onlyAwake: Boolean): Int {
+        assertThread()
+        return if (onlyAwake) bodies
+            .filter { (_, body) -> (body.handle as? PxRigidDynamic)?.isSleeping == false }
+            .size
+        else bodies.size
     }
 }

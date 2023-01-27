@@ -50,6 +50,7 @@ private val planeShape = PlaneCollisionShape(Plane(Vector3f.UNIT_X, 0f))
 
 class BulletBackend(
     settings: Settings,
+    val physicsThread: IgPhysicsThread,
     root: File,
     logger: Logger
 ) : IgBackend<BulletBackend.Settings> {
@@ -105,7 +106,10 @@ class BulletBackend(
         this.settings = settings
     }
 
+    internal inline fun assertThread() = physicsThread.assertThread()
+
     override fun createSpace(settings: IgPhysicsSpace.Settings): BltPhysicsSpace {
+        assertThread()
         val handle = PhysicsSpace(PhysicsSpace.BroadphaseType.DBVT)
         handle.gravity = settings.gravity
 
@@ -119,6 +123,7 @@ class BulletBackend(
     }
 
     override fun destroySpace(space: IgPhysicsSpace) {
+        assertThread()
         space as BltPhysicsSpace
         spaces.remove(space.handle.nativeId())
         space.handle.destroy()
@@ -145,7 +150,16 @@ class BulletBackend(
         return BltRigidBody(handle)
     }
 
+    override fun step(spaces: Iterable<IgPhysicsSpace>) {
+        spaces.forEach { space ->
+            space as BltPhysicsSpace
+            // TODO multithread this dogwater code
+            space.handle.update(space.settings.stepInterval.toFloat(), settings.maxSubSteps)
+        }
+    }
+
     override fun destroy() {
+        assertThread()
         spaces.forEach { (_, space) ->
             destroySpace(space)
         }

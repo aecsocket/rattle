@@ -14,4 +14,10 @@ open class BltBody(open val handle: PhysicsCollisionObject) : IgBody {
 }
 
 class BltRigidBody(override val handle: PhysicsRigidBody) : BltBody(handle), IgStaticBody, IgDynamicBody {
+    override val sleeping: Boolean
+        get() = !handle.isActive
+
+    override fun wake() {
+        handle.activate(true)
+    }
 }

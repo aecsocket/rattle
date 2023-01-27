@@ -4,7 +4,6 @@ minecraft = "1.19.3"
 
 kotlin = "1.8.0"
 kotlinxCoroutines = "1.6.4"
-caffeine = "3.1.1"
 adventure = "4.11.0"
 configurate = "4.1.2"
 libBulletJme = "17.5.4"
@@ -16,8 +15,7 @@ packetEvents = "2.0.0-SNAPSHOT"
 
 kotlinReflect = { group = "org.jetbrains.kotlin", name = "kotlin-reflect", version.ref = "kotlin" }
 kotlinxCoroutines = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
-
-caffeine = { group = "com.github.ben-manes.caffeine", name = "caffeine", version.ref = "caffeine" }
+kotlinxCoroutinesJdk8 = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-jdk8", version.ref = "kotlinxCoroutines" }
 
 adventureSerializerConfigurate = { group = "net.kyori", name = "adventure-serializer-configurate4", version.ref = "adventure" }
 

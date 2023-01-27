@@ -23,5 +23,7 @@ interface IgStaticBody : IgRigidBody {
 }
 
 interface IgDynamicBody : IgRigidBody {
+    val sleeping: Boolean
 
+    fun wake()
 }

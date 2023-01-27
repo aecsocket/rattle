@@ -12,7 +12,11 @@ import physx.geometry.PxPlaneGeometry
 import physx.physics.*
 import java.util.logging.Logger
 
-class PhysxBackend(settings: Settings, logger: Logger) : IgBackend<PhysxBackend.Settings> {
+class PhysxBackend(
+    settings: Settings,
+    val physicsThread: IgPhysicsThread,
+    logger: Logger
+) : IgBackend<PhysxBackend.Settings> {
     @ConfigSerializable
     data class Settings(
         val numThreads: Int = -1
@@ -67,7 +71,10 @@ class PhysxBackend(settings: Settings, logger: Logger) : IgBackend<PhysxBackend.
         this.settings = settings
     }
 
+    internal inline fun assertThread() = physicsThread.assertThread()
+
     override fun createSpace(settings: IgPhysicsSpace.Settings): PhxPhysicsSpace {
+        assertThread()
         val handle: PxScene
         igUseMemory {
             val desc = pxSceneDesc(scale)
@@ -88,6 +95,7 @@ class PhysxBackend(settings: Settings, logger: Logger) : IgBackend<PhysxBackend.
     }
 
     override fun destroySpace(space: IgPhysicsSpace) {
+        assertThread()
         space as PhxPhysicsSpace
         spaces.remove(space.handle.address)
 
@@ -143,7 +151,20 @@ class PhysxBackend(settings: Settings, logger: Logger) : IgBackend<PhysxBackend.
         return body
     }
 
+    override fun step(spaces: Iterable<IgPhysicsSpace>) {
+        spaces.forEach { space ->
+            space as PhxPhysicsSpace
+            space.handle.simulate(space.settings.stepInterval.toFloat())
+        }
+
+        spaces.forEach { space ->
+            space as PhxPhysicsSpace
+            space.handle.fetchResults(true)
+        }
+    }
+
     override fun destroy() {
+        physicsThread.assertThread()
         spaces.forEach { (_, space) ->
             destroySpace(space)
         }

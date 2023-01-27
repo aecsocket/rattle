@@ -18,24 +18,25 @@ class BltPhysicsSpace(
             ground.position = Vec3(0.0, settings.groundPlaneY, 0.0)
         }
 
-    var stepping = false
-
-    override fun countBodies() = handle.countRigidBodies()
-
-    override fun step() {
-        if (stepping) return
-        stepping = true
-        handle.update(settings.stepInterval.toFloat(), backend.settings.maxSubSteps)
-        stepping = false
-    }
+    private inline fun assertThread() = backend.assertThread()
 
     override fun addBody(body: IgBody) {
+        assertThread()
         body as BltRigidBody
         handle.addCollisionObject(body.handle)
     }
 
     override fun removeBody(body: IgBody) {
+        assertThread()
         body as BltRigidBody
         handle.removeCollisionObject(body.handle)
+    }
+
+    override fun countBodies(onlyAwake: Boolean): Int {
+        assertThread()
+        return if (onlyAwake) handle.rigidBodyList
+            .filter { !it.isStatic && it.isActive }
+            .size
+        else handle.countRigidBodies()
     }
 }
