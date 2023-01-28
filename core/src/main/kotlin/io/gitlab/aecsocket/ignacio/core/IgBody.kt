@@ -44,8 +44,16 @@ interface IgStaticBody : IgRigidBody {
 interface IgDynamicBody : IgRigidBody {
     var linearVelocity: Vec3
     var angularVelocity: Vec3
-
+    var kinematic: Boolean
     val sleeping: Boolean
 
     fun wake()
+
+    fun applyForce(force: Vec3)
+
+    fun applyForceImpulse(force: Vec3)
+
+    fun applyTorque(torque: Vec3)
+
+    fun applyTorqueImpulse(torque: Vec3)
 }

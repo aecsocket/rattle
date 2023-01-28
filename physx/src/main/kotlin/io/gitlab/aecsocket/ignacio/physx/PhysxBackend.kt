@@ -37,7 +37,8 @@ class PhysxBackend(
     val stdFilterData: PxFilterData
     val stdMaterial: PxMaterial // TODO
 
-    private val planeGeom: PxPlaneGeometry
+    val actorTypeFlagsAll: PxActorTypeFlags
+    val planeGeom: PxPlaneGeometry
 
     init {
         numThreads = if (settings.numThreads < 0) Runtime.getRuntime().availableProcessors() else settings.numThreads
@@ -59,6 +60,7 @@ class PhysxBackend(
         )
         stdMaterial = physics.createMaterial(0.5f, 0.5f, 0f) // TODO
 
+        actorTypeFlagsAll = PxActorTypeFlags((PxActorTypeFlag.DYNAMIC or PxActorTypeFlag.STATIC).toShort())
         planeGeom = PxPlaneGeometry()
 
         val versionMajor = version shr 24
@@ -123,6 +125,7 @@ class PhysxBackend(
             desc.cpuDispatcher = cpuDispatcher
             desc.filterShader = DefaultFilterShader()
             desc.gravity = pxVec3(settings.gravity)
+            desc.flags.raise(PxSceneFlagEnum.eENABLE_ACTIVE_ACTORS)
             handle = physics.createScene(desc)
         }
 
@@ -141,32 +144,31 @@ class PhysxBackend(
         assertThread()
         space as PhxPhysicsSpace
         spaces.remove(space.handle.address)
-
-        space.bodies.forEach { (_, body) ->
-            space.handle.removeActor(body.handle)
-            body.destroy()
-        }
-        space.handle.release()
+        space.destroy()
     }
 
     override fun step(spaces: Iterable<IgPhysicsSpace>) {
         spaces.forEach { space ->
             space as PhxPhysicsSpace
-            space.handle.simulate(space.settings.stepInterval.toFloat())
+            space.queueStep()
         }
 
         spaces.forEach { space ->
             space as PhxPhysicsSpace
-            space.handle.fetchResults(true)
+            space.joinStep()
+
         }
     }
 
     override fun destroy() {
-        physicsThread.assertThread()
+        assertThread()
+
         spaces.forEach { (_, space) ->
             destroySpace(space)
         }
 
+        actorTypeFlagsAll.destroy()
+        planeGeom.destroy()
         stdMaterial.release()
         physics.release()
         foundation.release()

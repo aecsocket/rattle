@@ -15,12 +15,15 @@ import physx.geometry.PxCapsuleGeometry
 import physx.geometry.PxGeometry
 import physx.geometry.PxPlaneGeometry
 import physx.geometry.PxSphereGeometry
+import physx.physics.PxActorTypeFlagEnum
 import physx.physics.PxFilterData
 import physx.physics.PxQueryFilterData
 import physx.physics.PxQueryFlagEnum
 import physx.physics.PxQueryFlags
 import physx.physics.PxRigidActor
+import physx.physics.PxRigidBodyFlagEnum
 import physx.physics.PxSceneDesc
+import physx.physics.PxSceneFlagEnum
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.InvocationKind
 import kotlin.contracts.contract
@@ -48,6 +51,11 @@ object PxQueryFlag {
     val POSTFILTER get() = PxQueryFlagEnum.ePOSTFILTER.value
     val ANY_HIT get() = PxQueryFlagEnum.eANY_HIT.value
     val NO_BLOCK get() = PxQueryFlagEnum.eNO_BLOCK.value
+}
+
+object PxActorTypeFlag {
+    val STATIC get() = PxActorTypeFlagEnum.eRIGID_STATIC.value
+    val DYNAMIC get() = PxActorTypeFlagEnum.eRIGID_DYNAMIC.value
 }
 
 fun MemoryStack.pxVec3(x: Float, y: Float, z: Float) =
@@ -84,8 +92,6 @@ fun MemoryStack.pxSceneDesc(scale: PxTolerancesScale) =
     PxSceneDesc.createAt(this, MemoryStack::nmalloc, scale)
 fun MemoryStack.pxFilterData(w0: Int, w1: Int, w2: Int, w3: Int) =
     PxFilterData.createAt(this, MemoryStack::nmalloc, w0, w1, w2, w3)
-fun MemoryStack.pxQueryFlags(flags: Short) =
-    PxQueryFlags.createAt(this, MemoryStack::nmalloc, flags)
 fun MemoryStack.pxQueryFlags(flags: Int) =
     PxQueryFlags.createAt(this, MemoryStack::nmalloc, flags.toShort())
 fun MemoryStack.pxQueryFilterData(data: PxFilterData, flags: PxQueryFlags) =

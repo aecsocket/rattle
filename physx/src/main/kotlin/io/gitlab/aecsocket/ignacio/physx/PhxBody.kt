@@ -3,10 +3,7 @@ package io.gitlab.aecsocket.ignacio.physx
 import io.gitlab.aecsocket.ignacio.core.*
 import io.gitlab.aecsocket.ignacio.core.math.Transform
 import io.gitlab.aecsocket.ignacio.core.math.Vec3
-import physx.physics.PxRigidActor
-import physx.physics.PxRigidDynamic
-import physx.physics.PxRigidStatic
-import physx.physics.PxShape
+import physx.physics.*
 
 data class PhxShape(
     val handle: PxShape,
@@ -114,10 +111,52 @@ class PhxDynamicBody(
             }
         }
 
+    override var kinematic: Boolean
+        get() {
+            assertThread()
+            return handle.rigidBodyFlags.isSet(PxRigidBodyFlagEnum.eKINEMATIC)
+        }
+        set(value) {
+            assertThread()
+            handle.setRigidBodyFlag(PxRigidBodyFlagEnum.eKINEMATIC, value)
+        }
+
     override val sleeping: Boolean
-        get() = handle.isSleeping
+        get() {
+            assertThread()
+            return handle.isSleeping
+        }
 
     override fun wake() {
+        assertThread()
         handle.wakeUp()
+    }
+
+    override fun applyForce(force: Vec3) {
+        assertThread()
+        igUseMemory {
+            handle.addForce(pxVec3(force), PxForceModeEnum.eFORCE)
+        }
+    }
+
+    override fun applyForceImpulse(force: Vec3) {
+        assertThread()
+        igUseMemory {
+            handle.addForce(pxVec3(force), PxForceModeEnum.eIMPULSE)
+        }
+    }
+
+    override fun applyTorque(torque: Vec3) {
+        assertThread()
+        igUseMemory {
+            handle.addTorque(pxVec3(torque), PxForceModeEnum.eFORCE)
+        }
+    }
+
+    override fun applyTorqueImpulse(torque: Vec3) {
+        assertThread()
+        igUseMemory {
+            handle.addTorque(pxVec3(torque), PxForceModeEnum.eIMPULSE)
+        }
     }
 }

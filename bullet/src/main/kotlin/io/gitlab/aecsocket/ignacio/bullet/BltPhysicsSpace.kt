@@ -3,6 +3,7 @@ package io.gitlab.aecsocket.ignacio.bullet
 import com.jme3.bullet.PhysicsSpace
 import com.jme3.bullet.collision.shapes.SphereCollisionShape
 import com.jme3.bullet.objects.PhysicsGhostObject
+import com.jme3.bullet.objects.PhysicsRigidBody
 import io.gitlab.aecsocket.ignacio.core.IgBody
 import io.gitlab.aecsocket.ignacio.core.IgPhysicsSpace
 import io.gitlab.aecsocket.ignacio.core.IgScalar
@@ -22,30 +23,31 @@ class BltPhysicsSpace(
             ground.transform = Transform(Vec3(0.0, settings.groundPlaneY, 0.0), groundPlaneQuat)
         }
 
-    val bodies = HashMap<Long, BltRigidBody>()
+    val mBodies = HashMap<PhysicsRigidBody, BltRigidBody>()
+    override val bodies get() = mBodies.values
+    val mBodiesAwake = ArrayList<BltRigidBody>()
+    override val bodiesAwake get() = mBodiesAwake
 
     private inline fun assertThread() = backend.assertThread()
 
     override fun addBody(body: IgBody) {
         assertThread()
         body as BltRigidBody
-        bodies[body.handle.nativeId()] = body
+        mBodies[body.handle] = body
         handle.addCollisionObject(body.handle)
     }
 
     override fun removeBody(body: IgBody) {
         assertThread()
         body as BltRigidBody
-        bodies.remove(body.handle.nativeId())
+        mBodies.remove(body.handle)
         handle.removeCollisionObject(body.handle)
     }
 
     override fun countBodies(onlyAwake: Boolean): Int {
         assertThread()
-        return if (onlyAwake) handle.rigidBodyList
-            .filter { !it.isStatic && it.isActive }
-            .size
-        else handle.countRigidBodies()
+        return if (onlyAwake) mBodiesAwake.size
+        else mBodies.size
     }
 
     override fun nearbyBodies(position: Vec3, radius: IgScalar): List<IgBody> {
@@ -55,6 +57,15 @@ class BltPhysicsSpace(
         handle.addCollisionObject(ghost)
         val overlaps = ghost.overlappingObjects
         handle.removeCollisionObject(ghost)
-        return overlaps.mapNotNull { bodies[it.nativeId()] }
+        return overlaps.mapNotNull { mBodies[it] }
+    }
+
+    fun step() {
+        handle.update(settings.stepInterval.toFloat(), backend.settings.maxSubSteps)
+        mBodiesAwake.clear()
+        handle.rigidBodyList.forEach { body ->
+            if (body.isActive)
+                mBodiesAwake.add(mBodies[body]!!)
+        }
     }
 }

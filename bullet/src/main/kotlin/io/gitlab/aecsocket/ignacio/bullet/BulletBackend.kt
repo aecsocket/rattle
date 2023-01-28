@@ -167,7 +167,7 @@ class BulletBackend(
         spaces.forEach { space ->
             space as BltPhysicsSpace
             // TODO multithread this dogwater code
-            space.handle.update(space.settings.stepInterval.toFloat(), settings.maxSubSteps)
+            space.step()
         }
     }
 

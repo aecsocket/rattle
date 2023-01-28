@@ -121,10 +121,44 @@ class BltRigidBody(
             handle.angularVelocity = value
         }
 
+    override var kinematic: Boolean
+        get() {
+            assertThread()
+            return handle.isKinematic
+        }
+        set(value) {
+            assertThread()
+            handle.isKinematic = value
+        }
+
     override val sleeping: Boolean
-        get() = !handle.isActive
+        get() {
+            assertThread()
+            return !handle.isActive
+        }
 
     override fun wake() {
+        assertThread()
         handle.activate(true)
+    }
+
+    override fun applyForce(force: Vec3) {
+        assertThread()
+        handle.applyCentralForce(force.btSp())
+    }
+
+    override fun applyForceImpulse(force: Vec3) {
+        assertThread()
+        handle.applyCentralImpulse(force.btSp())
+    }
+
+    override fun applyTorque(torque: Vec3) {
+        assertThread()
+        handle.applyTorque(torque.btSp())
+    }
+
+    override fun applyTorqueImpulse(torque: Vec3) {
+        assertThread()
+        handle.applyTorqueImpulse(torque.btSp())
     }
 }

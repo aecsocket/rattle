@@ -13,6 +13,9 @@ interface IgPhysicsSpace {
 
     var settings: Settings
 
+    val bodies: Collection<IgBody>
+    val bodiesAwake: Collection<IgBody>
+
     fun addBody(body: IgBody)
 
     fun removeBody(body: IgBody)

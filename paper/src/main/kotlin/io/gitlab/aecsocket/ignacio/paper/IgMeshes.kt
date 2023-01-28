@@ -29,7 +29,6 @@ import org.bukkit.Bukkit
 import org.bukkit.Material
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
-import org.spigotmc.AsyncCatcher
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import java.util.*
 import kotlin.collections.HashMap
@@ -86,10 +85,10 @@ interface IgMesh {
 }
 
 class IgMeshes internal constructor() {
-    private val _meshes = HashMap<UUID, BaseMesh>()
-    val meshes: Map<UUID, IgMesh> get() = _meshes
+    private val mMeshes = HashMap<UUID, BaseMesh>()
+    val meshes: Map<UUID, IgMesh> get() = mMeshes
 
-    operator fun get(id: UUID): IgMesh? = _meshes[id]
+    operator fun get(id: UUID): IgMesh? = mMeshes[id]
 
     private fun create(
         transform: Transform,
@@ -105,7 +104,7 @@ class IgMeshes internal constructor() {
             InterpolatingMesh(id, transform, playerTracker, mode, item, settings.small)
         else
             NonInterpolatingMesh(id, transform, playerTracker, mode, item, settings.small)
-        _meshes[id] = mesh
+        mMeshes[id] = mesh
         return mesh
     }
 
@@ -125,14 +124,14 @@ class IgMeshes internal constructor() {
     fun remove(mesh: IgMesh, send: Boolean = true) {
         if (!TickThread.isTickThread())
             throw IllegalStateException("Must run mesh removal on tick thread")
-        _meshes.remove(mesh.id)
+        mMeshes.remove(mesh.id)
         if (send) {
             mesh.despawn()
         }
     }
 
     internal fun update() {
-        _meshes.forEach { (_, mesh) ->
+        mMeshes.forEach { (_, mesh) ->
             mesh.lastTrackedPlayers = mesh.trackedPlayers()
         }
     }

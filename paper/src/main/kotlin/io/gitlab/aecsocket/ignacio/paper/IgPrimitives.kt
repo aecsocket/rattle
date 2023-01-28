@@ -55,6 +55,7 @@ internal class IgPrimitives(private val ignacio: Ignacio) : Listener {
         ) { entity ->
             entity as ArmorStand
             entity.isVisible = false
+            entity.isPersistent = false
             entity.setAI(false)
             entity.setGravity(false)
         }

@@ -13,10 +13,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.future.await
 import kotlinx.coroutines.runBlocking
 import net.kyori.adventure.serializer.configurate4.ConfigurateComponentSerializer
-import org.bukkit.Bukkit
 import org.bukkit.Color
 import org.bukkit.Material
-import org.bukkit.Particle
 import org.bukkit.Particle.BLOCK_DUST
 import org.bukkit.Particle.DustOptions
 import org.bukkit.World
@@ -108,8 +106,8 @@ class Ignacio : JavaPlugin() {
     val meshes = IgMeshes()
     val lastStepTimes = TimedCache<Long>(0)
 
-    private val _spaces = HashMap<UUID, IgPhysicsSpace>()
-    val spaces: Map<UUID, IgPhysicsSpace> get() = _spaces
+    private val mSpaces = HashMap<UUID, IgPhysicsSpace>()
+    val spaces: Map<UUID, IgPhysicsSpace> get() = mSpaces
 
     lateinit var backend: IgBackend<*> private set
     lateinit var settings: Settings private set
@@ -166,7 +164,7 @@ class Ignacio : JavaPlugin() {
                 executePhysics {
                     stepping.set(true)
                     lastStepTimes.timeNanos {
-                        backend.step(_spaces.values)
+                        backend.step(mSpaces.values)
                     }
                     stepping.set(false)
                 }
@@ -259,14 +257,14 @@ class Ignacio : JavaPlugin() {
         return future
     }
 
-    fun physicsSpaceOfOrNull(world: World) = _spaces[world.uid]
+    fun physicsSpaceOfOrNull(world: World) = mSpaces[world.uid]
 
-    fun physicsSpaceOf(world: World) = _spaces.computeIfAbsent(world.uid) {
+    fun physicsSpaceOf(world: World) = mSpaces.computeIfAbsent(world.uid) {
         backend.createSpace(settings.space)
     }
 
     fun removeSpace(world: World) {
-        _spaces.remove(world.uid)?.let { space ->
+        mSpaces.remove(world.uid)?.let { space ->
             backend.destroySpace(space)
         }
     }
