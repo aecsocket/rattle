@@ -1,7 +1,7 @@
 package io.gitlab.aecsocket.ignacio.core.math
 
 import io.gitlab.aecsocket.ignacio.core.IgScalar
-import io.gitlab.aecsocket.ignacio.core.igForce
+import io.gitlab.aecsocket.ignacio.core.util.force
 import org.spongepowered.configurate.ConfigurationNode
 import org.spongepowered.configurate.serialize.SerializationException
 import org.spongepowered.configurate.serialize.TypeSerializer
@@ -95,12 +95,12 @@ object Vec3Serializer : TypeSerializer<Vec3> {
             if (list.size < 3)
                 throw SerializationException(node, type, "Vector must be expressed as [x, y, z]")
             return Vec3(
-                list[0].igForce(),
-                list[1].igForce(),
-                list[2].igForce()
+                list[0].force(),
+                list[1].force(),
+                list[2].force()
             )
         } else {
-            val n = node.igForce<IgScalar>()
+            val n = node.force<IgScalar>()
             return Vec3(n)
         }
     }

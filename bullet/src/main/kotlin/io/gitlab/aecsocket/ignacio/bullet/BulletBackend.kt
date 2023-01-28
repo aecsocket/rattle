@@ -2,6 +2,7 @@ package io.gitlab.aecsocket.ignacio.bullet
 
 import com.jme3.bullet.PhysicsSpace
 import com.jme3.bullet.collision.shapes.BoxCollisionShape
+import com.jme3.bullet.collision.shapes.CapsuleCollisionShape
 import com.jme3.bullet.collision.shapes.CollisionShape
 import com.jme3.bullet.collision.shapes.EmptyShape
 import com.jme3.bullet.collision.shapes.PlaneCollisionShape
@@ -115,6 +116,7 @@ class BulletBackend(
             is IgPlaneGeometry -> planeShape
             is IgSphereGeometry -> SphereCollisionShape(geometry.radius.toFloat())
             is IgBoxGeometry -> BoxCollisionShape(geometry.halfExtent.btSp())
+            is IgCapsuleGeometry -> CapsuleCollisionShape(geometry.radius.toFloat(), (geometry.halfHeight * 2).toFloat())
         }
     }
 

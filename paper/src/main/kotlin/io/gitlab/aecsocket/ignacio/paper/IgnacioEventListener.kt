@@ -5,6 +5,7 @@ import net.kyori.adventure.text.Component
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerJoinEvent
+import org.bukkit.event.player.PlayerQuitEvent
 import org.bukkit.event.world.WorldLoadEvent
 import org.bukkit.event.world.WorldUnloadEvent
 
@@ -23,6 +24,11 @@ internal class IgnacioEventListener(private val ignacio: Ignacio) : Listener {
                 )
             ))
         }
+    }
+
+    @EventHandler
+    fun on(event: PlayerQuitEvent) {
+        ignacio.playerRenderSettings.remove(event.player)
     }
 
     @EventHandler

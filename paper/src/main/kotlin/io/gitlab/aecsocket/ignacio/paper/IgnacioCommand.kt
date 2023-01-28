@@ -1,17 +1,17 @@
 package io.gitlab.aecsocket.ignacio.paper
 
 import cloud.commandframework.ArgumentDescription
+import cloud.commandframework.arguments.standard.DoubleArgument
 import cloud.commandframework.arguments.standard.IntegerArgument
 import cloud.commandframework.arguments.standard.StringArgument
 import cloud.commandframework.bukkit.CloudBukkitCapabilities
 import cloud.commandframework.bukkit.parsers.location.LocationArgument
+import cloud.commandframework.context.CommandContext
 import cloud.commandframework.execution.CommandExecutionCoordinator
 import cloud.commandframework.minecraft.extras.MinecraftHelp
 import cloud.commandframework.paper.PaperCommandManager
 import io.gitlab.aecsocket.ignacio.bullet.nextVec3
 import io.gitlab.aecsocket.ignacio.core.*
-import io.gitlab.aecsocket.ignacio.core.math.Quat
-import io.gitlab.aecsocket.ignacio.core.math.Transform
 import io.gitlab.aecsocket.ignacio.core.math.Vec3
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
@@ -20,9 +20,8 @@ import net.kyori.adventure.text.Component.text
 import net.kyori.adventure.text.format.NamedTextColor
 import org.bukkit.Bukkit
 import org.bukkit.Location
-import org.bukkit.Material
+import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
-import org.bukkit.inventory.ItemStack
 import kotlin.random.Random
 
 private const val ROOT = "ignacio"
@@ -59,14 +58,6 @@ internal class IgnacioCommand(private val ignacio: Ignacio) {
     )
     private val root = manager.commandBuilder(ROOT, desc("Core command plugin."))
 
-    data class Box(
-        val space: IgPhysicsSpace,
-        val body: IgDynamicBody,
-        val mesh: IgMesh,
-    )
-
-    val boxes = ArrayList<Box>()
-
     init {
         if (manager.hasCapability(CloudBukkitCapabilities.BRIGADIER))
             manager.registerBrigadier()
@@ -86,165 +77,205 @@ internal class IgnacioCommand(private val ignacio: Ignacio) {
         manager.command(root
             .literal("reload", desc("Reload all plugin data."))
             .permission(perm("reload"))
-            .handler { ctx ->
-                val sender = ctx.sender
-                ignacio.reload()
-                sender.sendMessage(text("Reloaded Ignacio.", cP2))
-            })
+            .handler(::reload))
         manager.command(root
             .literal("stats", desc("Show physics engine statistics."))
             .permission(perm("stats"))
-            .handler { ctx ->
-                val sender = ctx.sender
-
-                data class WorldData(
-                    val worldName: String,
-                    val physSpace: IgPhysicsSpace?
-                ) {
-                    var bodiesAwake = -1
-                    var bodiesTotal = -1
-                }
-
-                val worlds = Bukkit.getWorlds().map { world ->
-                    WorldData(world.name, ignacio.physicsSpaceOfOrNull(world))
-                }
-
-                sender.sendMessage(text("Fetching...", cP3))
-
-                ignacio.runAsync {
-                    worlds.map { data -> launch {
-                        val physSpace = data.physSpace ?: return@launch
-                        data.bodiesAwake = ignacio.runPhysics { physSpace.countBodies(onlyAwake = true) }
-                        data.bodiesTotal = ignacio.runPhysics { physSpace.countBodies() }
-                    } }.joinAll()
-
-                    worlds.forEach { data ->
-                        data.physSpace ?: run {
-                            sender.sendMessage(
-                                text("World '", cErr)
-                                + text(data.worldName, cP1)
-                                + text("' has no physics space", cErr)
-                            )
-                            return@forEach
-                        }
-
-                        sender.sendMessage(
-                            text("Stats for physics space of '", cP2)
-                            + text(data.worldName, cP1)
-                            + text("':", cP2)
-                        )
-                        sender.sendMessage(
-                            text("  Bodies: ", cP2)
-                            + text(data.bodiesAwake, cP1)
-                            + text(" awake / ", cP2)
-                            + text(data.bodiesTotal, cP1)
-                            + text(" total", cP2)
-                        )
-                    }
-
-                    sender.sendMessage(text("Step timings from the last...", cP2))
-                    ignacio.settings.stepTimeIntervals.forEach { interval ->
-                        val times = ignacio.lastStepTimes.getLast((interval * 1000).toLong())
-                            .sorted()
-                        val avg = times.average() / 1.0e6
-                        // val min = times.first() / 1.0e6
-                        // val max = times.last() / 1.0e6
-                        val top5 = times[(times.size * 0.95).toInt()] / 1.0e6
-                        val bottom5 = times[(times.size * 0.05).toInt()] / 1.0e6
-                        sender.sendMessage(
-                            text(" · ", cP2)
-                            + text("%.1fs".format(interval), cP1)
-                            + text(": ", cP2)
-                            + textTiming(avg)
-                            + text(" avg / ", cP2)
-                            + textTiming(bottom5)
-                            + text(" 5%ile / ", cP2)
-                            + textTiming(top5)
-                            + text(" 95%ile", cP2)
-                        )
-                    }
-                }
-            })
-
+            .handler(::stats))
         manager.command(root
-            .literal("create")
-            .argument(LocationArgument.of("location"))
-            .argument(IntegerArgument.of("amount"))
-            .argument(LocationArgument.of("spread"))
-            .flag(manager.flagBuilder("virtual")
-                .withAliases("v"))
-            .handler { ctx ->
-                val player = ctx.sender as Player
-                val location = ctx.get<Location>("location")
-                val amount = ctx.get<Int>("amount")
-                val spread = ctx.get<Location>("spread").vec3() * 2.0
-                val virtual = ctx.flags().hasFlag("virtual")
+            .literal("render", desc("Renders body debug info through particles."))
+            .flag(manager.flagBuilder("com")
+                .withAliases("c")
+                .withDescription(desc("Body center of mass.")))
+            .flag(manager.flagBuilder("velocity")
+                .withAliases("v")
+                .withDescription(desc("Body linear velocity.")))
+            .flag(manager.flagBuilder("shape")
+                .withAliases("s")
+                .withDescription(desc("Body shape.")))
+            .permission(perm("render"))
+            .senderType(Player::class.java)
+            .handler(::render))
 
-                val world = location.world
-                val from = location.vec3() - (spread / 2.0)
+        val primitive = root
+            .literal("primitives", desc("Manage primitive debug bodies."))
+        val primitiveCreate = primitive
+            .literal("create", desc("Create a primitive body."))
 
-                data class NewBox(
-                    val pos: Vec3,
-                    val mesh: IgMesh
-                )
+        val primitiveCreateLocation = LocationArgument.builder<CommandSender>("location")
+            .withDefaultDescription(desc("Where to create the body."))
+        val primitiveCreateVisual = manager.flagBuilder("visual")
+            .withAliases("v")
+            .withDescription(desc("Body will have a visible debug mesh attached to it."))
+            .build()
+        val primitiveCreateMass = manager.flagBuilder("mass")
+            .withAliases("m")
+            .withArgument(DoubleArgument.of<CommandSender>("mass"))
+            .withDescription(desc("Mass of body in kilograms."))
+            .build()
+        val primitiveCreateCount = manager.flagBuilder("count")
+            .withAliases("n")
+            .withArgument(IntegerArgument.of<CommandSender>("count"))
+            .withDescription(desc("Number of bodies to spawn."))
+            .build()
+        val primitiveCreateSpread = manager.flagBuilder("spread")
+            .withAliases("s")
+            .withArgument(DoubleArgument.of<CommandSender>("spread"))
+            .withDescription(desc("Max random half-extent to offset each body by."))
+            .build()
 
-                val newBoxes = ArrayList<NewBox>()
+        manager.command(primitiveCreate
+            .literal("sphere", desc("Create a sphere body."))
+            .argument(DoubleArgument.of("radius"), desc("Radius of the sphere."))
+            .argument(primitiveCreateLocation)
+            .flag(primitiveCreateVisual)
+            .flag(primitiveCreateMass)
+            .flag(primitiveCreateCount)
+            .flag(primitiveCreateSpread)
+            .permission(perm("primitive.create"))
+            .handler(::primitiveCreateSphere))
+        manager.command(primitiveCreate
+            .literal("box", desc("Create a box body."))
+            .argument(DoubleArgument.of("half-extent"), desc("Radius of the sphere."))
+            .argument(primitiveCreateLocation)
+            .flag(primitiveCreateVisual)
+            .flag(primitiveCreateMass)
+            .flag(primitiveCreateCount)
+            .flag(primitiveCreateSpread)
+            .permission(perm("primitive.create"))
+            .handler(::primitiveCreateBox))
+        manager.command(primitive
+            .literal("remove", desc("Remove all primitive debug bodies."))
+            .permission(perm("primitive.remove"))
+            .handler(::primitiveRemove))
+    }
 
-                val tracker =
-                    if (virtual) IgPlayerTracker { emptySet() }
-                    else IgPlayerTracker { setOf(player) }
-                repeat(amount) {
-                    val pos = from + Random.nextVec3() * spread
-                    val mesh = ignacio.meshes.createItem(
-                        Transform(pos, Quat.Identity),
-                        tracker,
-                        IgMesh.Settings(interpolate = false, small = true),
-                        ItemStack(Material.STICK).apply {
-                            editMeta { meta ->
-                                meta.setCustomModelData(2)
-                            }
-                        }
+    private fun reload(ctx: CommandContext<CommandSender>) {
+        val sender = ctx.sender
+        ignacio.reload()
+        sender.sendMessage(text("Reloaded Ignacio.", cP2))
+    }
+
+    private fun stats(ctx: CommandContext<CommandSender>) {
+        val sender = ctx.sender
+
+        data class WorldData(
+            val worldName: String,
+            val physSpace: IgPhysicsSpace?
+        ) {
+            var bodiesAwake = -1
+            var bodiesTotal = -1
+        }
+
+        val worlds = Bukkit.getWorlds().map { world ->
+            WorldData(world.name, ignacio.physicsSpaceOfOrNull(world))
+        }
+
+        sender.sendMessage(text("Fetching...", cP3))
+
+        ignacio.runAsync {
+            worlds.map { data -> launch {
+                val physSpace = data.physSpace ?: return@launch
+                data.bodiesAwake = ignacio.runPhysics { physSpace.countBodies(onlyAwake = true) }
+                data.bodiesTotal = ignacio.runPhysics { physSpace.countBodies() }
+            } }.joinAll()
+
+            worlds.forEach { data ->
+                data.physSpace ?: run {
+                    sender.sendMessage(
+                        text("World '", cErr)
+                        + text(data.worldName, cP1)
+                        + text("' has no physics space", cErr)
                     )
-                    mesh.spawn()
-                    newBoxes.add(NewBox(pos, mesh))
+                    return@forEach
                 }
 
-                ignacio.executePhysics {
-                    val physSpace = ignacio.physicsSpaceOf(world)
-
-                    newBoxes.forEach { box ->
-                        val body = ignacio.backend.createDynamicBody(
-                            Transform(box.pos, Quat.Identity),
-                            IgBodyDynamics(
-                                mass = 1.0
-                            )
-                        )
-                        body.setGeometry(IgBoxGeometry(Vec3(0.5)))
-                        physSpace.addBody(body)
-
-                        boxes.add(Box(physSpace, body, box.mesh))
-                    }
-                }
-            })
-        manager.command(root
-            .literal("remove")
-            .handler { ctx ->
-                boxes.forEach { box ->
-                    ignacio.executePhysics {
-                        box.space.removeBody(box.body)
-                        box.body.destroy()
-                    }
-                    box.mesh.despawn()
-                }
-                boxes.clear()
-            })
-
-        Bukkit.getScheduler().scheduleSyncRepeatingTask(ignacio, {
-            ignacio.executePhysics {
-                boxes.forEach { box ->
-                    box.mesh.transform = box.body.transform
-                }
+                sender.sendMessage(
+                    text("Stats for physics space of '", cP2)
+                    + text(data.worldName, cP1)
+                    + text("':", cP2)
+                )
+                sender.sendMessage(
+                    text("  Bodies: ", cP2)
+                    + text(data.bodiesAwake, cP1)
+                    + text(" awake / ", cP2)
+                    + text(data.bodiesTotal, cP1)
+                    + text(" total", cP2)
+                )
             }
-        }, 0, 1)
+
+            sender.sendMessage(text("Step timings from the last...", cP2))
+            ignacio.settings.stepTimeIntervals.forEach { interval ->
+                val times = ignacio.lastStepTimes.getLast((interval * 1000).toLong())
+                    .sorted()
+                val avg = times.average() / 1.0e6
+                // val min = times.first() / 1.0e6
+                // val max = times.last() / 1.0e6
+                val top5 = times[(times.size * 0.95).toInt()] / 1.0e6
+                val bottom5 = times[(times.size * 0.05).toInt()] / 1.0e6
+                sender.sendMessage(
+                    text(" · ", cP2)
+                    + text("%.1fs".format(interval), cP1)
+                    + text(": ", cP2)
+                    + textTiming(avg)
+                    + text(" avg / ", cP2)
+                    + textTiming(bottom5)
+                    + text(" 5%ile / ", cP2)
+                    + textTiming(top5)
+                    + text(" 95%ile", cP2)
+                )
+            }
+        }
+    }
+
+    private fun render(ctx: CommandContext<CommandSender>) {
+        val player = ctx.sender as Player
+        val com = ctx.flags().hasFlag("com")
+        val velocity = ctx.flags().hasFlag("velocity")
+        val shape = ctx.flags().hasFlag("shape")
+
+        ignacio.playerRenderSettings[player] = RenderSettings(
+            centerOfMass = com,
+            linearVelocity = velocity,
+            shape = shape
+        )
+    }
+
+    private fun primitiveCreate(ctx: CommandContext<CommandSender>, geometry: IgGeometry) {
+        val location = ctx.get<Location>("location")
+        val visual = ctx.flags().hasFlag("visual")
+        val mass = ctx.flags().getValue<Double>("mass").orElse(1.0)
+        val count = ctx.flags().getValue<Int>("count").orElse(1)
+        val spread = ctx.flags().getValue<Double>("spread").orElse(0.0)
+
+        val world = location.world
+        val min = location.vec3() - spread
+        val spread2 = spread * 2.0
+
+        repeat(count) {
+            val position = min + Random.nextVec3() * spread2
+            ignacio.primitives.create(position.location(world), geometry, mass, visual)
+        }
+    }
+
+    private fun primitiveCreateSphere(ctx: CommandContext<CommandSender>) {
+        val radius = ctx.get<Double>("radius")
+        primitiveCreate(ctx, IgSphereGeometry(radius))
+    }
+
+    private fun primitiveCreateBox(ctx: CommandContext<CommandSender>) {
+        val halfExtent = ctx.get<Double>("half-extent")
+        primitiveCreate(ctx, IgBoxGeometry(Vec3(halfExtent)))
+    }
+
+    private fun primitiveRemove(ctx: CommandContext<CommandSender>) {
+        val sender = ctx.sender
+        val count = ignacio.primitives.countPrimitives()
+        ignacio.primitives.removeAll()
+        sender.sendMessage(
+            text("Removed ", cP2)
+            + text(count, cP1)
+            + text(" primitive bodies.", cP2)
+        )
     }
 }

@@ -6,6 +6,7 @@ import com.jme3.bullet.collision.shapes.CompoundCollisionShape
 import com.jme3.bullet.objects.PhysicsRigidBody
 import io.gitlab.aecsocket.ignacio.core.*
 import io.gitlab.aecsocket.ignacio.core.math.Transform
+import io.gitlab.aecsocket.ignacio.core.math.Vec3
 
 data class BltShape(
     val handle: CollisionShape,
@@ -24,12 +25,18 @@ private data class IgShapeImpl(
 }
 
 sealed class BltBody(
-    private val backend: BulletBackend,
+    protected val backend: BulletBackend,
     open val handle: PhysicsCollisionObject
 ) : IgBody {
     override var transform: Transform
-        get() = handle.transform
-        set(value) { handle.transform = value }
+        get() {
+            assertThread()
+            return handle.transform
+        }
+        set(value) {
+            assertThread()
+            handle.transform = value
+        }
 
     // the body will automatically alternate between three modes:
     // - empty shape
@@ -43,7 +50,9 @@ sealed class BltBody(
         setOf(IgShapeImpl(it))
     } ?: mShapes.values
 
-    private inline fun assertThread() = backend.assertThread()
+    internal inline fun assertThread() = backend.assertThread()
+
+    override fun isAdded() = handle.collisionSpace != null
 
     override fun setGeometry(geometry: IgGeometry) {
         assertThread()
@@ -92,6 +101,26 @@ class BltRigidBody(
     backend: BulletBackend,
     override val handle: PhysicsRigidBody
 ) : BltBody(backend, handle), IgStaticBody, IgDynamicBody {
+    override var linearVelocity: Vec3
+        get() {
+            assertThread()
+            return handle.linearVelocity
+        }
+        set(value) {
+            assertThread()
+            handle.linearVelocity = value
+        }
+
+    override var angularVelocity: Vec3
+        get() {
+            assertThread()
+            return handle.angularVelocity
+        }
+        set(value) {
+            assertThread()
+            handle.angularVelocity = value
+        }
+
     override val sleeping: Boolean
         get() = !handle.isActive
 

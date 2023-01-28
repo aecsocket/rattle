@@ -11,6 +11,7 @@ import physx.common.PxTolerancesScale
 import physx.common.PxTransform
 import physx.common.PxVec3
 import physx.geometry.PxBoxGeometry
+import physx.geometry.PxCapsuleGeometry
 import physx.geometry.PxGeometry
 import physx.geometry.PxPlaneGeometry
 import physx.geometry.PxSphereGeometry
@@ -70,12 +71,14 @@ fun MemoryStack.pxTransform(t: Transform) =
 fun MemoryStack.pxTransform() =
     PxTransform.createAt(this, MemoryStack::nmalloc, PxIdentity)
 
+fun MemoryStack.pxPlaneGeometry() =
+    PxPlaneGeometry.createAt(this, MemoryStack::nmalloc)
 fun MemoryStack.pxSphereGeometry(ir: Float) =
     PxSphereGeometry.createAt(this, MemoryStack::nmalloc, ir)
 fun MemoryStack.pxBoxGeometry(hx: Float, hy: Float, hz: Float) =
     PxBoxGeometry.createAt(this, MemoryStack::nmalloc, hx, hy, hz)
-fun MemoryStack.pxPlaneGeometry() =
-    PxPlaneGeometry.createAt(this, MemoryStack::nmalloc)
+fun MemoryStack.pxCapsuleGeometry(radius: Float, halfHeight: Float) =
+    PxCapsuleGeometry.createAt(this, MemoryStack::nmalloc, radius, halfHeight)
 
 fun MemoryStack.pxSceneDesc(scale: PxTolerancesScale) =
     PxSceneDesc.createAt(this, MemoryStack::nmalloc, scale)

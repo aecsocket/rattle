@@ -17,6 +17,8 @@ dependencies {
     implementation(projects.ignacioPhysx)
     paperDevBundle("$minecraft-R0.1-SNAPSHOT")
 
+    implementation(libs.adventureSerializerConfigurate)
+
     implementation(libs.configurateCore)
     implementation(libs.configurateExtraKotlin)
     implementation(libs.configurateHocon)

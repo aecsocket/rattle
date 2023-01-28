@@ -76,6 +76,13 @@ var PhysicsCollisionObject.transform: Transform
         rotation = value.rotation
     }
 
+var PhysicsRigidBody.linearVelocity: Vec3
+    get() = getLinearVelocityDp(Vec3d()).ig()
+    set(value) { setLinearVelocityDp(value.btDp()) }
+var PhysicsRigidBody.angularVelocity: Vec3
+    get() = getAngularVelocityDp(Vec3d()).ig()
+    set(value) { setAngularVelocityDp(value.btDp()) }
+
 private typealias JRandom = java.util.Random
 private typealias KRandom = kotlin.random.Random
 

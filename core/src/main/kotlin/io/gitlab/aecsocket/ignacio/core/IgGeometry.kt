@@ -9,3 +9,5 @@ object IgPlaneGeometry : IgGeometry
 data class IgSphereGeometry(val radius: IgScalar) : IgGeometry
 
 data class IgBoxGeometry(val halfExtent: Vec3) : IgGeometry
+
+data class IgCapsuleGeometry(val radius: IgScalar, val halfHeight: IgScalar) : IgGeometry

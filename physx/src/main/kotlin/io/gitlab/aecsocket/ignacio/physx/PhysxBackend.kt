@@ -74,14 +74,15 @@ class PhysxBackend(
     internal inline fun assertThread() = physicsThread.assertThread()
 
     @JvmName("_pxGeometryOf")
-    fun MemoryStack.pxGeometryOf(shape: IgGeometry): PxGeometry {
-        return when (shape) {
+    fun MemoryStack.pxGeometryOf(geometry: IgGeometry): PxGeometry {
+        return when (geometry) {
             is IgPlaneGeometry -> pxPlaneGeometry()
-            is IgSphereGeometry -> pxSphereGeometry(shape.radius.toFloat())
+            is IgSphereGeometry -> pxSphereGeometry(geometry.radius.toFloat())
             is IgBoxGeometry -> {
-                val (hx, hy, hz) = shape.halfExtent
+                val (hx, hy, hz) = geometry.halfExtent
                 pxBoxGeometry(hx.toFloat(), hy.toFloat(), hz.toFloat())
             }
+            is IgCapsuleGeometry -> pxCapsuleGeometry(geometry.radius.toFloat(), geometry.halfHeight.toFloat())
         }
     }
 

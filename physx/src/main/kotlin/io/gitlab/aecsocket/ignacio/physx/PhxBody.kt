@@ -2,6 +2,7 @@ package io.gitlab.aecsocket.ignacio.physx
 
 import io.gitlab.aecsocket.ignacio.core.*
 import io.gitlab.aecsocket.ignacio.core.math.Transform
+import io.gitlab.aecsocket.ignacio.core.math.Vec3
 import physx.physics.PxRigidActor
 import physx.physics.PxRigidDynamic
 import physx.physics.PxRigidStatic
@@ -18,11 +19,14 @@ data class PhxShape(
 }
 
 sealed class PhxBody(
-    private val backend: PhysxBackend,
+    protected val backend: PhysxBackend,
     open val handle: PxRigidActor
 ) : IgBody {
     override var transform: Transform
-        get() = handle.globalPose.ig()
+        get() {
+            assertThread()
+            return handle.globalPose.ig()
+        }
         set(value) {
             igUseMemory {
                 val tf = pxTransform(pxVec3(value.position), pxQuat(value.rotation))
@@ -33,7 +37,9 @@ sealed class PhxBody(
     val mShapes = HashMap<Long, PhxShape>()
     override val shapes get() = mShapes.values
 
-    private inline fun assertThread() = backend.assertThread()
+    internal inline fun assertThread() = backend.assertThread()
+
+    override fun isAdded() = handle.scene != null
 
     override fun setGeometry(geometry: IgGeometry) {
         assertThread()
@@ -66,6 +72,7 @@ sealed class PhxBody(
     }
 
     override fun destroy() {
+        assertThread()
         mShapes.forEach { (_, shape) ->
             shape.handle.release()
         }
@@ -83,6 +90,30 @@ class PhxDynamicBody(
     backend: PhysxBackend,
     override val handle: PxRigidDynamic
 ) : PhxBody(backend, handle), IgDynamicBody {
+    override var linearVelocity: Vec3
+        get() {
+            assertThread()
+            return handle.linearVelocity.ig()
+        }
+        set(value) {
+            assertThread()
+            igUseMemory {
+                handle.linearVelocity = pxVec3(value)
+            }
+        }
+
+    override var angularVelocity: Vec3
+        get() {
+            assertThread()
+            return handle.angularVelocity.ig()
+        }
+        set(value) {
+            assertThread()
+            igUseMemory {
+                handle.angularVelocity = pxVec3(value)
+            }
+        }
+
     override val sleeping: Boolean
         get() = handle.isSleeping
 

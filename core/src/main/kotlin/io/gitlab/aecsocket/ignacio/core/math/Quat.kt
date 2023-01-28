@@ -1,7 +1,7 @@
 package io.gitlab.aecsocket.ignacio.core.math
 
 import io.gitlab.aecsocket.ignacio.core.IgScalar
-import io.gitlab.aecsocket.ignacio.core.igForce
+import io.gitlab.aecsocket.ignacio.core.util.force
 import org.spongepowered.configurate.ConfigurationNode
 import org.spongepowered.configurate.serialize.SerializationException
 import org.spongepowered.configurate.serialize.TypeSerializer
@@ -114,10 +114,12 @@ data class Quat(val x: IgScalar, val y: IgScalar, val z: IgScalar, val w: IgScal
         -x*q.x - y*q.y - z*q.z + w*q.w
     )
     operator fun times(s: IgScalar) = Quat(x*s, y*s, z*s, w*s)
-    operator fun times(v: Vec3) =
-        (v * 2.0 * v.dot(v)) +
-        (v * (w*w - v.dot(v))) +
-        (v.cross(v) * 2.0 * w)
+    operator fun times(v: Vec3): Vec3 {
+        val u = Vec3(x, y, z)
+        return (u * 2.0 * u.dot(v)) +
+            (v * (w*w - u.dot(u))) +
+            (u.cross(v) * 2.0 * w)
+    }
 
     fun asString(fmt: String = "%f") = "($fmt + ${fmt}i + ${fmt}j + ${fmt}k)".format(w, x, y, z)
 
@@ -155,16 +157,16 @@ object QuatSerializer : TypeSerializer<Quat> {
 
         if (list[0].raw() is String) {
             return Vec3(
-                list[1].igForce(),
-                list[2].igForce(),
-                list[3].igForce()
-            ).radians().quat(list[0].igForce())
+                list[1].force(),
+                list[2].force(),
+                list[3].force()
+            ).radians().quat(list[0].force())
         } else {
             return Quat(
-                list[0].igForce(),
-                list[1].igForce(),
-                list[2].igForce(),
-                list[3].igForce(),
+                list[0].force(),
+                list[1].force(),
+                list[2].force(),
+                list[3].force(),
             )
         }
     }
