@@ -14,13 +14,13 @@ interface IgPhysicsSpace {
     var settings: Settings
 
     val bodies: Collection<IgBody>
-    val bodiesAwake: Collection<IgBody>
+    val activeBodies: Collection<IgBody>
 
     fun addBody(body: IgBody)
 
     fun removeBody(body: IgBody)
 
-    fun countBodies(onlyAwake: Boolean = false): Int
+    fun countBodies(onlyActive: Boolean = false): Int
 
     fun nearbyBodies(position: Vec3, radius: IgScalar): List<IgBody>
 }

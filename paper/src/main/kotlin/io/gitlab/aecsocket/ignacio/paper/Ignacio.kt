@@ -6,13 +6,18 @@ import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder
 import io.gitlab.aecsocket.ignacio.bullet.BulletBackend
 import io.gitlab.aecsocket.ignacio.core.*
 import io.gitlab.aecsocket.ignacio.core.math.QuatSerializer
+import io.gitlab.aecsocket.ignacio.core.math.Vec3
 import io.gitlab.aecsocket.ignacio.core.math.Vec3Serializer
 import io.gitlab.aecsocket.ignacio.core.util.*
 import io.gitlab.aecsocket.ignacio.physx.PhysxBackend
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.future.await
 import kotlinx.coroutines.runBlocking
+import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.serializer.configurate4.ConfigurateComponentSerializer
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.Component.text
+import net.kyori.adventure.text.format.NamedTextColor
 import org.bukkit.Color
 import org.bukkit.Material
 import org.bukkit.Particle.BLOCK_DUST
@@ -43,11 +48,28 @@ enum class IgBackends { BULLET, PHYSX, NONE }
 
 enum class RenderType { POINT, VECTOR, EDGE }
 
+data class WorldSpace(
+    val space: IgPhysicsSpace,
+    val terrain: SimpleTerrainManager
+)
+
+internal data class PlayerData(
+    var renderSettings: RenderSettings? = null,
+    var statsBar: BossBar? = null
+)
+
 internal data class RenderSettings(
     val centerOfMass: Boolean,
     val linearVelocity: Boolean,
     val shape: Boolean
 )
+
+internal val cP1 = NamedTextColor.WHITE
+internal val cP2 = NamedTextColor.GRAY
+internal val cP3 = NamedTextColor.DARK_GRAY
+internal val cErr = NamedTextColor.RED
+
+internal operator fun Component.plus(c: Component) = this.append(c)
 
 private inline fun <reified T> TypeSerializerCollection.Builder.registerExact(serializer: TypeSerializer<T>) =
     registerExact(T::class.java, serializer)
@@ -83,6 +105,8 @@ class Ignacio : JavaPlugin() {
         val physx: PhysxBackend.Settings = PhysxBackend.Settings(),
         val space: IgPhysicsSpace.Settings = IgPhysicsSpace.Settings(),
         val stepTimeIntervals: List<Double> = listOf(5.0, 15.0, 60.0),
+        val stepTimeBarInterval: Double = 1.0,
+        val computeTerrain: Boolean = true,
         val geometryRender: GeometryRender = GeometryRender(),
         val renderParticles: Map<RenderType, IgParticleEffect> = mapOf(
             RenderType.POINT to IgParticleEffect(
@@ -106,13 +130,13 @@ class Ignacio : JavaPlugin() {
     val meshes = IgMeshes()
     val lastStepTimes = TimedCache<Long>(0)
 
-    private val mSpaces = HashMap<UUID, IgPhysicsSpace>()
-    val spaces: Map<UUID, IgPhysicsSpace> get() = mSpaces
+    private val mSpaces = HashMap<UUID, WorldSpace>()
+    val spaces: Map<UUID, WorldSpace> get() = mSpaces
 
     lateinit var backend: IgBackend<*> private set
     lateinit var settings: Settings private set
 
-    internal val playerRenderSettings = HashMap<Player, RenderSettings>()
+    internal val playerData = HashMap<Player, PlayerData>()
     internal val primitives = IgPrimitives(this)
     private val stepping = AtomicBoolean(false)
 
@@ -161,23 +185,66 @@ class Ignacio : JavaPlugin() {
             meshes.update()
 
             if (!stepping.get()) {
-                executePhysics {
-                    stepping.set(true)
-                    lastStepTimes.timeNanos {
-                        backend.step(mSpaces.values)
-                    }
-                    stepping.set(false)
-                }
+                runStep()
             }
 
-            playerRenderSettings.forEach { (player, renderSettings) ->
-                val physSpace = physicsSpaceOfOrNull(player.world) ?: return@forEach
+            runPlayerData()
+        }
+        physicsThread.start()
+        primitives.enable()
+    }
+
+    private fun runStep() {
+        executePhysics {
+            stepping.set(true)
+            lastStepTimes.timeNanos {
+                backend.step(mSpaces.map { (_, space) -> space.space })
+                mSpaces.forEach world@ { (_, space) ->
+                    val (physSpace, terrain) = space
+                    val positions = HashSet<TerrainPos>()
+                    if (settings.computeTerrain) {
+                        physSpace.activeBodies.forEach { body ->
+                            if (body !is IgDynamicBody) return@forEach
+                            val bounds = body.boundingBox.inflated(Vec3(0.5)) // todo
+                            positions.addAll(terrainPosIn(bounds))
+                        }
+                    }
+                    terrain.compute(positions)
+                }
+
+            }
+            stepping.set(false)
+        }
+    }
+
+    private fun runPlayerData() {
+        val (avg, top5, bottom5) = lastStepTimes.getLastResults((settings.stepTimeBarInterval * 1000).toLong())
+        playerData.forEach { (player, data) ->
+            val physSpace = physicsSpaceOfOrNull(player.world) ?: return@forEach
+
+            data.statsBar?.let { statsBar ->
+                statsBar.name(
+                    text(physSpace.countBodies(true), cP1)
+                    + text(" awake / ", cP2)
+                    + text(physSpace.countBodies(), cP1)
+                    + text(" total", cP2)
+                    + text(" | ", cP3)
+                    + textTiming(avg)
+                    + text(" avg / ", cP2)
+                    + textTiming(top5)
+                    + text(" 5%ile / ", cP2)
+                    + textTiming(bottom5)
+                    + text(" 95%ile", cP2)
+                )
+            }
+
+            data.renderSettings?.let { renderSettings ->
                 val pointRenderer = pointRendererOf(RenderType.POINT, player)
                 val vectorRenderer = pointRendererOf(RenderType.VECTOR, player)
                 val edgeRenderer = pointRendererOf(RenderType.EDGE, player)
 
                 executePhysics {
-                    val nearby = physSpace.nearbyBodies(player.location.vec3(), 16.0)
+                    val nearby = physSpace.nearbyBodies(player.location.vec(), 16.0)
                     nearby.forEach { body ->
                         val bodyTransform = body.transform
                         val position = bodyTransform.position
@@ -203,8 +270,6 @@ class Ignacio : JavaPlugin() {
                 }
             }
         }
-        physicsThread.start()
-        primitives.enable()
     }
 
     override fun onDisable() {
@@ -232,8 +297,14 @@ class Ignacio : JavaPlugin() {
             is BulletBackend -> backend.reload(settings.bullet)
             is PhysxBackend -> backend.reload(settings.physx)
         }
+
+        mSpaces.forEach { (_, space) ->
+            space.space.settings = settings.space
+        }
         loadInternal()
     }
+
+    internal fun playerData(player: Player) = playerData.computeIfAbsent(player) { PlayerData() }
 
     fun pointRendererOf(type: RenderType, player: Player): PointRenderer {
         val particle = settings.renderParticles[type]
@@ -257,15 +328,16 @@ class Ignacio : JavaPlugin() {
         return future
     }
 
-    fun physicsSpaceOfOrNull(world: World) = mSpaces[world.uid]
+    fun physicsSpaceOfOrNull(world: World) = mSpaces[world.uid]?.space
 
     fun physicsSpaceOf(world: World) = mSpaces.computeIfAbsent(world.uid) {
-        backend.createSpace(settings.space)
-    }
+        val physSpace = backend.createSpace(settings.space)
+        WorldSpace(physSpace, SimpleTerrainManager(backend, world, physSpace))
+    }.space
 
     fun removeSpace(world: World) {
         mSpaces.remove(world.uid)?.let { space ->
-            backend.destroySpace(space)
+            backend.destroySpace(space.space)
         }
     }
 }

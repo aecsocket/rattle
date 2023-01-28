@@ -59,7 +59,7 @@ internal class IgPrimitives(private val ignacio: Ignacio) : Listener {
             entity.setAI(false)
             entity.setGravity(false)
         }
-        val transform = Transform(location.vec3())
+        val transform = Transform(location.vec())
         val mesh = if (visual) {
             val mesh = ignacio.meshes.createItem(
                 transform,

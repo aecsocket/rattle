@@ -5,6 +5,7 @@ import com.jme3.bullet.collision.shapes.CollisionShape
 import com.jme3.bullet.collision.shapes.CompoundCollisionShape
 import com.jme3.bullet.objects.PhysicsRigidBody
 import io.gitlab.aecsocket.ignacio.core.*
+import io.gitlab.aecsocket.ignacio.core.math.AABB
 import io.gitlab.aecsocket.ignacio.core.math.Transform
 import io.gitlab.aecsocket.ignacio.core.math.Vec3
 
@@ -75,7 +76,7 @@ sealed class BltBody(
             handle.collisionShape = it
         }
         mShapes[shape.handle.nativeId()] = shape
-        compound.addChildShape(shape.handle)
+        compound.addChildShape(shape.handle, shape.transform.btSp())
     }
 
     override fun detachShape(shape: IgShape) {
@@ -131,13 +132,19 @@ class BltRigidBody(
             handle.isKinematic = value
         }
 
-    override val sleeping: Boolean
+    override val active: Boolean
         get() {
             assertThread()
-            return !handle.isActive
+            return handle.isActive
         }
 
-    override fun wake() {
+    override val boundingBox: AABB
+        get() {
+            assertThread()
+            return handle.boundingBox()
+        }
+
+    override fun activate() {
         assertThread()
         handle.activate(true)
     }

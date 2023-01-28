@@ -28,7 +28,7 @@ internal class IgnacioEventListener(private val ignacio: Ignacio) : Listener {
 
     @EventHandler
     fun on(event: PlayerQuitEvent) {
-        ignacio.playerRenderSettings.remove(event.player)
+        ignacio.playerData.remove(event.player)
     }
 
     @EventHandler

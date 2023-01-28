@@ -1,6 +1,7 @@
 package io.gitlab.aecsocket.ignacio.physx
 
 import io.gitlab.aecsocket.ignacio.core.*
+import io.gitlab.aecsocket.ignacio.core.math.AABB
 import io.gitlab.aecsocket.ignacio.core.math.Transform
 import io.gitlab.aecsocket.ignacio.core.math.Vec3
 import physx.physics.*
@@ -25,10 +26,17 @@ sealed class PhxBody(
             return handle.globalPose.ig()
         }
         set(value) {
+            assertThread()
             igUseMemory {
                 val tf = pxTransform(pxVec3(value.position), pxQuat(value.rotation))
                 handle.setGlobalPose(tf, false)
             }
+        }
+
+    override val boundingBox: AABB
+        get() {
+            assertThread()
+            return handle.worldBounds.ig()
         }
 
     val mShapes = HashMap<Long, PhxShape>()
@@ -121,13 +129,13 @@ class PhxDynamicBody(
             handle.setRigidBodyFlag(PxRigidBodyFlagEnum.eKINEMATIC, value)
         }
 
-    override val sleeping: Boolean
+    override val active: Boolean
         get() {
             assertThread()
-            return handle.isSleeping
+            return !handle.isSleeping
         }
 
-    override fun wake() {
+    override fun activate() {
         assertThread()
         handle.wakeUp()
     }

@@ -17,13 +17,15 @@ class PhxPhysicsSpace(
     override var settings = settings
         set(value) {
             field = value
-            ground.transform = Transform(Vec3(0.0, settings.groundPlaneY, 0.0), groundPlaneQuat)
+            backend.physicsThread.execute {
+                ground.transform = Transform(Vec3(0.0, settings.groundPlaneY, 0.0), groundPlaneQuat)
+            }
         }
 
     val mBodies = HashMap<PxActor, PhxBody>()
     override val bodies: Collection<PhxBody> get() = mBodies.values
-    val mAwakeBodies = ArrayList<PhxBody>()
-    override val bodiesAwake: Collection<PhxBody> get() = mAwakeBodies
+    val mActiveBodies = ArrayList<PhxBody>()
+    override val activeBodies: Collection<PhxBody> get() = mActiveBodies
 
     private val overlapBuffer = PxOverlapBuffer10()
 
@@ -43,9 +45,8 @@ class PhxPhysicsSpace(
         handle.removeActor(body.handle)
     }
 
-    override fun countBodies(onlyAwake: Boolean): Int {
-        assertThread()
-        return if (onlyAwake) bodiesAwake.size else bodies.size
+    override fun countBodies(onlyActive: Boolean): Int {
+        return if (onlyActive) activeBodies.size else bodies.size
     }
 
     override fun nearbyBodies(position: Vec3, radius: IgScalar): List<PhxBody> {
@@ -80,10 +81,10 @@ class PhxPhysicsSpace(
 
     fun joinStep() {
         handle.fetchResults(true)
-        mAwakeBodies.clear()
+        mActiveBodies.clear()
         val activeActors = SupportFunctions.PxScene_getActiveActors(handle)
         for (i in 0 until activeActors.size()) {
-            mAwakeBodies.add(mBodies[activeActors.at(i)]!!)
+            mActiveBodies.add(mBodies[activeActors.at(i)]!!)
         }
     }
 

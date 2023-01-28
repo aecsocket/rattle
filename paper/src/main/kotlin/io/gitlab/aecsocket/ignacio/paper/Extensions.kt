@@ -8,9 +8,13 @@ import org.bukkit.Location
 import org.bukkit.World
 import org.bukkit.event.Listener
 import org.bukkit.plugin.Plugin
+import org.bukkit.util.Vector
+
+fun Vec3.bukkit() = Vector(x, y, z)
+fun Vector.ig() = Vec3(x, y, z)
 
 fun Vec3.location(world: World, yaw: Float = 0f, pitch: Float = 0f) = Location(world, x, y, z, yaw, pitch)
-fun Location.vec3() = Vec3(x, y, z)
+fun Location.vec() = Vec3(x, y, z)
 
 fun Plugin.registerEvents(listener: Listener) {
     Bukkit.getPluginManager().registerEvents(listener, this)

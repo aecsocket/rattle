@@ -95,6 +95,7 @@ class PhysxBackend(
         igUseMemory {
             val pxGeom = pxGeometryOf(geometry)
             pxShape = physics.createShape(pxGeom, stdMaterial /* TODO */, true)
+            pxShape.localPose = pxTransform(transform)
         }
         pxShape.simulationFilterData = stdFilterData
         return PhxShape(pxShape, geometry, transform)

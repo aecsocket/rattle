@@ -36,3 +36,19 @@ fun TimedCache<Long>.timeNanos(block: () -> Unit): Long {
     add(delta)
     return delta
 }
+
+data class TimingResults(
+    val avg: Double,
+    val top5: Double,
+    val bottom5: Double
+)
+
+fun TimedCache<Long>.getLastResults(ms: Long): TimingResults {
+    val times = getLast(ms).sorted()
+    return if (times.isEmpty()) TimingResults(0.0, 0.0, 0.0)
+    else TimingResults(
+        times.average() / 1.0e6,
+        times[(times.size * 0.95).toInt()] / 1.0e6,
+        times[(times.size * 0.05).toInt()] / 1.0e6
+    )
+}

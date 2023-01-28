@@ -1,6 +1,7 @@
 package io.gitlab.aecsocket.ignacio.paper
 
 import cloud.commandframework.ArgumentDescription
+import cloud.commandframework.arguments.standard.BooleanArgument
 import cloud.commandframework.arguments.standard.DoubleArgument
 import cloud.commandframework.arguments.standard.IntegerArgument
 import cloud.commandframework.arguments.standard.StringArgument
@@ -13,8 +14,10 @@ import cloud.commandframework.paper.PaperCommandManager
 import io.gitlab.aecsocket.ignacio.bullet.nextVec3
 import io.gitlab.aecsocket.ignacio.core.*
 import io.gitlab.aecsocket.ignacio.core.math.Vec3
+import io.gitlab.aecsocket.ignacio.core.util.getLastResults
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
+import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.Component.text
 import net.kyori.adventure.text.format.NamedTextColor
@@ -30,23 +33,16 @@ private fun desc(text: String) = ArgumentDescription.of(text)
 
 private fun perm(key: String) = "$ROOT.command.$key"
 
-private operator fun Component.plus(c: Component) = this.append(c)
-
-private val cP1 = NamedTextColor.WHITE
-private val cP2 = NamedTextColor.GRAY
-private val cP3 = NamedTextColor.DARK_GRAY
-private val cErr = NamedTextColor.RED
-
 private val timingColors = mapOf(
     50.0 to NamedTextColor.RED,
-    15.0 to NamedTextColor.YELLOW,
-    0.0 to NamedTextColor.GREEN
+    15.0 to NamedTextColor.YELLOW
 )
+private val defaultTimingColor = NamedTextColor.GREEN
 
-private fun textTiming(ms: Double): Component {
-    val color = timingColors.firstNotNullOf { (thresh, color) ->
-        if (ms > thresh) color else null
-    }
+internal fun textTiming(ms: Double): Component {
+    val color = timingColors.firstNotNullOfOrNull { (thresh, color) ->
+        if (ms >= thresh) color else null
+    } ?: defaultTimingColor
     return text("%.2fms".format(ms), color)
 }
 
@@ -78,10 +74,17 @@ internal class IgnacioCommand(private val ignacio: Ignacio) {
             .literal("reload", desc("Reload all plugin data."))
             .permission(perm("reload"))
             .handler(::reload))
-        manager.command(root
+
+        val stats = root
             .literal("stats", desc("Show physics engine statistics."))
+        manager.command(stats
             .permission(perm("stats"))
             .handler(::stats))
+        manager.command(stats
+            .argument(BooleanArgument.builder("show"), desc("Show stats in boss bar."))
+            .permission(perm("stats"))
+            .senderType(Player::class.java)
+            .handler(::statsShow))
         manager.command(root
             .literal("render", desc("Renders body debug info through particles."))
             .flag(manager.flagBuilder("com")
@@ -104,9 +107,10 @@ internal class IgnacioCommand(private val ignacio: Ignacio) {
 
         val primitiveCreateLocation = LocationArgument.builder<CommandSender>("location")
             .withDefaultDescription(desc("Where to create the body."))
-        val primitiveCreateVisual = manager.flagBuilder("visual")
+            .asOptional()
+        val primitiveCreateVisual = manager.flagBuilder("virtual")
             .withAliases("v")
-            .withDescription(desc("Body will have a visible debug mesh attached to it."))
+            .withDescription(desc("Body will not have a visible debug mesh attached to it."))
             .build()
         val primitiveCreateMass = manager.flagBuilder("mass")
             .withAliases("m")
@@ -176,7 +180,7 @@ internal class IgnacioCommand(private val ignacio: Ignacio) {
         ignacio.runAsync {
             worlds.map { data -> launch {
                 val physSpace = data.physSpace ?: return@launch
-                data.bodiesAwake = ignacio.runPhysics { physSpace.countBodies(onlyAwake = true) }
+                data.bodiesAwake = ignacio.runPhysics { physSpace.countBodies(onlyActive = true) }
                 data.bodiesTotal = ignacio.runPhysics { physSpace.countBodies() }
             } }.joinAll()
 
@@ -206,13 +210,7 @@ internal class IgnacioCommand(private val ignacio: Ignacio) {
 
             sender.sendMessage(text("Step timings from the last...", cP2))
             ignacio.settings.stepTimeIntervals.forEach { interval ->
-                val times = ignacio.lastStepTimes.getLast((interval * 1000).toLong())
-                    .sorted()
-                val avg = times.average() / 1.0e6
-                // val min = times.first() / 1.0e6
-                // val max = times.last() / 1.0e6
-                val top5 = times[(times.size * 0.95).toInt()] / 1.0e6
-                val bottom5 = times[(times.size * 0.05).toInt()] / 1.0e6
+                val (avg, top5, bottom5) = ignacio.lastStepTimes.getLastResults((interval * 1000).toLong())
                 sender.sendMessage(
                     text(" · ", cP2)
                     + text("%.1fs".format(interval), cP1)
@@ -228,13 +226,30 @@ internal class IgnacioCommand(private val ignacio: Ignacio) {
         }
     }
 
+    private fun statsShow(ctx: CommandContext<CommandSender>) {
+        val player = ctx.sender as Player
+        val show = ctx.get<Boolean>("show")
+
+        val data = ignacio.playerData(player)
+        if (show && data.statsBar == null) {
+            val bar = BossBar.bossBar(Component.empty(), 1f, BossBar.Color.WHITE, BossBar.Overlay.PROGRESS)
+            data.statsBar = bar
+            player.showBossBar(bar)
+        } else if (!show) {
+            data.statsBar?.let {
+                player.hideBossBar(it)
+            }
+            data.statsBar = null
+        }
+    }
+
     private fun render(ctx: CommandContext<CommandSender>) {
         val player = ctx.sender as Player
         val com = ctx.flags().hasFlag("com")
         val velocity = ctx.flags().hasFlag("velocity")
         val shape = ctx.flags().hasFlag("shape")
 
-        ignacio.playerRenderSettings[player] = RenderSettings(
+        ignacio.playerData(player).renderSettings = RenderSettings(
             centerOfMass = com,
             linearVelocity = velocity,
             shape = shape
@@ -242,19 +257,20 @@ internal class IgnacioCommand(private val ignacio: Ignacio) {
     }
 
     private fun primitiveCreate(ctx: CommandContext<CommandSender>, geometry: IgGeometry) {
-        val location = ctx.get<Location>("location")
-        val visual = ctx.flags().hasFlag("visual")
+        val location = ctx.getOptional<Location>("location")
+            .orElse((ctx.sender as Player).location)
+        val virtual = ctx.flags().hasFlag("virtual")
         val mass = ctx.flags().getValue<Double>("mass").orElse(1.0)
         val count = ctx.flags().getValue<Int>("count").orElse(1)
         val spread = ctx.flags().getValue<Double>("spread").orElse(0.0)
 
         val world = location.world
-        val min = location.vec3() - spread
+        val min = location.vec() - spread
         val spread2 = spread * 2.0
 
         repeat(count) {
             val position = min + Random.nextVec3() * spread2
-            ignacio.primitives.create(position.location(world), geometry, mass, visual)
+            ignacio.primitives.create(position.location(world), geometry, mass, !virtual)
         }
     }
 

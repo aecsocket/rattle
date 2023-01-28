@@ -1,10 +1,12 @@
 package io.gitlab.aecsocket.ignacio.physx
 
 import io.gitlab.aecsocket.ignacio.core.*
+import io.gitlab.aecsocket.ignacio.core.math.AABB
 import io.gitlab.aecsocket.ignacio.core.math.Quat
 import io.gitlab.aecsocket.ignacio.core.math.Transform
 import io.gitlab.aecsocket.ignacio.core.math.Vec3
 import org.lwjgl.system.MemoryStack
+import physx.common.PxBounds3
 import physx.common.PxIDENTITYEnum
 import physx.common.PxQuat
 import physx.common.PxTolerancesScale
@@ -32,6 +34,8 @@ fun PxVec3.ig() = Vec3(x.toDouble(), y.toDouble(), z.toDouble())
 fun PxQuat.ig() = Quat(x.toDouble(), y.toDouble(), z.toDouble(), w.toDouble())
 
 fun PxTransform.ig() = Transform(p.ig(), q.ig())
+
+fun PxBounds3.ig() = AABB(minimum.ig(), maximum.ig())
 
 @OptIn(ExperimentalContracts::class)
 fun <R> igUseMemory(block: MemoryStack.() -> R): R {

@@ -1,5 +1,6 @@
 package io.gitlab.aecsocket.ignacio.core
 
+import io.gitlab.aecsocket.ignacio.core.math.AABB
 import io.gitlab.aecsocket.ignacio.core.math.Transform
 import io.gitlab.aecsocket.ignacio.core.math.Vec3
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
@@ -19,6 +20,7 @@ data class IgBodyDynamics(
 interface IgBody {
     var transform: Transform
     val shapes: Collection<IgShape>
+    val boundingBox: AABB
 
     fun isAdded(): Boolean
 
@@ -45,9 +47,9 @@ interface IgDynamicBody : IgRigidBody {
     var linearVelocity: Vec3
     var angularVelocity: Vec3
     var kinematic: Boolean
-    val sleeping: Boolean
+    val active: Boolean
 
-    fun wake()
+    fun activate()
 
     fun applyForce(force: Vec3)
 
