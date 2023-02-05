@@ -5,9 +5,14 @@ plugins {
 }
 
 allprojects {
-    group = "io.gitlab.aecsocket"
+    group = "io.github.aecsocket"
     version = "0.1.0"
     description = "API for integrating physics engines into Minecraft"
+}
+
+repositories {
+    mavenLocal()
+    mavenCentral()
 }
 
 kotlin {

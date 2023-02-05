@@ -1,15 +1,16 @@
 [versions]
 
 minecraft = "1.19.3"
-
 kotlin = "1.8.0"
 kotlinxCoroutines = "1.6.4"
 adventure = "4.11.0"
 configurate = "4.1.2"
-libBulletJme = "17.5.4"
-physxJni = "2.0.4"
 cloud = "1.8.0"
 packetEvents = "2.0.0-SNAPSHOT"
+
+joltJni = "0.1.0-SNAPSHOT"
+libBulletJme = "17.5.4"
+physxJni = "2.0.4"
 
 [libraries]
 
@@ -23,8 +24,9 @@ configurateCore = { group = "org.spongepowered", name = "configurate-core", vers
 configurateExtraKotlin = { group = "org.spongepowered", name = "configurate-extra-kotlin", version.ref = "configurate" }
 configurateHocon = { group = "org.spongepowered", name = "configurate-hocon", version.ref = "configurate" }
 
+joltJni = { group = "io.github.aecsocket", name = "jolt-jni", version.ref = "joltJni" }
+joltJniKotlin = { group = "io.github.aecsocket", name = "jolt-jni-kotlin", version.ref = "joltJni" }
 libBulletJme = { group = "com.github.stephengold", name = "Libbulletjme", version.ref = "libBulletJme" }
-
 physxJni = { group = "de.fabmax", name = "physx-jni", version.ref = "physxJni" }
 
 cloudCore = { group = "cloud.commandframework", name = "cloud-core", version.ref = "cloud" }

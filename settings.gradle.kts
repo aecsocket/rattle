@@ -19,14 +19,6 @@ pluginManagement {
 rootProject.name = "ignacio"
 
 listOf(
-    "core",
-    "bullet",
-    "physx",
-    "paper",
-).forEach {
-    val name = "${rootProject.name}-$it"
-    include(name)
-    project(":$name").apply {
-        projectDir = file(it)
-    }
-}
+    "core", "paper",
+    "jolt", "physx"
+).forEach { include("${rootProject.name}-$it") }
