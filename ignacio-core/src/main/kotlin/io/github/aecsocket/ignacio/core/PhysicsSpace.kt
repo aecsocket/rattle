@@ -13,7 +13,7 @@ interface PhysicsSpace {
 
     fun addStaticBody(geometry: Geometry, transform: Transform): StaticBody
 
-    fun addDynamicBody(geometry: Geometry, transform: Transform): DynamicBody
+    fun addDynamicBody(geometry: Geometry, transform: Transform, dynamics: BodyDynamics): DynamicBody
 
     fun removeBody(body: PhysicsBody)
 

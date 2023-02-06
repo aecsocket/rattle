@@ -7,6 +7,7 @@ import cloud.commandframework.context.CommandContext
 import cloud.commandframework.execution.CommandExecutionCoordinator
 import cloud.commandframework.minecraft.extras.MinecraftHelp
 import cloud.commandframework.paper.PaperCommandManager
+import io.github.aecsocket.ignacio.core.BodyDynamics
 import io.github.aecsocket.ignacio.core.BoxGeometry
 import io.github.aecsocket.ignacio.core.math.Transform
 import io.github.aecsocket.ignacio.core.math.Vec3d
@@ -61,7 +62,21 @@ internal class IgnacioCommand(private val ignacio: Ignacio) {
                 val transform = Transform(player.location.vec())
 
                 val physicsSpace = ignacio.physicsSpaceOf(player.world)
-                val box = physicsSpace.addDynamicBody(BoxGeometry(Vec3f(0.5f)), transform)
+
+                // todo this is bad
+                val ground = physicsSpace.addStaticBody(
+                    BoxGeometry(Vec3f(10_000f, 0.5f, 10_000f)),
+                    Transform(Vec3d(transform.position.x, 64.0, transform.position.y))
+                )
+
+                val box = physicsSpace.addDynamicBody(
+                    BoxGeometry(Vec3f(0.5f)),
+                    transform,
+                    BodyDynamics(
+                        activate = true,
+                        mass = 1f
+                    )
+                )
                 val boxMesh = ignacio.meshes.createItem(
                     transform,
                     { setOf(player) },

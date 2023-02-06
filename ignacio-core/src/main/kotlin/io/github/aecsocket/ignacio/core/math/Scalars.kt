@@ -9,8 +9,8 @@ internal const val DECIMAL_FORMAT = "%.3f"
 
 // scalars
 
-fun sqr(x: Float) = x*x
-fun sqr(x: Double) = x*x
+inline fun sqr(x: Float) = x*x
+inline fun sqr(x: Double) = x*x
 
 fun clamp(value: Double, min: Double, max: Double) = min(max, max(min, value))
 fun clamp(value: Float, min: Float, max: Float) = min(max, max(min, value))

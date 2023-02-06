@@ -14,8 +14,8 @@ repositories {
 dependencies {
     api(projects.ignacioCore)
     implementation(projects.ignacioJolt)
+    implementation(projects.ignacioPhysx)
     //implementation(projects.ignacioBullet)
-    //implementation(projects.ignacioPhysx)
     paperDevBundle("$minecraft-R0.1-SNAPSHOT")
 
     implementation(libs.adventureSerializerConfigurate)

@@ -19,7 +19,6 @@ import physx.physics.PxFilterData
 import physx.physics.PxQueryFilterData
 import physx.physics.PxQueryFlagEnum
 import physx.physics.PxQueryFlags
-import physx.physics.PxRigidActor
 import physx.physics.PxSceneDesc
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.InvocationKind
@@ -33,7 +32,7 @@ fun PxQuat.ignacio() = Quat(x, y, z, w)
 fun PxTransform.ignacio() = Transform(p.ignacioDp(), q.ignacio())
 
 @OptIn(ExperimentalContracts::class)
-fun <R> pushMemory(block: MemoryStack.() -> R): R {
+fun <R> useMemory(block: MemoryStack.() -> R): R {
     contract {
         callsInPlace(block, InvocationKind.EXACTLY_ONCE)
     }
@@ -69,7 +68,7 @@ fun MemoryStack.pxVec3() =
 fun MemoryStack.pxQuat(x: Float, y: Float, z: Float, w: Float) =
     PxQuat.createAt(this, MemoryStack::nmalloc, x, y, z, w)
 fun MemoryStack.pxQuat(q: Quat) =
-    PxQuat.createAt(this, MemoryStack::nmalloc, q.x.toFloat(), q.y.toFloat(), q.z.toFloat(), q.w.toFloat())
+    PxQuat.createAt(this, MemoryStack::nmalloc, q.x, q.y, q.z, q.w)
 fun MemoryStack.pxQuat() =
     PxQuat.createAt(this, MemoryStack::nmalloc)
 
@@ -86,6 +85,8 @@ fun MemoryStack.pxSphereGeometry(ir: Float) =
     PxSphereGeometry.createAt(this, MemoryStack::nmalloc, ir)
 fun MemoryStack.pxBoxGeometry(hx: Float, hy: Float, hz: Float) =
     PxBoxGeometry.createAt(this, MemoryStack::nmalloc, hx, hy, hz)
+fun MemoryStack.pxBoxGeometry(halfExtent: Vec3f) =
+    PxBoxGeometry.createAt(this, MemoryStack::nmalloc, halfExtent.x, halfExtent.y, halfExtent.z)
 fun MemoryStack.pxCapsuleGeometry(radius: Float, halfHeight: Float) =
     PxCapsuleGeometry.createAt(this, MemoryStack::nmalloc, radius, halfHeight)
 
@@ -97,11 +98,3 @@ fun MemoryStack.pxQueryFlags(flags: Int) =
     PxQueryFlags.createAt(this, MemoryStack::nmalloc, flags.toShort())
 fun MemoryStack.pxQueryFilterData(data: PxFilterData, flags: PxQueryFlags) =
     PxQueryFilterData.createAt(this, MemoryStack::nmalloc, data, flags)
-
-var PxRigidActor.transform: Transform
-    get() = globalPose.ignacio()
-    set(value) {
-        pushMemory {
-            globalPose = pxTransform(value)
-        }
-    }

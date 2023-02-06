@@ -1,22 +1,45 @@
 package io.github.aecsocket.ignacio.physx
 
-import io.github.aecsocket.ignacio.core.IgnacioEngine
-import io.github.aecsocket.ignacio.core.PhysicsSpace
+import io.github.aecsocket.ignacio.core.*
+import io.github.aecsocket.ignacio.core.math.Transform
 import io.github.aecsocket.ignacio.core.math.clamp
+import org.lwjgl.system.MemoryStack
+import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import physx.PxTopLevelFunctions
 import physx.common.*
+import physx.geometry.PxGeometry
 import physx.geometry.PxPlaneGeometry
 import physx.physics.*
+import java.util.logging.Level
 import java.util.logging.Logger
 
 class PsErrorCallback(private val logger: Logger) : PxErrorCallbackImpl() {
     override fun reportError(code: PxErrorCodeEnum, message: String, file: String, line: Int) {
-        super.reportError(code, message, file, line)
+        val level = when (code) {
+            PxErrorCodeEnum.eMASK_ALL,
+            PxErrorCodeEnum.eNO_ERROR,
+            PxErrorCodeEnum.eDEBUG_INFO -> Level.INFO
+
+            PxErrorCodeEnum.eDEBUG_WARNING,
+            PxErrorCodeEnum.eINVALID_PARAMETER,
+            PxErrorCodeEnum.eINVALID_OPERATION,
+            PxErrorCodeEnum.ePERF_WARNING -> Level.WARNING
+
+            PxErrorCodeEnum.eOUT_OF_MEMORY,
+            PxErrorCodeEnum.eINTERNAL_ERROR,
+            PxErrorCodeEnum.eABORT -> Level.SEVERE
+        }
+        logger.log(level, "PhysX: $message")
     }
 }
 
-class PhysxEngine(logger: Logger) : IgnacioEngine {
-    override val version: String
+class PhysxEngine(var settings: Settings, logger: Logger) : IgnacioEngine {
+    @ConfigSerializable
+    data class Settings(
+        val numThreads: Int = 0,
+    )
+
+    override val build: String
 
     val spaces = HashMap<PxScene, PsPhysicsSpace>()
 
@@ -37,9 +60,17 @@ class PhysxEngine(logger: Logger) : IgnacioEngine {
     val planeGeom: PxPlaneGeometry
 
     init {
-        numThreads = clamp(Runtime.getRuntime().availableProcessors() - 2, 1, 16)
-
         val version = PxTopLevelFunctions.getPHYSICS_VERSION()
+
+        val versionMajor = version shr 24
+        val versionMinor = (version shr 16) and 0xff
+        val versionBuild = (version shr 8) and 0xff
+        build = "v$versionMajor.$versionMinor.$versionBuild"
+
+        numThreads =
+            if (settings.numThreads < 0) clamp(Runtime.getRuntime().availableProcessors() - 2, 1, 16)
+            else settings.numThreads
+
         allocator = PxDefaultAllocator()
         errorCb = PsErrorCallback(logger)
         foundation = PxTopLevelFunctions.CreateFoundation(version, allocator, errorCb)
@@ -75,11 +106,6 @@ class PhysxEngine(logger: Logger) : IgnacioEngine {
 
         actorTypeFlagsAll = PxActorTypeFlags((PxActorTypeFlag.DYNAMIC or PxActorTypeFlag.STATIC).toShort())
         planeGeom = PxPlaneGeometry()
-
-        val versionMajor = version shr 24
-        val versionMinor = (version shr 16) and 0xff
-        val versionBuild = (version shr 8) and 0xff
-        this.version = "$versionMajor.$versionMinor.$versionBuild"
     }
 
     override fun destroy() {
@@ -97,9 +123,29 @@ class PhysxEngine(logger: Logger) : IgnacioEngine {
         allocator.destroy()
     }
 
+    fun MemoryStack.geometryOf(geometry: Geometry): PxGeometry {
+        return when (geometry) {
+            is SphereGeometry -> pxSphereGeometry(geometry.radius)
+            is BoxGeometry -> pxBoxGeometry(geometry.halfExtent)
+            is CapsuleGeometry -> pxCapsuleGeometry(geometry.radius, geometry.halfHeight)
+            else -> throw IllegalArgumentException("Unsupported geometry type ${geometry::class.simpleName}")
+        }
+    }
+
+    fun createShape(geometry: Geometry, transform: Transform): PxShape {
+        val shape: PxShape
+        useMemory {
+            val pxGeometry = geometryOf(geometry)
+            shape = physics.createShape(pxGeometry, stdMaterial, true)
+            shape.localPose = pxTransform(transform)
+        }
+        shape.simulationFilterData = stdFilterData
+        return shape
+    }
+
     override fun createSpace(settings: PhysicsSpace.Settings): PhysicsSpace {
         val scene: PxScene
-        pushMemory {
+        useMemory {
             val desc = pxSceneDesc(scale)
             desc.cpuDispatcher = cpuDispatcher
             desc.filterShader = PxTopLevelFunctions.DefaultFilterShader()

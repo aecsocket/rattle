@@ -13,8 +13,12 @@ sealed class PsBody(
     open val handle: PxRigidActor
 ) : PhysicsBody {
     override var transform: Transform
-        get() = TODO("Not yet implemented")
-        set(value) {}
+        get() = handle.globalPose.ignacio()
+        set(value) {
+            useMemory {
+                handle.globalPose = pxTransform(value)
+            }
+        }
 
     override fun destroy() {
         // todo

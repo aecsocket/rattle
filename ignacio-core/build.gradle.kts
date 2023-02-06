@@ -8,4 +8,5 @@ dependencies {
     testImplementation(kotlin("test"))
     testImplementation(projects.ignacioJolt)
     testImplementation(projects.ignacioPhysx)
+    testImplementation(libs.joltJni)
 }

@@ -1,7 +1,7 @@
 package io.github.aecsocket.ignacio.core
 
 interface IgnacioEngine : Destroyable {
-    val version: String
+    val build: String
 
     fun createSpace(settings: PhysicsSpace.Settings): PhysicsSpace
 
