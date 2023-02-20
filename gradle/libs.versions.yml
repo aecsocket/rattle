@@ -1,0 +1,48 @@
+metadata:
+  format: { version: 1.0 }
+  polyglot-extensions: [ "plugins" ]
+
+plugins:
+  com.github.johnrengelman.shadow: 7.1.2
+  io.papermc.paperweight.userdev: 1.5.1
+  xyz.jpenilla.run-paper: 2.0.1
+
+versions:
+  indra: 3.0.1
+  kotlin: 1.8.10
+  adventure: 4.12.0
+  configurate: 4.1.2
+  cloud: 1.8.0
+  alexandria: 0.1.0-SNAPSHOT
+  joltJni: 0.1.0-SNAPSHOT
+  physxJni: 2.0.4
+  libBulletJme: 17.5.4
+  minecraft: 1.19.3
+  glossa: 0.1.0-SNAPSHOT
+  packetEvents: 2.0.0-SNAPSHOT
+
+dependencies:
+  indraCommon: { group: net.kyori, name: indra-common, version: { ref: indra } }
+  indraPublishingSonatype: { group: net.kyori, name: indra-publishing-sonatype, version: { ref: indra } }
+  kotlin: { group: org.jetbrains.kotlin, name: kotlin-gradle-plugin, version: { ref: kotlin } }
+  adventureSerializerConfigurate: { group: net.kyori, name: adventure-serializer-configurate4, version: { ref: adventure } }
+  configurateCore: { group: org.spongepowered, name: configurate-core, version: { ref: configurate } }
+  configurateExtraKotlin: { group: org.spongepowered, name: configurate-extra-kotlin, version: { ref: configurate } }
+  configurateYaml: { group: org.spongepowered, name: configurate-yaml, version: { ref: configurate } }
+  cloudCore: { group: cloud.commandframework, name: cloud-core, version: { ref: cloud } }
+  cloudPaper: { group: cloud.commandframework, name: cloud-paper, version: { ref: cloud } }
+  cloudMinecraftExtras: { group: cloud.commandframework, name: cloud-minecraft-extras, version: { ref: cloud } }
+  alexandriaCore: { group: io.github.aecsocket, name: alexandria-core, version: { ref: alexandria } }
+  alexandriaApiPaper: { group: io.github.aecsocket, name: alexandria-api-paper, version: { ref: alexandria } }
+  joltJni: { group: io.github.aecsocket, name: jolt-jni, version: { ref: joltJni } }
+  joltJniKotlin: { group: io.github.aecsocket, name: jolt-jni-kotlin, version: { ref: joltJni } }
+  joltJniNativesLinux: { group: io.github.aecsocket, name: jolt-jni-natives-linux, version: { ref: joltJni } }
+  joltJniNativesWindows: { group: io.github.aecsocket, name: jolt-jni-natives-windows, version: { ref: joltJni } }
+  joltJniNativesMacos: { group: io.github.aecsocket, name: jolt-jni-natives-macos, version: { ref: joltJni } }
+  joltJniNativesMacosArm64: { group: io.github.aecsocket, name: jolt-jni-natives-macos-arm64, version: { ref: joltJni } }
+  physxJni: { group: de.fabmax, name: physx-jni, version: { ref: physxJni } }
+  libBulletJme: { group: com.github.stephengold, name: Libbulletjme, version: { ref: libBulletJme } }
+  glossaCore: { group: io.github.aecsocket, name: glossa-core, version: { ref: glossa } }
+  glossaConfigurate: { group: io.github.aecsocket, name: glossa-configurate, version: { ref: glossa } }
+  packetEventsApi: { group: com.github.retrooper.packetevents, name: api, version: { ref: packetEvents } }
+  packetEventsSpigot: { group: com.github.retrooper.packetevents, name: spigot, version: { ref: packetEvents } }

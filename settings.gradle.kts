@@ -3,22 +3,19 @@ enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 pluginManagement {
     repositories {
         gradlePluginPortal()
-        maven("https://papermc.io/repo/repository/maven-public/")
+        maven("https://repo.papermc.io/repository/maven-public/")
     }
+    includeBuild("build-logic")
+}
 
-    plugins {
-        kotlin("jvm") version "1.8.0"
-        id("org.jetbrains.dokka") version "1.7.20"
-
-        id("io.papermc.paperweight.userdev") version "1.4.1"
-        id("com.github.johnrengelman.shadow") version "7.1.2"
-        id("xyz.jpenilla.run-paper") version "1.1.0"
-    }
+plugins {
+    id("ca.stellardrift.polyglot-version-catalogs") version "6.0.1"
 }
 
 rootProject.name = "ignacio"
 
-listOf(
-    "core", "paper",
-    "jolt", "physx"
-).forEach { include("${rootProject.name}-$it") }
+include("ignacio-core")
+include("ignacio-jolt")
+include("ignacio-physx")
+include("ignacio-bullet")
+include("ignacio-paper")

@@ -93,9 +93,9 @@ class JoltEngine(var settings: Settings) : IgnacioEngine {
     val objPairLayerFilter: ObjectLayerPairFilter
 
     init {
-        JoltNativeLoader.load()
+        JoltEnvironment.load()
 
-        build = "v??? (${JoltEnvironment.features().joinToString(" ") { it.name }})"
+        build = "v??? (${JoltEnvironment.featureList().joinToString(" ") { it.name }})"
 
         numThreads =
             if (settings.jobs.numThreads < 0) clamp(Runtime.getRuntime().availableProcessors() - 2, 1, 16)

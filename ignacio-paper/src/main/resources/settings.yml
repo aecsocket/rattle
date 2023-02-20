@@ -1,0 +1,19 @@
+default-locale: en-US
+engine: jolt
+
+jolt:
+  jobs:
+    # max-jobs: 2048
+    # max-barriers: 8
+    # num-threads: 0
+    # temp-allocator-size: 20971520
+  spaces:
+    # max-bodies: 65536
+    # max-body-pairs: 65536
+    # max-contact-constraints: 16384
+    # num-body-mutexes: 0
+    # collision-steps: 1
+    # integration-sub-steps: 1
+
+physx:
+  # num-threads: 0

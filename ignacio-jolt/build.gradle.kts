@@ -1,20 +1,15 @@
-repositories {
-    mavenLocal()
-    mavenCentral()
+plugins {
+    id("kotlin-conventions")
 }
 
 dependencies {
     implementation(projects.ignacioCore)
-
     implementation(libs.joltJni)
     implementation(libs.joltJniKotlin)
-    runtimeOnly(libs.joltJni) { artifact { classifier = "natives-linux" } }
-    runtimeOnly(libs.joltJni) { artifact { classifier = "natives-windows" } }
-    runtimeOnly(libs.joltJni) { artifact { classifier = "natives-macos" } }
-    runtimeOnly(libs.joltJni) { artifact { classifier = "natives-macos-arm64" } }
-
+    runtimeOnly(libs.joltJniNativesLinux)
+    //runtimeOnly(libs.joltJniNativesWindows)
+    //runtimeOnly(libs.joltJniNativesMacos)
+    //runtimeOnly(libs.joltJniNativesMacosArm64)
     implementation(libs.configurateCore)
     implementation(libs.configurateExtraKotlin)
-
-    testImplementation(kotlin("test"))
 }

@@ -79,13 +79,13 @@ class ComparisonTest {
         println("----+-------+------------+----------+------------+------------")
         listOf(
             TestCase(1, 100, 20f),
-            TestCase(1, 1000, 20f),
-            TestCase(1, 5000, 10f),
+            //TestCase(1, 1000, 20f),
+            //TestCase(1, 5000, 10f),
 
-            TestCase(10, 1000, 20f),
+            //TestCase(10, 1000, 20f),
             //TestCase(10, 5000, 10f),
 
-            TestCase(100, 100, 10f),
+            //TestCase(100, 100, 10f),
 
             //TestCase(50, 1000, 15f),
         ).forEachIndexed { idx, case ->

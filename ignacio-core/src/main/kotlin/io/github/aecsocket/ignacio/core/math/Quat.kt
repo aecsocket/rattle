@@ -1,8 +1,5 @@
 package io.github.aecsocket.ignacio.core.math
 
-import kotlin.math.acos
-import kotlin.math.cos
-import kotlin.math.sin
 import kotlin.math.sqrt
 
 data class Quat(val x: Float, val y: Float, val z: Float, val w: Float) {

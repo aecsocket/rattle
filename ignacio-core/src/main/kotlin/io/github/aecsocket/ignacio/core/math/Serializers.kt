@@ -1,6 +1,6 @@
 package io.github.aecsocket.ignacio.core.math
 
-import io.github.aecsocket.ignacio.core.util.force
+import io.github.aecsocket.alexandria.core.extension.force
 import org.spongepowered.configurate.ConfigurationNode
 import org.spongepowered.configurate.serialize.SerializationException
 import org.spongepowered.configurate.serialize.TypeSerializer

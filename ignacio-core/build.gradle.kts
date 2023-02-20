@@ -1,12 +1,13 @@
+plugins {
+    id("kotlin-conventions")
+}
+
 dependencies {
-    compileOnly(libs.kotlinReflect)
-    compileOnly(libs.kotlinxCoroutines)
+    implementation(libs.cloudCore)
+    implementation(libs.configurateCore)
+    implementation(libs.alexandriaCore)
 
-    compileOnly(libs.cloudCore)
-    compileOnly(libs.configurateCore)
-
-    testImplementation(kotlin("test"))
     testImplementation(projects.ignacioJolt)
-    testImplementation(projects.ignacioPhysx)
     testImplementation(libs.joltJni)
+    testImplementation(projects.ignacioPhysx)
 }
