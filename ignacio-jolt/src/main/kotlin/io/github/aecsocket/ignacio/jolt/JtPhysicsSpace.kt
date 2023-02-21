@@ -13,6 +13,9 @@ class JtPhysicsSpace(
     val handle: PhysicsSystem,
     val tempAllocator: TempAllocator,
 ) : PhysicsSpace {
+    override val numBodies get() = handle.numBodies
+    override val numActiveBodies get() = handle.numActiveBodies
+
     fun destroy() {
         // todo destroy bodies
         handle.delete()

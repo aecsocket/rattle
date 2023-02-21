@@ -17,3 +17,16 @@ jolt:
 
 physx:
   # num-threads: 0
+
+bullet:
+  # ?
+
+delta-time-multiplier: 1.0
+
+engine-timings:
+  buffer: 60.0
+  buffers-to-display: [ 5.0, 15.0, 60.0 ]
+
+primitive-models:
+  box: { material: minecraft:stone }
+  sphere: { material: minecraft:stone }

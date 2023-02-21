@@ -11,6 +11,9 @@ interface PhysicsSpace {
         val groundPlaneY: Float = -128f,
     )
 
+    val numBodies: Int
+    val numActiveBodies: Int
+
     fun addStaticBody(geometry: Geometry, transform: Transform): StaticBody
 
     fun addDynamicBody(geometry: Geometry, transform: Transform, dynamics: BodyDynamics): DynamicBody

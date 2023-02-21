@@ -15,10 +15,9 @@ sealed class JtPhysicsBody(
     val id: BodyId
 ) : PhysicsBody {
     override fun destroy() {
-        space.handle.bodyInterface.apply {
-            removeBody(id)
-            destroyBody(id)
-        }
+        if (space.handle.bodyInterface.isAdded(id))
+            throw IllegalStateException("Body is still added to space")
+        space.handle.bodyInterface.destroyBody(id)
     }
 
     override var transform: Transform

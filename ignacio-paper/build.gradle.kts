@@ -26,7 +26,7 @@ dependencies {
     implementation(libs.configurateExtraKotlin)
     implementation(libs.configurateYaml)
     implementation(libs.alexandriaCore)
-    implementation(libs.alexandriaApiPaper)
+    implementation(libs.alexandriaPaper)
     implementation(libs.glossaCore)
     implementation(libs.glossaConfigurate)
     implementation(libs.packetEventsSpigot)

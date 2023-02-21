@@ -9,7 +9,7 @@ import org.bukkit.entity.Entity
 
 class PrimitiveBodies internal constructor() {
     private data class Instance(
-        val space: PhysicsSpace,
+        val physics: PhysicsSpace,
         val body: PhysicsBody,
         val entity: Entity,
         val render: WorldRender?,
@@ -17,8 +17,8 @@ class PrimitiveBodies internal constructor() {
 
     private val bodies = ArrayList<Instance>()
 
-    fun create(space: PhysicsSpace, body: PhysicsBody, entity: Entity, render: WorldRender?) {
-        bodies += Instance(space, body, entity, render)
+    fun create(physics: PhysicsSpace, body: PhysicsBody, entity: Entity, render: WorldRender?) {
+        bodies += Instance(physics, body, entity, render)
     }
 
     internal fun update() {
@@ -31,7 +31,7 @@ class PrimitiveBodies internal constructor() {
 
     fun removeAll() {
         bodies.forEach { instance ->
-            instance.space.removeBody(instance.body)
+            instance.physics.removeBody(instance.body)
             instance.body.destroy()
             instance.render?.despawn()
             instance.entity.remove()

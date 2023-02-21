@@ -3,15 +3,18 @@ package io.github.aecsocket.ignacio.physx
 import io.github.aecsocket.ignacio.core.*
 import io.github.aecsocket.ignacio.core.math.Transform
 import physx.common.PxTransform
-import physx.physics.PxRigidActor
-import physx.physics.PxRigidDynamic
-import physx.physics.PxRigidStatic
-import physx.physics.PxScene
+import physx.physics.*
 
 class PsPhysicsSpace(
     private val engine: PhysxEngine,
     val handle: PxScene
 ) : PhysicsSpace {
+    override val numBodies get() = useMemory {
+        handle.getNbActors(pxActorTypeFlags(PxActorTypeFlagEnum.eRIGID_DYNAMIC.value or PxActorTypeFlagEnum.eRIGID_STATIC.value))
+    }
+    override val numActiveBodies: Int
+        get() = 0 // TODO
+
     fun destroy() {
         handle.release()
     }

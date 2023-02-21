@@ -14,7 +14,7 @@ import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEn
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSpawnEntity
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerTeams
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerTeams.ScoreBoardTeamInfo
-import io.github.aecsocket.alexandria.api.paper.extension.nextEntityId
+import io.github.aecsocket.alexandria.paper.extension.nextEntityId
 import io.github.retrooper.packetevents.util.SpigotConversionUtil
 import io.github.aecsocket.ignacio.core.math.EulerOrder
 import io.github.aecsocket.ignacio.core.math.Transform
@@ -27,7 +27,6 @@ import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
 import java.util.*
-import kotlin.collections.HashMap
 
 private const val HEIGHT_INTERP = -1.4385 // Y change from model to location of armor stand
 private const val HEIGHT_NON_INTERP = -1.8135 // Y change from model to location of armor stand on AEC
@@ -35,24 +34,24 @@ private const val HEIGHT_SMALL = 0.7125 // Y change from normal to small stand t
 private const val HEIGHT_TEXT = 1.05 // Y change from model origin to nameplate origin
 
 sealed class StandRender(
-    val id: UUID,
     override var playerTracker: PlayerTracker,
     private val yOffset: Double,
 ) : WorldRender {
     val protocolId = nextEntityId()
+    val entityId: UUID = UUID.randomUUID()
 
     private fun position(transform: Transform) = transform.position
         .run { Vector3d(x, y + yOffset, z) }
 
     private fun headRotation(transform: Transform) = transform.rotation.euler(EulerOrder.ZYX).degrees()
-        .run { Vector3f(x, y, z) }
+        .run { Vector3f(x, -y, -z) }
 
     override fun spawn(transform: Transform, players: Iterable<Player>) {
         val position = position(transform)
         val headRotation = headRotation(transform)
         players.forEach { player ->
             player.sendPacket(WrapperPlayServerSpawnEntity(
-                protocolId, Optional.of(id), EntityTypes.ARMOR_STAND,
+                protocolId, Optional.of(entityId), EntityTypes.ARMOR_STAND,
                 position, 0f, 0f, 0f, 0, Optional.empty()
             ))
             player.sendPacket(WrapperPlayServerEntityMetadata(protocolId, listOf(
@@ -82,15 +81,14 @@ sealed class StandRender(
     }
 }
 
-class StandItem(
-    id: UUID,
+class StandModel(
     playerTracker: PlayerTracker,
-) : StandRender(id, playerTracker, HEIGHT_INTERP), WorldItem {
+) : StandRender(playerTracker, HEIGHT_INTERP), WorldModel {
     override var glowingColor: NamedTextColor = NamedTextColor.WHITE
         set(value) {
             field = value
             val teamName = ColorTeams.colorToTeam(glowingColor)
-            val entryId = id.toString()
+            val entryId = entityId.toString()
             trackedPlayers().forEach { player ->
                 player.sendPacket(WrapperPlayServerTeams(
                     teamName,
@@ -101,7 +99,7 @@ class StandItem(
             }
         }
 
-    override fun item(item: ItemStack, players: Iterable<Player>) {
+    override fun model(item: ItemStack, players: Iterable<Player>) {
         val converted = SpigotConversionUtil.fromBukkitItemStack(item)
         players.forEach { player ->
             player.sendPacket(WrapperPlayServerEntityEquipment(protocolId, listOf(
@@ -112,9 +110,8 @@ class StandItem(
 }
 
 class StandText(
-    id: UUID,
     playerTracker: PlayerTracker,
-) : StandRender(id, playerTracker, HEIGHT_INTERP + HEIGHT_TEXT), WorldText {
+) : StandRender(playerTracker, HEIGHT_INTERP + HEIGHT_TEXT), WorldText {
     override fun text(text: Component, players: Iterable<Player>) {
         players.forEach { player ->
             player.sendPacket(WrapperPlayServerEntityMetadata(protocolId, listOf(
@@ -128,25 +125,11 @@ class StandText(
 }
 
 class StandRenders : WorldRenders {
-    private val mRenders = HashMap<UUID, StandRender>()
-    val renders: Map<UUID, StandRender> get() = mRenders
-
-    override fun createItem(transform: Transform, playerTracker: PlayerTracker): StandItem {
-        val id = UUID.randomUUID()
-        return StandItem(id, playerTracker).also {
-            mRenders[id] = it
-        }
+    override fun createModel(transform: Transform, playerTracker: PlayerTracker): StandModel {
+        return StandModel(playerTracker)
     }
 
     override fun createText(transform: Transform, playerTracker: PlayerTracker): WorldText {
-        val id = UUID.randomUUID()
-        return StandText(id, playerTracker).also {
-            mRenders[id] = it
-        }
-    }
-
-    override fun remove(render: WorldRender) {
-        render as StandRender
-        mRenders.remove(render.id)
+        return StandText(playerTracker)
     }
 }

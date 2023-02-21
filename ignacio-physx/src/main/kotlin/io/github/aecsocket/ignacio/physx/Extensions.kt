@@ -15,6 +15,7 @@ import physx.geometry.PxCapsuleGeometry
 import physx.geometry.PxPlaneGeometry
 import physx.geometry.PxSphereGeometry
 import physx.physics.PxActorTypeFlagEnum
+import physx.physics.PxActorTypeFlags
 import physx.physics.PxFilterData
 import physx.physics.PxQueryFilterData
 import physx.physics.PxQueryFlagEnum
@@ -98,3 +99,5 @@ fun MemoryStack.pxQueryFlags(flags: Int) =
     PxQueryFlags.createAt(this, MemoryStack::nmalloc, flags.toShort())
 fun MemoryStack.pxQueryFilterData(data: PxFilterData, flags: PxQueryFlags) =
     PxQueryFilterData.createAt(this, MemoryStack::nmalloc, data, flags)
+fun MemoryStack.pxActorTypeFlags(flags: Int) =
+    PxActorTypeFlags.createAt(this, MemoryStack::nmalloc, flags.toShort())

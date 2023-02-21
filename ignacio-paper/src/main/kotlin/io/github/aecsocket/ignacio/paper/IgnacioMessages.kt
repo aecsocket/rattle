@@ -1,42 +1,83 @@
 package io.github.aecsocket.ignacio.paper
 
 import io.github.aecsocket.glossa.core.Message
-import io.github.aecsocket.glossa.core.MessageKey
-import io.github.aecsocket.glossa.core.SectionKey
+import net.kyori.adventure.text.Component
 
 interface IgnacioMessages {
-    @SectionKey
     val command: Command
     interface Command {
-        @SectionKey
         val primitives: Primitives
         interface Primitives {
-            @SectionKey
             val create: Create
             interface Create {
-                @MessageKey
-                fun box(
-                    count: Int,
-                    mass: Float,
-                    locationX: Double,
-                    locationY: Double,
-                    locationZ: Double,
-                ): Message
+                val static: Static
+                interface Static {
+                    fun box(
+                        count: Int,
+                        locationX: Double,
+                        locationY: Double,
+                        locationZ: Double,
+                    ): Message
 
-                @MessageKey
-                fun sphere(
-                    count: Int,
-                    mass: Float,
-                    locationX: Double,
-                    locationY: Double,
-                    locationZ: Double,
-                ): Message
+                    fun sphere(
+                        count: Int,
+                        locationX: Double,
+                        locationY: Double,
+                        locationZ: Double,
+                    ): Message
+                }
+
+                val dynamic: Dynamic
+                interface Dynamic {
+                    fun box(
+                        count: Int,
+                        mass: Float,
+                        locationX: Double,
+                        locationY: Double,
+                        locationZ: Double,
+                    ): Message
+
+                    fun sphere(
+                        count: Int,
+                        mass: Float,
+                        locationX: Double,
+                        locationY: Double,
+                        locationZ: Double,
+                    ): Message
+                }
             }
 
-            @MessageKey
             fun remove(
                 count: Int
             ): Message
+        }
+
+        val timings: Timings
+        interface Timings {
+            fun timingHeader(
+                engine: String
+            ): Message
+
+            fun time(time: Double): Message
+
+            fun timing(
+                buffer: Double,
+                median: Component,
+                best5: Component,
+                worst5: Component,
+            ): Message
+
+            fun spaceHeader(
+                numWorldPhysicsSpaces: Int
+            ): Message
+
+            fun space(
+                worldName: String,
+                numBodies: Int,
+                numActiveBodies: Int,
+            ): Message
+
+            fun display(): Message
         }
     }
 }

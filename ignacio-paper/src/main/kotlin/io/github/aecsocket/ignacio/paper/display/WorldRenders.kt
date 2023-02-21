@@ -31,14 +31,14 @@ fun WorldRender.spawn(transform: Transform) = spawn(transform, trackedPlayers())
 fun WorldRender.despawn(player: Player) = despawn(setOf(player))
 fun WorldRender.despawn() = despawn(trackedPlayers())
 
-interface WorldItem : WorldRender {
+interface WorldModel : WorldRender {
     var glowingColor: NamedTextColor
 
-    fun item(item: ItemStack, players: Iterable<Player>)
+    fun model(item: ItemStack, players: Iterable<Player>)
 }
 
-fun WorldItem.item(item: ItemStack, player: Player) = item(item, setOf(player))
-fun WorldItem.item(item: ItemStack) = item(item, trackedPlayers())
+fun WorldModel.model(item: ItemStack, player: Player) = model(item, setOf(player))
+fun WorldModel.model(item: ItemStack) = model(item, trackedPlayers())
 
 interface WorldText : WorldRender {
     fun text(text: Component, players: Iterable<Player>)
@@ -48,9 +48,7 @@ fun WorldText.text(text: Component, player: Player) = text(text, setOf(player))
 fun WorldText.text(text: Component) = text(text, trackedPlayers())
 
 interface WorldRenders {
-    fun createItem(transform: Transform, playerTracker: PlayerTracker): WorldItem
+    fun createModel(transform: Transform, playerTracker: PlayerTracker): WorldModel
 
     fun createText(transform: Transform, playerTracker: PlayerTracker): WorldText
-
-    fun remove(render: WorldRender)
 }

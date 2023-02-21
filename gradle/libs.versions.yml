@@ -33,7 +33,7 @@ dependencies:
   cloudPaper: { group: cloud.commandframework, name: cloud-paper, version: { ref: cloud } }
   cloudMinecraftExtras: { group: cloud.commandframework, name: cloud-minecraft-extras, version: { ref: cloud } }
   alexandriaCore: { group: io.github.aecsocket, name: alexandria-core, version: { ref: alexandria } }
-  alexandriaApiPaper: { group: io.github.aecsocket, name: alexandria-api-paper, version: { ref: alexandria } }
+  alexandriaPaper: { group: io.github.aecsocket, name: alexandria-paper, version: { ref: alexandria } }
   joltJni: { group: io.github.aecsocket, name: jolt-jni, version: { ref: joltJni } }
   joltJniKotlin: { group: io.github.aecsocket, name: jolt-jni-kotlin, version: { ref: joltJni } }
   joltJniNativesLinux: { group: io.github.aecsocket, name: jolt-jni-natives-linux, version: { ref: joltJni } }
