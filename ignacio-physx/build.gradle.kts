@@ -4,6 +4,10 @@ plugins {
     id("kotlin-conventions")
 }
 
+repositories {
+    sonatype.ossSnapshots()
+}
+
 dependencies {
     implementation(projects.ignacioCore)
     implementation(libs.physxJni)

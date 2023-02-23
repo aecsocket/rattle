@@ -15,7 +15,7 @@ versions:
   cloud: 1.8.0
   alexandria: 0.1.0-SNAPSHOT
   joltJni: 0.1.0-SNAPSHOT
-  physxJni: 2.0.4
+  physxJni: 2.0.5-SNAPSHOT
   libBulletJme: 17.5.4
   minecraft: 1.19.3
   glossa: 0.1.0-SNAPSHOT

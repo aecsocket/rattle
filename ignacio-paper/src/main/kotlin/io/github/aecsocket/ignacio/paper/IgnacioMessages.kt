@@ -77,7 +77,14 @@ interface IgnacioMessages {
                 numActiveBodies: Int,
             ): Message
 
-            fun display(): Message
+            fun display(
+                worldName: String,
+                numBodies: Int,
+                numActiveBodies: Int,
+                median: Component,
+                best5: Component,
+                worst5: Component,
+            ): Message
         }
     }
 }

@@ -5,31 +5,24 @@ import cloud.commandframework.arguments.standard.DoubleArgument
 import cloud.commandframework.arguments.standard.FloatArgument
 import cloud.commandframework.arguments.standard.IntegerArgument
 import cloud.commandframework.bukkit.parsers.location.LocationArgument
+import io.github.aecsocket.alexandria.core.extension.flag
+import io.github.aecsocket.alexandria.core.extension.hasFlag
+import io.github.aecsocket.alexandria.core.extension.senderType
 import io.github.aecsocket.alexandria.paper.AlexandriaApiCommand
 import io.github.aecsocket.alexandria.paper.Context
-import io.github.aecsocket.alexandria.core.extension.flag
-import io.github.aecsocket.alexandria.core.extension.senderType
 import io.github.aecsocket.alexandria.paper.ItemDescriptor
-import io.github.aecsocket.glossa.core.line
+import io.github.aecsocket.glossa.core.component
 import io.github.aecsocket.glossa.core.messageProxy
 import io.github.aecsocket.ignacio.core.*
 import io.github.aecsocket.ignacio.core.math.Transform
 import io.github.aecsocket.ignacio.core.math.Vec3f
 import io.github.aecsocket.ignacio.core.math.nextVec3d
-import io.github.aecsocket.ignacio.paper.display.model
-import io.github.aecsocket.ignacio.paper.display.spawn
-import io.github.aecsocket.ignacio.paper.util.location
 import io.github.aecsocket.ignacio.paper.util.position
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import org.bukkit.Location
-import org.bukkit.Material
 import org.bukkit.command.CommandSender
-import org.bukkit.entity.ArmorStand
-import org.bukkit.entity.EntityType
 import org.bukkit.entity.Player
-import org.bukkit.event.entity.CreatureSpawnEvent
-import org.bukkit.inventory.ItemStack
 import kotlin.math.max
 import kotlin.random.Random
 
@@ -39,6 +32,7 @@ private const val LOCATION = "location"
 private const val MASS = "mass"
 private const val RADIUS = "radius"
 private const val SPREAD = "spread"
+private const val VIRTUAL = "virtual"
 private val timeColors = mapOf(
     50.0 to NamedTextColor.RED,
     15.0 to NamedTextColor.YELLOW,
@@ -73,6 +67,9 @@ internal class IgnacioCommand(
                     .withAliases("s")
                     .withArgument(DoubleArgument.builder<CommandSender>(SPREAD)
                         .withMin(0).build())
+                )
+                .flag(manager.flagBuilder(VIRTUAL)
+                    .withAliases("v")
                 )
                 .argument(LocationArgument.of(LOCATION)).let { create ->
                     create.literal("static").let { static ->
@@ -122,37 +119,31 @@ internal class IgnacioCommand(
     private fun primitivesCreate(
         count: Int,
         spread: Double,
+        virtual: Boolean,
         origin: Location,
         model: ItemDescriptor,
         addBody: (physics: PhysicsSpace, transform: Transform) -> PhysicsBody,
     ) {
-        val physics = ignacio.physicsIn(origin.world)
         repeat(count) {
             val transform = Transform(origin.position() - spread + Random.nextVec3d() * (spread*2))
-            val body = addBody(physics, transform)
-            val entity = origin.world.spawnEntity(
-                transform.position.location(origin.world), EntityType.ARMOR_STAND, CreatureSpawnEvent.SpawnReason.COMMAND
-            ) { entity ->
-                entity as ArmorStand
-                entity.isVisible = false
-                entity.isMarker = true
-                entity.setCanTick(false)
-            }
-            val render = ignacio.renders.createModel(transform) { entity.trackedPlayers }
-            render.spawn(transform)
-            render.model(model.create())
-            ignacio.primitiveBodies.create(physics, body, entity, render)
+            ignacio.primitiveBodies.create(
+                world = origin.world,
+                transform = transform,
+                createBody = { addBody(it, transform) },
+                createRender = if (virtual) null else { { ignacio.renders.createModel(it, transform, model.create()) } },
+            )
         }
     }
 
     private fun primitivesCreateStatic(
         count: Int,
         spread: Double,
+        virtual: Boolean,
         origin: Location,
         model: ItemDescriptor,
         geometry: Geometry,
     ) {
-        primitivesCreate(count, spread, origin, model) { physics, transform ->
+        primitivesCreate(count, spread, virtual, origin, model) { physics, transform ->
             physics.addStaticBody(geometry, transform)
         }
     }
@@ -161,6 +152,7 @@ internal class IgnacioCommand(
         count: Int,
         mass: Float,
         spread: Double,
+        virtual: Boolean,
         origin: Location,
         model: ItemDescriptor,
         geometry: Geometry,
@@ -169,7 +161,7 @@ internal class IgnacioCommand(
             activate = true,
             mass = mass,
         )
-        primitivesCreate(count, spread, origin, model) { physics, transform ->
+        primitivesCreate(count, spread, virtual, origin, model) { physics, transform ->
             physics.addDynamicBody(geometry, transform, dynamics)
         }
     }
@@ -181,11 +173,10 @@ internal class IgnacioCommand(
         val halfExtent = ctx.get<Float>(HALF_EXTENT)
         val count = ctx.flag(COUNT) ?: 1
         val spread = ctx.flag(SPREAD) ?: 0.0
+        val virtual = ctx.hasFlag(VIRTUAL)
 
         primitivesCreateStatic(
-            count,
-            spread,
-            location,
+            count, spread, virtual, location,
             ignacio.settings.primitiveModels.box,
             BoxGeometry(Vec3f(halfExtent))
         )
@@ -203,11 +194,10 @@ internal class IgnacioCommand(
         val radius = ctx.get<Float>(RADIUS)
         val count = ctx.flag(COUNT) ?: 1
         val spread = ctx.flag(SPREAD) ?: 0.0
+        val virtual = ctx.hasFlag(VIRTUAL)
 
         primitivesCreateStatic(
-            count,
-            spread,
-            location,
+            count, spread, virtual, location,
             ignacio.settings.primitiveModels.sphere,
             SphereGeometry(radius)
         )
@@ -226,12 +216,10 @@ internal class IgnacioCommand(
         val count = ctx.flag(COUNT) ?: 1
         val mass = ctx.flag(MASS) ?: 1f
         val spread = ctx.flag(SPREAD) ?: 0.0
+        val virtual = ctx.hasFlag(VIRTUAL)
 
         primitivesCreateDynamic(
-            count,
-            mass,
-            spread,
-            location,
+            count, mass, spread, virtual, location,
             ignacio.settings.primitiveModels.box,
             BoxGeometry(Vec3f(halfExtent))
         )
@@ -251,12 +239,10 @@ internal class IgnacioCommand(
         val count = ctx.flag(COUNT) ?: 1
         val mass = ctx.flag(MASS) ?: 1f
         val spread = ctx.flag(SPREAD) ?: 0.0
+        val virtual = ctx.hasFlag(VIRTUAL)
 
         primitivesCreateDynamic(
-            count,
-            mass,
-            spread,
-            location,
+            count, mass, spread, virtual, location,
             ignacio.settings.primitiveModels.sphere,
             SphereGeometry(radius)
         )
@@ -281,7 +267,7 @@ internal class IgnacioCommand(
     }
 
     private fun formatTime(time: Double, messages: IgnacioMessages): Component {
-        val text = messages.command.timings.time(time).line()
+        val text = messages.command.timings.time(time).component()
         val clampedTime = max(0.0, time)
         val color = timeColors.firstNotNullOf { (threshold, color) ->
             if (clampedTime >= threshold) color else null
@@ -335,6 +321,8 @@ internal class IgnacioCommand(
     }
 
     private fun timingsDisplay(ctx: Context) {
+        val sender = ctx.sender
+        val messages = ignacio.messages.forAudience(sender)
 
     }
 }

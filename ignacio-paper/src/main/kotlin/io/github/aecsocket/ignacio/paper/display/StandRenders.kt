@@ -35,10 +35,26 @@ private const val HEIGHT_TEXT = 1.05 // Y change from model origin to nameplate 
 
 sealed class StandRender(
     override var playerTracker: PlayerTracker,
+    transform: Transform,
     private val yOffset: Double,
 ) : WorldRender {
     val protocolId = nextEntityId()
     val entityId: UUID = UUID.randomUUID()
+
+    override var transform = transform
+        set(value) {
+            field = value
+            val position = position(transform)
+            val headRotation = headRotation(transform)
+            trackedPlayers().forEach { player ->
+                player.sendPacket(WrapperPlayServerEntityTeleport(protocolId,
+                    position, 0f, 0f, false
+                ))
+                player.sendPacket(WrapperPlayServerEntityMetadata(protocolId, listOf(
+                    EntityData(16, EntityDataTypes.ROTATION, headRotation)
+                )))
+            }
+        }
 
     private fun position(transform: Transform) = transform.position
         .run { Vector3d(x, y + yOffset, z) }
@@ -46,7 +62,7 @@ sealed class StandRender(
     private fun headRotation(transform: Transform) = transform.rotation.euler(EulerOrder.ZYX).degrees()
         .run { Vector3f(x, -y, -z) }
 
-    override fun spawn(transform: Transform, players: Iterable<Player>) {
+    override fun spawn(players: Iterable<Player>) {
         val position = position(transform)
         val headRotation = headRotation(transform)
         players.forEach { player ->
@@ -67,23 +83,13 @@ sealed class StandRender(
             player.sendPacket(WrapperPlayServerDestroyEntities(protocolId))
         }
     }
-
-    override fun transform(transform: Transform, players: Iterable<Player>) {
-        val position = position(transform)
-        val headRotation = headRotation(transform)
-        players.forEach { player ->
-            player.sendPacket(WrapperPlayServerEntityTeleport(protocolId,
-                position, 0f, 0f, false))
-            player.sendPacket(WrapperPlayServerEntityMetadata(protocolId, listOf(
-                EntityData(16, EntityDataTypes.ROTATION, headRotation)
-            )))
-        }
-    }
 }
 
 class StandModel(
     playerTracker: PlayerTracker,
-) : StandRender(playerTracker, HEIGHT_INTERP), WorldModel {
+    transform: Transform,
+    model: ItemStack,
+) : StandRender(playerTracker, transform, HEIGHT_INTERP), WorldModel {
     override var glowingColor: NamedTextColor = NamedTextColor.WHITE
         set(value) {
             field = value
@@ -99,11 +105,23 @@ class StandModel(
             }
         }
 
-    override fun model(item: ItemStack, players: Iterable<Player>) {
-        val converted = SpigotConversionUtil.fromBukkitItemStack(item)
+    override var model = model
+        set(value) {
+            field = value
+            val headStack = SpigotConversionUtil.fromBukkitItemStack(value)
+            trackedPlayers().forEach { player ->
+                player.sendPacket(WrapperPlayServerEntityEquipment(protocolId, listOf(
+                    Equipment(EquipmentSlot.HELMET, headStack)
+                )))
+            }
+        }
+
+    override fun spawn(players: Iterable<Player>) {
+        super.spawn(players)
+        val headStack = SpigotConversionUtil.fromBukkitItemStack(model)
         players.forEach { player ->
             player.sendPacket(WrapperPlayServerEntityEquipment(protocolId, listOf(
-                Equipment(EquipmentSlot.HELMET, converted)
+                Equipment(EquipmentSlot.HELMET, headStack)
             )))
         }
     }
@@ -111,7 +129,8 @@ class StandModel(
 
 class StandText(
     playerTracker: PlayerTracker,
-) : StandRender(playerTracker, HEIGHT_INTERP + HEIGHT_TEXT), WorldText {
+    transform: Transform,
+) : StandRender(playerTracker, transform, HEIGHT_INTERP + HEIGHT_TEXT), WorldText {
     override fun text(text: Component, players: Iterable<Player>) {
         players.forEach { player ->
             player.sendPacket(WrapperPlayServerEntityMetadata(protocolId, listOf(
@@ -125,11 +144,11 @@ class StandText(
 }
 
 class StandRenders : WorldRenders {
-    override fun createModel(transform: Transform, playerTracker: PlayerTracker): StandModel {
-        return StandModel(playerTracker)
+    override fun createModel(playerTracker: PlayerTracker, transform: Transform, model: ItemStack): StandModel {
+        return StandModel(playerTracker, transform, model)
     }
 
-    override fun createText(transform: Transform, playerTracker: PlayerTracker): WorldText {
-        return StandText(playerTracker)
+    override fun createText(playerTracker: PlayerTracker, transform: Transform): WorldText {
+        return StandText(playerTracker, transform)
     }
 }

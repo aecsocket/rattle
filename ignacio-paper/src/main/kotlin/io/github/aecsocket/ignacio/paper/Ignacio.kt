@@ -2,25 +2,35 @@ package io.github.aecsocket.ignacio.paper
 
 import com.github.retrooper.packetevents.PacketEvents
 import com.github.retrooper.packetevents.wrapper.PacketWrapper
-import io.github.aecsocket.alexandria.paper.AlexandriaApiPlugin
-import io.github.aecsocket.alexandria.paper.extension.runRepeating
 import io.github.aecsocket.alexandria.core.Logging
 import io.github.aecsocket.alexandria.core.LoggingList
-import io.github.aecsocket.alexandria.core.extension.registerExact
-import io.github.aecsocket.alexandria.core.serializers.alexandriaCoreSerializers
+import io.github.aecsocket.alexandria.core.serializer.alexandriaCoreSerializers
+import io.github.aecsocket.alexandria.paper.AlexandriaApiPlugin
 import io.github.aecsocket.alexandria.paper.ItemDescriptor
+import io.github.aecsocket.alexandria.paper.extension.runRepeating
 import io.github.aecsocket.alexandria.paper.fallbackLocale
 import io.github.aecsocket.alexandria.paper.seralizer.alexandriaPaperSerializers
-import io.github.aecsocket.glossa.core.*
-import io.github.aecsocket.ignacio.core.*
-import io.github.aecsocket.ignacio.core.math.Vec3dSerializer
-import io.github.aecsocket.ignacio.core.math.Vec3fSerializer
+import io.github.aecsocket.glossa.core.MessageProxy
+import io.github.aecsocket.glossa.core.messageProxy
+import io.github.aecsocket.ignacio.core.IgnacioEngine
+import io.github.aecsocket.ignacio.core.PhysicsSpace
+import io.github.aecsocket.ignacio.core.TimestampedList
+import io.github.aecsocket.ignacio.core.math.Ray
+import io.github.aecsocket.ignacio.core.math.sp
+import io.github.aecsocket.ignacio.core.serializer.ignacioCoreSerializers
+import io.github.aecsocket.ignacio.core.timestampedList
 import io.github.aecsocket.ignacio.jolt.JoltEngine
+import io.github.aecsocket.ignacio.jolt.JtPhysicsSpace
 import io.github.aecsocket.ignacio.paper.display.StandRenders
+import io.github.aecsocket.ignacio.paper.util.position
+import io.github.aecsocket.ignacio.paper.util.vec3d
 import io.github.aecsocket.ignacio.physx.PhysxEngine
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder
 import io.gitlab.aecsocket.ignacio.bullet.BulletEngine
+import io.papermc.paper.util.Tick
+import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.TextColor
+import org.bukkit.Bukkit
 import org.bukkit.Material
 import org.bukkit.World
 import org.bukkit.entity.Player
@@ -31,7 +41,7 @@ import org.spongepowered.configurate.kotlin.extensions.get
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import org.spongepowered.configurate.objectmapping.ObjectMapper
 import java.util.*
-import kotlin.random.Random
+import java.util.concurrent.atomic.AtomicBoolean
 
 private lateinit var instance: Ignacio
 val IgnacioAPI get() = instance
@@ -47,8 +57,7 @@ private val configOptions: ConfigurationOptions = ConfigurationOptions.defaults(
     .serializers { it
         .registerAll(alexandriaCoreSerializers)
         .registerAll(alexandriaPaperSerializers)
-        .registerExact(Vec3fSerializer)
-        .registerExact(Vec3dSerializer)
+        .registerAll(ignacioCoreSerializers)
         .registerAnnotatedObjects(ObjectMapper.factoryBuilder()
             .addDiscoverer(dataClassFieldDiscoverer())
             .build()
@@ -73,10 +82,11 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
     data class Settings(
         override val defaultLocale: Locale = fallbackLocale,
         val engine: IgnacioEngines = IgnacioEngines.NONE,
+        val deltaTimeMultiplier: Float = 1f,
         val jolt: JoltEngine.Settings = JoltEngine.Settings(),
         val physx: PhysxEngine.Settings = PhysxEngine.Settings(),
         val bullet: BulletEngine.Settings = BulletEngine.Settings(),
-        val deltaTimeMultiplier: Float = 1f,
+        val physicsSpaces: PhysicsSpace.Settings = PhysicsSpace.Settings(),
         val engineTimings: EngineTimings = EngineTimings(),
         val primitiveModels: PrimitiveModels = PrimitiveModels(),
     ) : AlexandriaApiPlugin.Settings {
@@ -94,14 +104,16 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
     }
 
     val renders = StandRenders()
-    val primitiveBodies = PrimitiveBodies()
+    val primitiveBodies = PrimitiveBodies(this)
     private val mEngineTimings = timestampedList<Long>(0)
     val engineTimings: TimestampedList<Long> get() = mEngineTimings
     val worldPhysics = HashMap<World, PhysicsSpace>()
+    val updatingPhysics = AtomicBoolean(false)
 
     override lateinit var settings: Settings private set
-    lateinit var messages: MessageProxy<IgnacioMessages> private set
     lateinit var engine: IgnacioEngine private set
+    lateinit var messages: MessageProxy<IgnacioMessages> private set
+    private var deltaTime = 0f
 
     init {
         instance = this
@@ -117,13 +129,13 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
         super.onLoad()
 
         engine = when (settings.engine) {
-            IgnacioEngines.JOLT -> JoltEngine(settings.jolt)
+            IgnacioEngines.JOLT -> JoltEngine(settings.jolt, logger)
             IgnacioEngines.PHYSX -> PhysxEngine(settings.physx, logger)
             IgnacioEngines.BULLET -> BulletEngine(settings.bullet)
             IgnacioEngines.NONE -> throw RuntimeException("Physics engine is not set")
         }
 
-        logger.info("Loaded ${engine::class.simpleName} ${engine.build}")
+        logger.info("Loaded ${engine::class.simpleName} (${engine.build})")
     }
 
     override fun onEnable() {
@@ -131,12 +143,33 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
 
         runRepeating {
             primitiveBodies.update()
-            val start = System.nanoTime()
-            worldPhysics.forEach { (_, physics) ->
-                physics.update(0.05f * settings.deltaTimeMultiplier)
+
+            engine.runTask {
+                if (updatingPhysics.getAndSet(true)) return@runTask
+
+                val start = System.nanoTime()
+                worldPhysics.forEach { (_, physics) ->
+                    physics.update(deltaTime)
+                }
+                val end = System.nanoTime()
+
+                mEngineTimings.add(end - start)
+                updatingPhysics.set(false)
             }
-            val end = System.nanoTime()
-            mEngineTimings.add(end - start)
+
+            // TODO
+            engine.runTask {
+                Bukkit.getOnlinePlayers().forEach { player ->
+                    val physics = physicsInOr(player.world) ?: return@forEach
+                    //val nearby = physics.bodiesNear(player.location.position(), 16f)
+                    val cast = physics.rayCastBodies(
+                        ray = Ray(player.eyeLocation.position(), player.location.direction.vec3d().sp()),
+                        distance = 16f,
+                    )
+                    player.sendActionBar(Component.text("bodies cast ${cast.size}"))
+
+                }
+            }
         }
     }
 
@@ -155,6 +188,7 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
 
     override fun load(log: LoggingList) {
         messages = glossa.messageProxy()
+        deltaTime = (Tick.of(1).toMillis() / 1000f) * settings.deltaTimeMultiplier
         mEngineTimings.buffer = (settings.engineTimings.buffer * 1000).toLong()
     }
 
@@ -166,8 +200,10 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
         }
     }
 
+    fun physicsInOr(world: World) = worldPhysics[world]
+
     fun physicsIn(world: World) = worldPhysics.computeIfAbsent(world) {
-        engine.createSpace(PhysicsSpace.Settings())
+        engine.createSpace(settings.physicsSpaces)
     }
 }
 

@@ -18,6 +18,7 @@ import jolt.physics.collision.shape.CapsuleShape
 import jolt.physics.collision.shape.Shape
 import jolt.physics.collision.shape.SphereShape
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
+import java.util.logging.Logger
 import kotlin.math.cos
 
 val OBJECT_LAYER_NON_MOVING = ObjectLayer(0)
@@ -26,7 +27,7 @@ val OBJECT_LAYER_MOVING = ObjectLayer(1)
 val BP_LAYER_NON_MOVING = BroadPhaseLayer(0)
 val BP_LAYER_MOVING = BroadPhaseLayer(1)
 
-class JoltEngine(var settings: Settings) : IgnacioEngine {
+class JoltEngine(var settings: Settings, logger: Logger) : IgnacioEngine {
     @ConfigSerializable
     data class Settings(
         val jobs: Jobs = Jobs(),
@@ -84,6 +85,7 @@ class JoltEngine(var settings: Settings) : IgnacioEngine {
 
     override val build: String
 
+    val physicsThread = PhysicsThread("Jolt", logger)
     val spaces = HashMap<PhysicsSystem, JtPhysicsSpace>()
 
     val numThreads: Int
@@ -95,7 +97,7 @@ class JoltEngine(var settings: Settings) : IgnacioEngine {
     init {
         JoltEnvironment.load()
 
-        build = "v??? (${JoltEnvironment.featureList().joinToString(" ") { it.name }})"
+        build = "v${JoltEnvironment.JOLT_VERSION} ${JoltEnvironment.featureList().joinToString(" ") { it.name }}"
 
         numThreads =
             if (settings.jobs.numThreads < 0) clamp(Runtime.getRuntime().availableProcessors() - 2, 1, 16)
@@ -139,9 +141,13 @@ class JoltEngine(var settings: Settings) : IgnacioEngine {
                 else -> false
             }
         }
+
+        physicsThread.start()
     }
 
     override fun destroy() {
+        physicsThread.destroy()
+
         spaces.forEach { (_, space) ->
             space.destroy()
         }
@@ -152,6 +158,10 @@ class JoltEngine(var settings: Settings) : IgnacioEngine {
         jobSystem.delete()
         RTTIFactory.getInstance()?.delete()
         RTTIFactory.setInstance(null)
+    }
+
+    override fun runTask(task: Runnable) {
+        physicsThread.execute(task)
     }
 
     fun shapeOf(geometry: Geometry): Shape {

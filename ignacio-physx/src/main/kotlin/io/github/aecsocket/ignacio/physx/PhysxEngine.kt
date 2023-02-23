@@ -41,6 +41,7 @@ class PhysxEngine(var settings: Settings, logger: Logger) : IgnacioEngine {
 
     override val build: String
 
+    val physicsThread = PhysicsThread("PhysX", logger)
     val spaces = HashMap<PxScene, PsPhysicsSpace>()
 
     val numThreads: Int
@@ -106,9 +107,13 @@ class PhysxEngine(var settings: Settings, logger: Logger) : IgnacioEngine {
 
         actorTypeFlagsAll = PxActorTypeFlags((PxActorTypeFlag.DYNAMIC or PxActorTypeFlag.STATIC).toShort())
         planeGeom = PxPlaneGeometry()
+
+        physicsThread.start()
     }
 
     override fun destroy() {
+        physicsThread.destroy()
+
         spaces.forEach { (_, space) ->
             space.destroy()
         }
@@ -121,6 +126,10 @@ class PhysxEngine(var settings: Settings, logger: Logger) : IgnacioEngine {
         foundation.release()
         errorCb.destroy()
         allocator.destroy()
+    }
+
+    override fun runTask(task: Runnable) {
+        physicsThread.execute(task)
     }
 
     fun MemoryStack.geometryOf(geometry: Geometry): PxGeometry {

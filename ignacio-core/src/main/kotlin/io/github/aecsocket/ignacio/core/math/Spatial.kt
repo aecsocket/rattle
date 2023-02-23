@@ -5,6 +5,9 @@ import kotlin.math.*
 const val EPSILON = 0.000001
 const val ONE_EPSILON = 0.999999
 
+fun Vec3f.dp() = Vec3d(x.toDouble(), y.toDouble(), z.toDouble())
+fun Vec3d.sp() = Vec3f(x.toFloat(), y.toFloat(), z.toFloat())
+
 enum class EulerOrder {
     XYZ,
     YXZ,

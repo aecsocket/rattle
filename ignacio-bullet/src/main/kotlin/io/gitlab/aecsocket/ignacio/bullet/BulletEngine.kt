@@ -16,6 +16,10 @@ class BulletEngine(var settings: Settings) : IgnacioEngine {
         build = "???"
     }
 
+    override fun runTask(task: Runnable) {
+        TODO("Not yet implemented")
+    }
+
     override fun destroy() {
         TODO("Not yet implemented")
     }

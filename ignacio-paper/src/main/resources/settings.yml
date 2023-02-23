@@ -1,5 +1,6 @@
 default-locale: en-US
 engine: jolt
+delta-time-multiplier: 1.0
 
 jolt:
   jobs:
@@ -21,7 +22,8 @@ physx:
 bullet:
   # ?
 
-delta-time-multiplier: 1.0
+physics-spaces:
+  gravity: [ 0.0, -9.81, 0.0 ]
 
 engine-timings:
   buffer: 60.0
