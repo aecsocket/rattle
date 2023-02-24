@@ -10,13 +10,12 @@ import jolt.physics.PhysicsSystem
 import jolt.kotlin.*
 import jolt.physics.body.BodyFilter
 import jolt.physics.body.MotionType
-import jolt.physics.collision.ObjectLayerFilter
-import jolt.physics.collision.RayCast3f
-import jolt.physics.collision.RayCastResult
+import jolt.physics.collision.*
 import jolt.physics.collision.broadphase.BroadPhaseCastResult
 import jolt.physics.collision.broadphase.BroadPhaseLayerFilter
 import jolt.physics.collision.broadphase.CollideShapeBodyCollector
 import jolt.physics.collision.broadphase.RayCastBodyCollector
+import jolt.physics.collision.shape.CastRayCollector
 
 class JtPhysicsSpace(
     private val engine: JoltEngine,
@@ -74,8 +73,8 @@ class JtPhysicsSpace(
 
     override fun rayCastBody(ray: Ray, distance: Float): PhysicsSpace.RayCast? {
         val hit = RayCastResult()
-        return if (handle.narrowPhaseQuery.castRaySp(
-            ray.joltSp(distance),
+        return if (handle.narrowPhaseQuery.getCastRayDp(
+            ray.jolt(distance),
             hit,
             BroadPhaseLayerFilter.passthrough(),
             ObjectLayerFilter.passthrough(),
@@ -87,15 +86,16 @@ class JtPhysicsSpace(
 
     override fun rayCastBodies(ray: Ray, distance: Float): Collection<PhysicsBody> {
         val hits = ArrayList<BodyId>()
-        val collector = object : RayCastBodyCollector() {
-            override fun addHit(result: BroadPhaseCastResult) {
+        val collector = object : CastRayCollector() {
+            override fun addHit(result: RayCastResult) {
                 hits += BodyId(result.bodyId)
             }
         }
-
-        handle.broadPhaseQuery.castRay(
-            RayCast3f(ray.origin.joltSp(), (ray.direction * distance).jolt()),
-            collector, BroadPhaseLayerFilter.passthrough(), ObjectLayerFilter.passthrough(),
+        handle.narrowPhaseQuery.collectCastRayDp(
+            RayCast3d(ray.origin.jolt(), (ray.direction * distance).jolt()),
+            RayCastSettings(),
+            collector,
+            BroadPhaseLayerFilter.passthrough(), ObjectLayerFilter.passthrough(), BodyFilter.passthrough(), ShapeFilter.passthrough(),
         )
         return hits.map { bodyOf(it) }
     }
@@ -110,7 +110,8 @@ class JtPhysicsSpace(
         handle.broadPhaseQuery.collideSphere(
             position.joltSp(),
             radius,
-            collector, BroadPhaseLayerFilter.passthrough(), ObjectLayerFilter.passthrough()
+            collector,
+            BroadPhaseLayerFilter.passthrough(), ObjectLayerFilter.passthrough()
         )
         return results.map { bodyOf(it) }
     }

@@ -141,7 +141,7 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
             engine.runTask {
                 Bukkit.getOnlinePlayers().forEach { player ->
                     val physics = physicsInOr(player.world) ?: return@forEach
-                    //val nearby = physics.bodiesNear(player.location.position(), 16f)
+                    val nearby = physics.bodiesNear(player.location.position(), 16f)
                     val casts = physics.rayCastBodies(
                         ray = Ray(player.eyeLocation.position(), player.location.direction.vec3d().sp()),
                         distance = 16f,
@@ -150,7 +150,7 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
                         Ray(player.eyeLocation.position(), player.location.direction.vec3d().sp()),
                         16f
                     )
-                    player.sendActionBar(Component.text("cast = $cast | casts = ${casts.size}"))
+                    player.sendActionBar(Component.text("cast = $cast | casts = ${casts.size} | nearby = ${nearby.size}"))
                 }
             }
         }

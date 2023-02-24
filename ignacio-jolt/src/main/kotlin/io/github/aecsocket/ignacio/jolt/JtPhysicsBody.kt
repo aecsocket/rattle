@@ -37,8 +37,12 @@ sealed class JtPhysicsBody(
 
 class JtStaticBody(
     engine: JoltEngine, space: JtPhysicsSpace, id: BodyId
-) : JtPhysicsBody(engine, space, id), StaticBody
+) : JtPhysicsBody(engine, space, id), StaticBody {
+    override fun toString() = "JtStaticBody(${id.id})"
+}
 
 class JtDynamicBody(
     engine: JoltEngine, space: JtPhysicsSpace, id: BodyId
-) : JtPhysicsBody(engine, space, id), DynamicBody
+) : JtPhysicsBody(engine, space, id), DynamicBody {
+    override fun toString() = "JtDynamicBody(${id.id})"
+}
