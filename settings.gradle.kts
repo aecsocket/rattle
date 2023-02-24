@@ -16,6 +16,4 @@ rootProject.name = "ignacio"
 
 include("ignacio-core")
 include("ignacio-jolt")
-include("ignacio-physx")
-include("ignacio-bullet")
 include("ignacio-paper")

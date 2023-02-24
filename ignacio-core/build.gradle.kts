@@ -9,5 +9,4 @@ dependencies {
 
     testImplementation(projects.ignacioJolt)
     testImplementation(libs.joltJni)
-    testImplementation(projects.ignacioPhysx)
 }

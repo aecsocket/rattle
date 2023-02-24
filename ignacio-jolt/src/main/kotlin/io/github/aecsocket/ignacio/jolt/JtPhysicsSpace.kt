@@ -8,11 +8,14 @@ import jolt.core.TempAllocator
 import jolt.physics.Activation
 import jolt.physics.PhysicsSystem
 import jolt.kotlin.*
+import jolt.physics.body.BodyFilter
 import jolt.physics.body.MotionType
 import jolt.physics.collision.ObjectLayerFilter
 import jolt.physics.collision.RayCast3f
+import jolt.physics.collision.RayCastResult
 import jolt.physics.collision.broadphase.BroadPhaseCastResult
 import jolt.physics.collision.broadphase.BroadPhaseLayerFilter
+import jolt.physics.collision.broadphase.CollideShapeBodyCollector
 import jolt.physics.collision.broadphase.RayCastBodyCollector
 
 class JtPhysicsSpace(
@@ -69,6 +72,19 @@ class JtPhysicsSpace(
         handle.bodyInterface.removeBody(body.id)
     }
 
+    override fun rayCastBody(ray: Ray, distance: Float): PhysicsSpace.RayCast? {
+        val hit = RayCastResult()
+        return if (handle.narrowPhaseQuery.castRaySp(
+            ray.joltSp(distance),
+            hit,
+            BroadPhaseLayerFilter.passthrough(),
+            ObjectLayerFilter.passthrough(),
+            BodyFilter.passthrough(),
+        )) {
+            PhysicsSpace.RayCast(bodyOf(BodyId(hit.bodyId)))
+        } else null
+    }
+
     override fun rayCastBodies(ray: Ray, distance: Float): Collection<PhysicsBody> {
         val hits = ArrayList<BodyId>()
         val collector = object : RayCastBodyCollector() {
@@ -76,15 +92,27 @@ class JtPhysicsSpace(
                 hits += BodyId(result.bodyId)
             }
         }
+
         handle.broadPhaseQuery.castRay(
             RayCast3f(ray.origin.joltSp(), (ray.direction * distance).jolt()),
-            collector, BroadPhaseLayerFilter.passthrough(), ObjectLayerFilter.passthrough()
+            collector, BroadPhaseLayerFilter.passthrough(), ObjectLayerFilter.passthrough(),
         )
         return hits.map { bodyOf(it) }
     }
 
-    override fun bodiesNear(position: Vec3d, radius: Float): Set<PhysicsBody> {
-        TODO("...")
+    override fun bodiesNear(position: Vec3d, radius: Float): Collection<PhysicsBody> {
+        val results = ArrayList<BodyId>()
+        val collector = object : CollideShapeBodyCollector() {
+            override fun addHit(result: Int) {
+                results += BodyId(result)
+            }
+        }
+        handle.broadPhaseQuery.collideSphere(
+            position.joltSp(),
+            radius,
+            collector, BroadPhaseLayerFilter.passthrough(), ObjectLayerFilter.passthrough()
+        )
+        return results.map { bodyOf(it) }
     }
 
     override fun update(deltaTime: Float) {

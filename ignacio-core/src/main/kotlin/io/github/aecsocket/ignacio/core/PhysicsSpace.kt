@@ -12,6 +12,10 @@ interface PhysicsSpace {
         val gravity: Vec3f = Vec3f(0f, -9.81f, 0f),
     )
 
+    data class RayCast(
+        val body: PhysicsBody,
+    )
+
     val numBodies: Int
     val numActiveBodies: Int
 
@@ -20,6 +24,8 @@ interface PhysicsSpace {
     fun addDynamicBody(geometry: Geometry, transform: Transform, dynamics: BodyDynamics): DynamicBody
 
     fun removeBody(body: PhysicsBody)
+
+    fun rayCastBody(ray: Ray, distance: Float): RayCast?
 
     fun rayCastBodies(ray: Ray, distance: Float): Collection<PhysicsBody>
 

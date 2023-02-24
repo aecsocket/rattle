@@ -54,9 +54,7 @@ interface IgnacioMessages {
 
         val timings: Timings
         interface Timings {
-            fun timingHeader(
-                engine: String
-            ): Message
+            fun timingHeader(): Message
 
             fun time(time: Double): Message
 

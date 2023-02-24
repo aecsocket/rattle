@@ -12,7 +12,6 @@ import io.github.aecsocket.alexandria.paper.fallbackLocale
 import io.github.aecsocket.alexandria.paper.seralizer.alexandriaPaperSerializers
 import io.github.aecsocket.glossa.core.MessageProxy
 import io.github.aecsocket.glossa.core.messageProxy
-import io.github.aecsocket.ignacio.core.IgnacioEngine
 import io.github.aecsocket.ignacio.core.PhysicsSpace
 import io.github.aecsocket.ignacio.core.TimestampedList
 import io.github.aecsocket.ignacio.core.math.Ray
@@ -20,13 +19,10 @@ import io.github.aecsocket.ignacio.core.math.sp
 import io.github.aecsocket.ignacio.core.serializer.ignacioCoreSerializers
 import io.github.aecsocket.ignacio.core.timestampedList
 import io.github.aecsocket.ignacio.jolt.JoltEngine
-import io.github.aecsocket.ignacio.jolt.JtPhysicsSpace
 import io.github.aecsocket.ignacio.paper.display.StandRenders
 import io.github.aecsocket.ignacio.paper.util.position
 import io.github.aecsocket.ignacio.paper.util.vec3d
-import io.github.aecsocket.ignacio.physx.PhysxEngine
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder
-import io.gitlab.aecsocket.ignacio.bullet.BulletEngine
 import io.papermc.paper.util.Tick
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.TextColor
@@ -45,13 +41,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 private lateinit var instance: Ignacio
 val IgnacioAPI get() = instance
-
-enum class IgnacioEngines {
-    NONE,
-    JOLT,
-    PHYSX,
-    BULLET,
-}
 
 private val configOptions: ConfigurationOptions = ConfigurationOptions.defaults()
     .serializers { it
@@ -81,11 +70,8 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
     @ConfigSerializable
     data class Settings(
         override val defaultLocale: Locale = fallbackLocale,
-        val engine: IgnacioEngines = IgnacioEngines.NONE,
         val deltaTimeMultiplier: Float = 1f,
         val jolt: JoltEngine.Settings = JoltEngine.Settings(),
-        val physx: PhysxEngine.Settings = PhysxEngine.Settings(),
-        val bullet: BulletEngine.Settings = BulletEngine.Settings(),
         val physicsSpaces: PhysicsSpace.Settings = PhysicsSpace.Settings(),
         val engineTimings: EngineTimings = EngineTimings(),
         val primitiveModels: PrimitiveModels = PrimitiveModels(),
@@ -111,7 +97,7 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
     val updatingPhysics = AtomicBoolean(false)
 
     override lateinit var settings: Settings private set
-    lateinit var engine: IgnacioEngine private set
+    lateinit var engine: JoltEngine private set
     lateinit var messages: MessageProxy<IgnacioMessages> private set
     private var deltaTime = 0f
 
@@ -128,14 +114,8 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
 
         super.onLoad()
 
-        engine = when (settings.engine) {
-            IgnacioEngines.JOLT -> JoltEngine(settings.jolt, logger)
-            IgnacioEngines.PHYSX -> PhysxEngine(settings.physx, logger)
-            IgnacioEngines.BULLET -> BulletEngine(settings.bullet)
-            IgnacioEngines.NONE -> throw RuntimeException("Physics engine is not set")
-        }
-
-        logger.info("Loaded ${engine::class.simpleName} (${engine.build})")
+        engine = JoltEngine(settings.jolt, logger)
+        logger.info("${ProcessHandle.current().pid()}: Loaded ${engine::class.simpleName} (${engine.build})")
     }
 
     override fun onEnable() {
@@ -162,12 +142,15 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
                 Bukkit.getOnlinePlayers().forEach { player ->
                     val physics = physicsInOr(player.world) ?: return@forEach
                     //val nearby = physics.bodiesNear(player.location.position(), 16f)
-                    val cast = physics.rayCastBodies(
+                    val casts = physics.rayCastBodies(
                         ray = Ray(player.eyeLocation.position(), player.location.direction.vec3d().sp()),
                         distance = 16f,
                     )
-                    player.sendActionBar(Component.text("bodies cast ${cast.size}"))
-
+                    val cast = physics.rayCastBody(
+                        Ray(player.eyeLocation.position(), player.location.direction.vec3d().sp()),
+                        16f
+                    )
+                    player.sendActionBar(Component.text("cast = $cast | casts = ${casts.size}"))
                 }
             }
         }
@@ -193,11 +176,7 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
     }
 
     override fun reload(log: Logging) {
-        when (val engine = engine) {
-            is JoltEngine -> engine.settings = settings.jolt
-            is PhysxEngine -> engine.settings = settings.physx
-            is BulletEngine -> engine.settings = settings.bullet
-        }
+        engine.settings = settings.jolt
     }
 
     fun physicsInOr(world: World) = worldPhysics[world]

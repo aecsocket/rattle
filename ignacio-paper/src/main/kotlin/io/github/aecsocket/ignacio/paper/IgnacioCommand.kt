@@ -6,6 +6,7 @@ import cloud.commandframework.arguments.standard.FloatArgument
 import cloud.commandframework.arguments.standard.IntegerArgument
 import cloud.commandframework.bukkit.parsers.location.LocationArgument
 import io.github.aecsocket.alexandria.core.extension.flag
+import io.github.aecsocket.alexandria.core.extension.getOr
 import io.github.aecsocket.alexandria.core.extension.hasFlag
 import io.github.aecsocket.alexandria.core.extension.senderType
 import io.github.aecsocket.alexandria.paper.AlexandriaApiCommand
@@ -33,6 +34,8 @@ private const val MASS = "mass"
 private const val RADIUS = "radius"
 private const val SPREAD = "spread"
 private const val VIRTUAL = "virtual"
+private const val DEFAULT_HALF_EXTENT = 0.5f
+private const val DEFAULT_RADIUS = 0.5f
 private val timeColors = mapOf(
     50.0 to NamedTextColor.RED,
     15.0 to NamedTextColor.YELLOW,
@@ -75,13 +78,13 @@ internal class IgnacioCommand(
                     create.literal("static").let { static ->
                         manager.command(static
                             .literal("box")
-                            .argument(FloatArgument.of(HALF_EXTENT))
+                            .argument(FloatArgument.optional(HALF_EXTENT))
                             .alexandriaPermission("primitives.create")
                             .handler(::primitivesCreateStaticBox)
                         )
                         manager.command(static
                             .literal("sphere")
-                            .argument(FloatArgument.of(RADIUS))
+                            .argument(FloatArgument.optional(RADIUS))
                             .alexandriaPermission("primitives.create")
                             .handler(::primitivesCreateStaticSphere)
                         )
@@ -96,13 +99,13 @@ internal class IgnacioCommand(
                         .let { dynamic ->
                             manager.command(dynamic
                                 .literal("box")
-                                .argument(FloatArgument.of(HALF_EXTENT))
+                                .argument(FloatArgument.optional(HALF_EXTENT))
                                 .alexandriaPermission("primitives.create")
                                 .handler(::primitivesCreateDynamicBox)
                             )
                             manager.command(dynamic
                                 .literal("sphere")
-                                .argument(FloatArgument.of(RADIUS))
+                                .argument(FloatArgument.optional(RADIUS))
                                 .alexandriaPermission("primitives.create")
                                 .handler(::primitivesCreateDynamicSphere)
                             )
@@ -170,7 +173,7 @@ internal class IgnacioCommand(
         val sender = ctx.sender
         val messages = ignacio.messages.forAudience(sender)
         val location = ctx.get<Location>(LOCATION)
-        val halfExtent = ctx.get<Float>(HALF_EXTENT)
+        val halfExtent = ctx.getOr(HALF_EXTENT) ?: DEFAULT_HALF_EXTENT
         val count = ctx.flag(COUNT) ?: 1
         val spread = ctx.flag(SPREAD) ?: 0.0
         val virtual = ctx.hasFlag(VIRTUAL)
@@ -191,7 +194,7 @@ internal class IgnacioCommand(
         val sender = ctx.sender
         val messages = ignacio.messages.forAudience(sender)
         val location = ctx.get<Location>(LOCATION)
-        val radius = ctx.get<Float>(RADIUS)
+        val radius = ctx.getOr(RADIUS) ?: DEFAULT_RADIUS
         val count = ctx.flag(COUNT) ?: 1
         val spread = ctx.flag(SPREAD) ?: 0.0
         val virtual = ctx.hasFlag(VIRTUAL)
@@ -212,7 +215,7 @@ internal class IgnacioCommand(
         val sender = ctx.sender
         val messages = ignacio.messages.forAudience(sender)
         val location = ctx.get<Location>(LOCATION)
-        val halfExtent = ctx.get<Float>(HALF_EXTENT)
+        val halfExtent = ctx.getOr(HALF_EXTENT) ?: DEFAULT_HALF_EXTENT
         val count = ctx.flag(COUNT) ?: 1
         val mass = ctx.flag(MASS) ?: 1f
         val spread = ctx.flag(SPREAD) ?: 0.0
@@ -235,7 +238,7 @@ internal class IgnacioCommand(
         val sender = ctx.sender
         val messages = ignacio.messages.forAudience(sender)
         val location = ctx.get<Location>(LOCATION)
-        val radius = ctx.get<Float>(RADIUS)
+        val radius = ctx.getOr(RADIUS) ?: DEFAULT_RADIUS
         val count = ctx.flag(COUNT) ?: 1
         val mass = ctx.flag(MASS) ?: 1f
         val spread = ctx.flag(SPREAD) ?: 0.0
@@ -279,9 +282,7 @@ internal class IgnacioCommand(
         val sender = ctx.sender
         val messages = ignacio.messages.forAudience(sender)
 
-        messages.command.timings.timingHeader(
-            engine = ignacio.settings.engine.name,
-        ).sendTo(sender)
+        messages.command.timings.timingHeader().sendTo(sender)
 
         ignacio.settings.engineTimings.buffersToDisplay.forEach { buffer ->
             val bufferTimes = ignacio.engineTimings.getLast((buffer * 1000).toLong()).sorted()

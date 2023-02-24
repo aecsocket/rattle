@@ -36,8 +36,9 @@ translations:
           }
       timings:
         timing_header: |-
-          <p2>Using engine <p1>{engine}</p1>:
-        time: "{time, number, :: .0}"
+          <p2>Timings:
+        time: >-
+          {time, number, :: .0}"
         timing: |-
           <p2>  · <sk>{buffer} s</sk>: <p1><median> ms</p1> avg / <p1><best5> ms</p1> 5%ile / <p1><worst5> ms</p1> 95%ile
         space_header: |-
