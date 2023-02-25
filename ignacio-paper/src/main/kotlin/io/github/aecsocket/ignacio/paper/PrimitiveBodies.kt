@@ -27,7 +27,7 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
         createBody: (physics: PhysicsSpace) -> PhysicsBody,
         createRender: ((playerTracker: PlayerTracker) -> WorldRender)?,
     ) {
-        val physics = ignacio.physicsIn(world)
+        val physics = ignacio.physicsIn(world).physics
         val entity = world.spawnEntity(
             transform.position.location(world), EntityType.ARMOR_STAND, CreatureSpawnEvent.SpawnReason.COMMAND
         ) { entity ->

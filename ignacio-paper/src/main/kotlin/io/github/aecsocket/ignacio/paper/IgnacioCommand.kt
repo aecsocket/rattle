@@ -19,6 +19,7 @@ import io.github.aecsocket.ignacio.core.math.Transform
 import io.github.aecsocket.ignacio.core.math.Vec3f
 import io.github.aecsocket.ignacio.core.math.nextVec3d
 import io.github.aecsocket.ignacio.paper.util.position
+import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import org.bukkit.Location
@@ -41,6 +42,15 @@ private val timeColors = mapOf(
     15.0 to NamedTextColor.YELLOW,
     0.0 to NamedTextColor.GREEN,
 )
+
+internal fun formatTime(time: Double, messages: IgnacioMessages): Component {
+    val text = messages.command.timings.time(time).component()
+    val clampedTime = max(0.0, time)
+    val color = timeColors.firstNotNullOf { (threshold, color) ->
+        if (clampedTime >= threshold) color else null
+    }
+    return text.applyFallbackStyle(color)
+}
 
 internal class IgnacioCommand(
     private val ignacio: Ignacio
@@ -269,15 +279,6 @@ internal class IgnacioCommand(
         ).sendTo(sender)
     }
 
-    private fun formatTime(time: Double, messages: IgnacioMessages): Component {
-        val text = messages.command.timings.time(time).component()
-        val clampedTime = max(0.0, time)
-        val color = timeColors.firstNotNullOf { (threshold, color) ->
-            if (clampedTime >= threshold) color else null
-        }
-        return text.applyFallbackStyle(color)
-    }
-
     private fun timings(ctx: Context) {
         val sender = ctx.sender
         val messages = ignacio.messages.forAudience(sender)
@@ -285,21 +286,7 @@ internal class IgnacioCommand(
         messages.command.timings.timingHeader().sendTo(sender)
 
         ignacio.settings.engineTimings.buffersToDisplay.forEach { buffer ->
-            val bufferTimes = ignacio.engineTimings.getLast((buffer * 1000).toLong()).sorted()
-            val median: Double
-            val best5: Double
-            val worst5: Double
-            if (bufferTimes.isEmpty()) {
-                median = 0.0
-                best5 = 0.0
-                worst5 = 0.0
-            } else {
-                fun Long.ms() = this / 1.0e6
-                median = bufferTimes[(bufferTimes.size * 0.5).toInt()].ms()
-                best5 = bufferTimes[(bufferTimes.size * 0.05).toInt()].ms()
-                worst5 = bufferTimes[(bufferTimes.size * 0.95).toInt()].ms()
-            }
-
+            val (median, best5, worst5) = timingStatsOf(ignacio.engineTimings.getLast((buffer * 1000).toLong()))
             messages.command.timings.timing(
                 buffer = buffer,
                 median = formatTime(median, messages),
@@ -312,18 +299,19 @@ internal class IgnacioCommand(
             numWorldPhysicsSpaces = ignacio.worldPhysics.size,
         ).sendTo(sender)
 
-        ignacio.worldPhysics.forEach { (world, physics) ->
+        ignacio.worldPhysics.forEach { (_, world) ->
             messages.command.timings.space(
-                worldName = world.name,
-                numBodies = physics.numBodies,
-                numActiveBodies = physics.numActiveBodies,
+                worldName = world.world.name,
+                numBodies = world.physics.numBodies,
+                numActiveBodies = world.physics.numActiveBodies,
             ).sendTo(sender)
         }
     }
 
     private fun timingsDisplay(ctx: Context) {
-        val sender = ctx.sender
-        val messages = ignacio.messages.forAudience(sender)
+        val sender = ctx.sender as Player
 
+        val playerData = ignacio.playerData(sender)
+        playerData.setTimingsBar(ignacio.settings.timingsDisplay.create(Component.empty()))
     }
 }

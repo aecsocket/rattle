@@ -74,15 +74,22 @@ interface IgnacioMessages {
                 numBodies: Int,
                 numActiveBodies: Int,
             ): Message
-
-            fun display(
-                worldName: String,
-                numBodies: Int,
-                numActiveBodies: Int,
-                median: Component,
-                best5: Component,
-                worst5: Component,
-            ): Message
         }
+    }
+
+    val timingsDisplay: TimingsDisplay
+    interface TimingsDisplay {
+        fun noPhysics(
+            worldName: String,
+        ): Message
+
+        fun forPhysics(
+            worldName: String,
+            numBodies: Int,
+            numActiveBodies: Int,
+            median: Component,
+            best5: Component,
+            worst5: Component,
+        ): Message
     }
 }

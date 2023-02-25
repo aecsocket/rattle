@@ -2,11 +2,13 @@ package io.github.aecsocket.ignacio.paper
 
 import com.github.retrooper.packetevents.PacketEvents
 import com.github.retrooper.packetevents.wrapper.PacketWrapper
+import io.github.aecsocket.alexandria.core.BossBarSettings
 import io.github.aecsocket.alexandria.core.Logging
 import io.github.aecsocket.alexandria.core.LoggingList
 import io.github.aecsocket.alexandria.core.serializer.alexandriaCoreSerializers
 import io.github.aecsocket.alexandria.paper.AlexandriaApiPlugin
 import io.github.aecsocket.alexandria.paper.ItemDescriptor
+import io.github.aecsocket.alexandria.paper.extension.registerEvents
 import io.github.aecsocket.alexandria.paper.extension.runRepeating
 import io.github.aecsocket.alexandria.paper.fallbackLocale
 import io.github.aecsocket.alexandria.paper.seralizer.alexandriaPaperSerializers
@@ -24,6 +26,7 @@ import io.github.aecsocket.ignacio.paper.util.position
 import io.github.aecsocket.ignacio.paper.util.vec3d
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder
 import io.papermc.paper.util.Tick
+import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.TextColor
 import org.bukkit.Bukkit
@@ -38,6 +41,7 @@ import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import org.spongepowered.configurate.objectmapping.ObjectMapper
 import java.util.*
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.collections.HashMap
 
 private lateinit var instance: Ignacio
 val IgnacioAPI get() = instance
@@ -74,12 +78,14 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
         val jolt: JoltEngine.Settings = JoltEngine.Settings(),
         val physicsSpaces: PhysicsSpace.Settings = PhysicsSpace.Settings(),
         val engineTimings: EngineTimings = EngineTimings(),
+        val timingsDisplay: BossBarSettings = BossBarSettings(),
         val primitiveModels: PrimitiveModels = PrimitiveModels(),
     ) : AlexandriaApiPlugin.Settings {
         @ConfigSerializable
         data class EngineTimings(
             val buffer: Double = 60.0,
             val buffersToDisplay: List<Double> = listOf(5.0, 15.0, 60.0),
+            val barBuffer: Double = 5.0,
         )
 
         @ConfigSerializable
@@ -93,8 +99,9 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
     val primitiveBodies = PrimitiveBodies(this)
     private val mEngineTimings = timestampedList<Long>(0)
     val engineTimings: TimestampedList<Long> get() = mEngineTimings
-    val worldPhysics = HashMap<World, PhysicsSpace>()
+    val worldPhysics = HashMap<World, WorldPhysics>()
     val updatingPhysics = AtomicBoolean(false)
+    private val players = HashMap<Player, IgnacioPlayer>()
 
     override lateinit var settings: Settings private set
     lateinit var engine: JoltEngine private set
@@ -120,16 +127,20 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
 
     override fun onEnable() {
         IgnacioCommand(this)
+        registerEvents(IgnacioListener(this))
 
         runRepeating {
             primitiveBodies.update()
+            players.forEach { (_, player) ->
+                player.update()
+            }
 
             engine.runTask {
                 if (updatingPhysics.getAndSet(true)) return@runTask
 
                 val start = System.nanoTime()
-                worldPhysics.forEach { (_, physics) ->
-                    physics.update(deltaTime)
+                worldPhysics.forEach { (_, world) ->
+                    world.physics.update(deltaTime)
                 }
                 val end = System.nanoTime()
 
@@ -140,7 +151,7 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
             // TODO
             engine.runTask {
                 Bukkit.getOnlinePlayers().forEach { player ->
-                    val physics = physicsInOr(player.world) ?: return@forEach
+                    val physics = physicsInOr(player.world)?.physics ?: return@forEach
                     val nearby = physics.bodiesNear(player.location.position(), 16f)
                     val casts = physics.rayCastBodies(
                         ray = Ray(player.eyeLocation.position(), player.location.direction.vec3d().sp()),
@@ -157,8 +168,8 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
     }
 
     override fun onDisable() {
-        worldPhysics.forEach { (_, space) ->
-            engine.destroySpace(space)
+        worldPhysics.forEach { (_, world) ->
+            engine.destroySpace(world.physics)
         }
         engine.destroy()
     }
@@ -179,10 +190,22 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
         engine.settings = settings.jolt
     }
 
+    fun playerData(player: Player) = players.computeIfAbsent(player) {
+        IgnacioPlayer(this, player)
+    }
+
+    internal fun removePlayerData(player: Player) {
+        players.remove(player)
+    }
+
     fun physicsInOr(world: World) = worldPhysics[world]
 
     fun physicsIn(world: World) = worldPhysics.computeIfAbsent(world) {
-        engine.createSpace(settings.physicsSpaces)
+        WorldPhysics(this, world, engine.createSpace(settings.physicsSpaces)).also {
+            world.loadedChunks.forEach { chunk ->
+                it.load(chunk)
+            }
+        }
     }
 }
 

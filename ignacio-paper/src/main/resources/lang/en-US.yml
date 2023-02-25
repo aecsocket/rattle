@@ -38,12 +38,16 @@ translations:
         timing_header: |-
           <p2>Timings:
         time: >-
-          {time, number, :: .0}"
+          {time, number, :: .0}
         timing: |-
           <p2>  · <sk>{buffer} s</sk>: <p1><median> ms</p1> avg / <p1><best5> ms</p1> 5%ile / <p1><worst5> ms</p1> 95%ile
         space_header: |-
           <p2>  {num_world_physics_spaces, plural, =0 {No world physics spaces.} other {World physics spaces (<p1>#</p1>):}}
         space: >-
           <p2>    · <sk>{world_name}</sk>: <p1>{num_active_bodies}</p1> active / <p1>{num_bodies}</p1> bodies
-        display: >-
-          <p2><sk>{world_name}</sk>: <p1>{num_active_bodies}</p1> active / <p1>{num_bodies}</p1> bodies <p3>|</p3> <p1><median> ms</p1> avg / <p1><best5> ms</p1> 5%ile / <p1><worst5> ms</p1> 95%ile
+
+    timings_display:
+      no_physics: >-
+        <p2><sk>{world_name}</sk>: <se>no physics</se>
+      for_physics: >-
+        <p2><sk>{world_name}</sk>: <p1>{num_active_bodies}</p1> active / <p1>{num_bodies}</p1> bodies <p3>|</p3> <p1><median> ms</p1> avg / <p1><best5> ms</p1> 5%ile / <p1><worst5> ms</p1> 95%ile

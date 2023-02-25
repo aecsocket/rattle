@@ -13,11 +13,11 @@ import jolt.physics.PhysicsSystem
 import jolt.physics.collision.ObjectLayerPairFilter
 import jolt.physics.collision.broadphase.BroadPhaseLayerInterface
 import jolt.physics.collision.broadphase.ObjectVsBroadPhaseLayerFilter
-import jolt.physics.collision.shape.BoxShape
-import jolt.physics.collision.shape.CapsuleShape
-import jolt.physics.collision.shape.Shape
-import jolt.physics.collision.shape.SphereShape
+import jolt.physics.collision.shape.*
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.logging.Logger
 import kotlin.math.cos
 
@@ -85,10 +85,11 @@ class JoltEngine(var settings: Settings, logger: Logger) : IgnacioEngine {
 
     override val build: String
 
-    val physicsThread = PhysicsThread("Jolt", logger)
+    private val executorId = AtomicInteger(1)
     val spaces = HashMap<PhysicsSystem, JtPhysicsSpace>()
 
     val numThreads: Int
+    val executor: ExecutorService
     val jobSystem: JobSystem
     val bpLayerInterface: BroadPhaseLayerInterface
     val objBpLayerFilter: ObjectVsBroadPhaseLayerFilter
@@ -100,8 +101,13 @@ class JoltEngine(var settings: Settings, logger: Logger) : IgnacioEngine {
         build = "v${JoltEnvironment.JOLT_VERSION} ${JoltEnvironment.featureList().joinToString(" ") { it.name }}"
 
         numThreads =
-            if (settings.jobs.numThreads < 0) clamp(Runtime.getRuntime().availableProcessors() - 2, 1, 16)
+            if (settings.jobs.numThreads <= 0) clamp(Runtime.getRuntime().availableProcessors() - 2, 1, 16)
             else settings.jobs.numThreads
+
+        // TODO have one thread pool rather than JNI and Java pools
+        executor = Executors.newSingleThreadExecutor { task ->
+            Thread(task, "Ignacio-Worker-${executorId.getAndIncrement()}")
+        }
 
         JoltEnvironment.registerDefaultAllocator()
         RTTIFactory.setInstance(RTTIFactory())
@@ -141,12 +147,10 @@ class JoltEngine(var settings: Settings, logger: Logger) : IgnacioEngine {
                 else -> false
             }
         }
-
-        physicsThread.start()
     }
 
     override fun destroy() {
-        physicsThread.destroy()
+        executor.shutdown()
 
         spaces.forEach { (_, space) ->
             space.destroy()
@@ -161,15 +165,23 @@ class JoltEngine(var settings: Settings, logger: Logger) : IgnacioEngine {
     }
 
     override fun runTask(task: Runnable) {
-        physicsThread.execute(task)
+        executor.execute(task)
     }
 
-    fun shapeOf(geometry: Geometry): Shape {
+    fun createShape(geometry: Geometry): Shape {
         return when (geometry) {
             is SphereGeometry -> SphereShape(geometry.radius)
             is BoxGeometry -> BoxShape(geometry.halfExtent.jolt())
             is CapsuleGeometry -> CapsuleShape(geometry.halfHeight, geometry.radius)
-            else -> throw IllegalArgumentException("Unsupported geometry type ${geometry::class.simpleName}")
+            is StaticCompoundGeometry -> {
+                StaticCompoundShapeSettings().use { settings ->
+                    geometry.children.forEach { child ->
+                        settings.addShape(child.position.jolt(), child.rotation.jolt(), createShape(child.geometry), 0)
+                    }
+                    settings.create() // TODO use a temp allocator here which is thread-safe
+                }
+            }
+            //else -> throw IllegalArgumentException("Unsupported geometry type ${geometry::class.simpleName}")
         }
     }
 

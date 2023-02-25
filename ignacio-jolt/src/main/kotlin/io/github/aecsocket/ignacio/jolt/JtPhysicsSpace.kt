@@ -11,10 +11,8 @@ import jolt.kotlin.*
 import jolt.physics.body.BodyFilter
 import jolt.physics.body.MotionType
 import jolt.physics.collision.*
-import jolt.physics.collision.broadphase.BroadPhaseCastResult
 import jolt.physics.collision.broadphase.BroadPhaseLayerFilter
 import jolt.physics.collision.broadphase.CollideShapeBodyCollector
-import jolt.physics.collision.broadphase.RayCastBodyCollector
 import jolt.physics.collision.shape.CastRayCollector
 
 class JtPhysicsSpace(
@@ -27,7 +25,10 @@ class JtPhysicsSpace(
     override val numActiveBodies get() = handle.numActiveBodies
 
     fun destroy() {
-        // todo destroy bodies
+        bodies.forEach { (id, body) ->
+            handle.bodyInterface.removeBody(id)
+            body.destroy()
+        }
         handle.delete()
         tempAllocator.delete()
     }
@@ -36,32 +37,36 @@ class JtPhysicsSpace(
         ?: throw IllegalStateException("ID $id does not have a corresponding Ignacio wrapper")
 
     override fun addStaticBody(geometry: Geometry, transform: Transform): StaticBody {
-        val settings = BodyCreationSettingsDp(
-            engine.shapeOf(geometry),
+        val shape = engine.createShape(geometry)
+        return BodyCreationSettingsDp(
+            shape,
             transform.position.jolt(),
             transform.rotation.jolt(),
             MotionType.STATIC,
             OBJECT_LAYER_NON_MOVING
-        )
-        val body = BodyId(handle.bodyInterface.createBody(settings).id)
-        handle.bodyInterface.addBody(body, Activation.DONT_ACTIVATE)
-        return JtStaticBody(engine, this, body).also {
-            bodies[body] = it
+        ).use { settings ->
+            val body = BodyId(handle.bodyInterface.createBody(settings).id)
+            handle.bodyInterface.addBody(body, Activation.DONT_ACTIVATE)
+            JtStaticBody(engine, this, body, shape).also {
+                bodies[body] = it
+            }
         }
     }
 
     override fun addDynamicBody(geometry: Geometry, transform: Transform, dynamics: BodyDynamics): DynamicBody {
-        val settings = BodyCreationSettingsDp(
-            engine.shapeOf(geometry),
+        val shape = engine.createShape(geometry)
+        return BodyCreationSettingsDp(
+            shape,
             transform.position.jolt(),
             transform.rotation.jolt(),
             MotionType.DYNAMIC,
             OBJECT_LAYER_MOVING
-        )
-        val body = BodyId(handle.bodyInterface.createBody(settings).id)
-        handle.bodyInterface.addBody(body, Activation.ofValue(dynamics.activate))
-        return JtDynamicBody(engine, this, body).also {
-            bodies[body] = it
+        ).use { settings ->
+            val body = BodyId(handle.bodyInterface.createBody(settings).id)
+            handle.bodyInterface.addBody(body, Activation.ofValue(dynamics.activate))
+            JtDynamicBody(engine, this, body, shape).also {
+                bodies[body] = it
+            }
         }
     }
 

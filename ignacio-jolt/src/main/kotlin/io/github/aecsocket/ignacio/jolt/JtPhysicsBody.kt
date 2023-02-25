@@ -8,16 +8,19 @@ import jolt.kotlin.*
 import jolt.math.JtQuat
 import jolt.math.JtVec3d
 import jolt.physics.Activation
+import jolt.physics.collision.shape.Shape
 
 sealed class JtPhysicsBody(
     private val engine: JoltEngine,
     val space: JtPhysicsSpace,
-    val id: BodyId
+    val id: BodyId,
+    val shape: Shape,
 ) : PhysicsBody {
     override fun destroy() {
         if (space.handle.bodyInterface.isAdded(id))
             throw IllegalStateException("Body is still added to space")
         space.handle.bodyInterface.destroyBody(id)
+        shape.delete()
     }
 
     override var transform: Transform
@@ -36,13 +39,13 @@ sealed class JtPhysicsBody(
 }
 
 class JtStaticBody(
-    engine: JoltEngine, space: JtPhysicsSpace, id: BodyId
-) : JtPhysicsBody(engine, space, id), StaticBody {
+    engine: JoltEngine, space: JtPhysicsSpace, id: BodyId, shape: Shape
+) : JtPhysicsBody(engine, space, id, shape), StaticBody {
     override fun toString() = "JtStaticBody(${id.id})"
 }
 
 class JtDynamicBody(
-    engine: JoltEngine, space: JtPhysicsSpace, id: BodyId
-) : JtPhysicsBody(engine, space, id), DynamicBody {
+    engine: JoltEngine, space: JtPhysicsSpace, id: BodyId, shape: Shape
+) : JtPhysicsBody(engine, space, id, shape), DynamicBody {
     override fun toString() = "JtDynamicBody(${id.id})"
 }
