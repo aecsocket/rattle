@@ -102,6 +102,7 @@ class WorldPhysics internal constructor(
 
                 if (sliceChildren.isNotEmpty()) {
                     val geometry = StaticCompoundGeometry(sliceChildren)
+                    val self = this@WorldPhysics
                     SliceData(
                         body = physics.addStaticBody(geometry, Transform(sliceBase))
                     )

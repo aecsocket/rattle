@@ -4,18 +4,11 @@ import io.github.aecsocket.ignacio.core.math.Quat
 import io.github.aecsocket.ignacio.core.math.Ray
 import io.github.aecsocket.ignacio.core.math.Vec3d
 import io.github.aecsocket.ignacio.core.math.Vec3f
-import jolt.JoltNative
 import jolt.math.JtQuat
 import jolt.math.JtVec3d
 import jolt.math.JtVec3f
 import jolt.physics.collision.RayCast3d
 import jolt.physics.collision.RayCast3f
-
-fun <T : JoltNative, R> T.use(block: (T) -> R): R {
-    val result = block(this)
-    delete()
-    return result
-}
 
 fun JtVec3f.ignacio() = Vec3f(x, y, z)
 fun JtVec3f.ignacioDp() = Vec3d(x.toDouble(), y.toDouble(), z.toDouble())

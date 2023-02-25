@@ -26,7 +26,6 @@ import io.github.aecsocket.ignacio.paper.util.position
 import io.github.aecsocket.ignacio.paper.util.vec3d
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder
 import io.papermc.paper.util.Tick
-import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.TextColor
 import org.bukkit.Bukkit
@@ -76,11 +75,17 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
         override val defaultLocale: Locale = fallbackLocale,
         val deltaTimeMultiplier: Float = 1f,
         val jolt: JoltEngine.Settings = JoltEngine.Settings(),
+        val terrain: Terrain = Terrain(),
         val physicsSpaces: PhysicsSpace.Settings = PhysicsSpace.Settings(),
         val engineTimings: EngineTimings = EngineTimings(),
         val timingsDisplay: BossBarSettings = BossBarSettings(),
         val primitiveModels: PrimitiveModels = PrimitiveModels(),
     ) : AlexandriaApiPlugin.Settings {
+        @ConfigSerializable
+        data class Terrain(
+            val generate: Boolean = true,
+        )
+
         @ConfigSerializable
         data class EngineTimings(
             val buffer: Double = 60.0,
@@ -152,12 +157,12 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
             engine.runTask {
                 Bukkit.getOnlinePlayers().forEach { player ->
                     val physics = physicsInOr(player.world)?.physics ?: return@forEach
-                    val nearby = physics.bodiesNear(player.location.position(), 16f)
-                    val casts = physics.rayCastBodies(
+                    val nearby = physics.broadQuery.overlapSphere(player.location.position(), 16f)
+                    val casts = physics.narrowQuery.rayCastBodies(
                         ray = Ray(player.eyeLocation.position(), player.location.direction.vec3d().sp()),
                         distance = 16f,
                     )
-                    val cast = physics.rayCastBody(
+                    val cast = physics.narrowQuery.rayCastBody(
                         Ray(player.eyeLocation.position(), player.location.direction.vec3d().sp()),
                         16f
                     )

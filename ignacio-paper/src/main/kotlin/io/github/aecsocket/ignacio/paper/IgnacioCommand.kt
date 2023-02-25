@@ -19,7 +19,6 @@ import io.github.aecsocket.ignacio.core.math.Transform
 import io.github.aecsocket.ignacio.core.math.Vec3f
 import io.github.aecsocket.ignacio.core.math.nextVec3d
 import io.github.aecsocket.ignacio.paper.util.position
-import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import org.bukkit.Location
@@ -135,14 +134,14 @@ internal class IgnacioCommand(
         virtual: Boolean,
         origin: Location,
         model: ItemDescriptor,
-        addBody: (physics: PhysicsSpace, transform: Transform) -> PhysicsBody,
+        createBody: (physics: PhysicsSpace, transform: Transform) -> BodyAccess,
     ) {
         repeat(count) {
             val transform = Transform(origin.position() - spread + Random.nextVec3d() * (spread*2))
             ignacio.primitiveBodies.create(
                 world = origin.world,
                 transform = transform,
-                createBody = { addBody(it, transform) },
+                createBody = { createBody(it, transform) },
                 createRender = if (virtual) null else { { ignacio.renders.createModel(it, transform, model.create()) } },
             )
         }
@@ -157,7 +156,7 @@ internal class IgnacioCommand(
         geometry: Geometry,
     ) {
         primitivesCreate(count, spread, virtual, origin, model) { physics, transform ->
-            physics.addStaticBody(geometry, transform)
+            physics.bodies.addStaticBody(geometry, transform)
         }
     }
 

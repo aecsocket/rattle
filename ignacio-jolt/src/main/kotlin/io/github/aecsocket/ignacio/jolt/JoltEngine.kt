@@ -8,6 +8,7 @@ import jolt.*
 import jolt.core.*
 import jolt.kotlin.BroadPhaseLayer
 import jolt.kotlin.ObjectLayer
+import jolt.kotlin.use
 import jolt.physics.PhysicsSettings
 import jolt.physics.PhysicsSystem
 import jolt.physics.collision.ObjectLayerPairFilter
@@ -21,11 +22,11 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.logging.Logger
 import kotlin.math.cos
 
-val OBJECT_LAYER_NON_MOVING = ObjectLayer(0)
-val OBJECT_LAYER_MOVING = ObjectLayer(1)
+val objectLayerNonMoving = ObjectLayer(0)
+val objectLayerMoving = ObjectLayer(1)
 
-val BP_LAYER_NON_MOVING = BroadPhaseLayer(0)
-val BP_LAYER_MOVING = BroadPhaseLayer(1)
+val bpLayerNonMoving = BroadPhaseLayer(0)
+val bpLayerMoving = BroadPhaseLayer(1)
 
 class JoltEngine(var settings: Settings, logger: Logger) : IgnacioEngine {
     @ConfigSerializable
@@ -120,30 +121,30 @@ class JoltEngine(var settings: Settings, logger: Logger) : IgnacioEngine {
 
         bpLayerInterface = object : BroadPhaseLayerInterface() {
             override fun getNumBroadPhaseLayers() = 2
-            override fun getBroadPhaseLayer(layer: Int) = when (ObjectLayer(layer)) {
-                OBJECT_LAYER_NON_MOVING -> BP_LAYER_NON_MOVING
-                OBJECT_LAYER_MOVING -> BP_LAYER_MOVING
+            override fun getBroadPhaseLayer(layer: Short) = when (ObjectLayer(layer)) {
+                objectLayerNonMoving -> bpLayerNonMoving
+                objectLayerMoving -> bpLayerMoving
                 else -> throw IllegalArgumentException("Invalid layer $layer")
             }.id
             override fun getBroadPhaseLayerName(layer: Byte) = when (BroadPhaseLayer(layer)) {
-                BP_LAYER_NON_MOVING -> "NON_MOVING"
-                BP_LAYER_MOVING -> "MOVING"
+                bpLayerNonMoving -> "NON_MOVING"
+                bpLayerMoving -> "MOVING"
                 else -> throw RuntimeException()
             }
         }
 
         objBpLayerFilter = object : ObjectVsBroadPhaseLayerFilter() {
-            override fun shouldCollide(layer1: Int, layer2: Byte) = when (ObjectLayer(layer1)) {
-                OBJECT_LAYER_NON_MOVING -> BroadPhaseLayer(layer2) == BP_LAYER_MOVING
-                OBJECT_LAYER_MOVING -> true
+            override fun shouldCollide(layer1: Short, layer2: Byte) = when (ObjectLayer(layer1)) {
+                objectLayerNonMoving -> BroadPhaseLayer(layer2) == bpLayerMoving
+                objectLayerMoving -> true
                 else -> false
             }
         }
 
         objPairLayerFilter = object : ObjectLayerPairFilter() {
-            override fun shouldCollide(layer1: Int, layer2: Int) = when (ObjectLayer(layer1)) {
-                OBJECT_LAYER_NON_MOVING -> ObjectLayer(layer2) == OBJECT_LAYER_NON_MOVING
-                OBJECT_LAYER_MOVING -> true
+            override fun shouldCollide(layer1: Short, layer2: Short) = when (ObjectLayer(layer1)) {
+                objectLayerNonMoving -> ObjectLayer(layer2) == objectLayerNonMoving
+                objectLayerMoving -> true
                 else -> false
             }
         }
@@ -227,7 +228,7 @@ class JoltEngine(var settings: Settings, logger: Logger) : IgnacioEngine {
             allowSleeping = physics.allowSleeping
             checkActiveEdges = physics.checkActiveEdges
         }
-        return JtPhysicsSpace(this, system, tempAllocator).also {
+        return JtPhysicsSpace(this, system, tempAllocator, settings).also {
             spaces[system] = it
         }
     }

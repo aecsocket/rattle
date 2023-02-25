@@ -12,24 +12,52 @@ interface PhysicsSpace {
         val gravity: Vec3f = Vec3f(0f, -9.81f, 0f),
     )
 
-    data class RayCast(
-        val body: PhysicsBody,
-    )
+    var settings: Settings
 
     val numBodies: Int
     val numActiveBodies: Int
 
-    fun addStaticBody(geometry: Geometry, transform: Transform): StaticBody
-
-    fun addDynamicBody(geometry: Geometry, transform: Transform, dynamics: BodyDynamics): DynamicBody
-
-    fun removeBody(body: PhysicsBody)
-
-    fun rayCastBody(ray: Ray, distance: Float): RayCast?
-
-    fun rayCastBodies(ray: Ray, distance: Float): Collection<PhysicsBody>
-
-    fun bodiesNear(position: Vec3d, radius: Float): Collection<PhysicsBody>
+    val bodies: Bodies
+    val broadQuery: BroadQuery
+    val narrowQuery: NarrowQuery
 
     fun update(deltaTime: Float)
+
+    data class RayCast(
+        val body: BodyAccess,
+    )
+
+    interface Bodies {
+        fun createStaticBody(snapshot: StaticBodySnapshot, transform: Transform): StaticBodyAccess
+
+        fun createDynamicBody(snapshot: DynamicBodySnapshot, transform: Transform): DynamicBodyAccess
+
+        fun destroyBody(body: BodyAccess)
+
+        fun addBody(body: BodyAccess, activate: Boolean)
+
+        fun removeBody(body: BodyAccess)
+    }
+
+    interface BroadQuery {
+        fun overlapSphere(position: Vec3d, radius: Float): Collection<BodyAccess>
+    }
+
+    interface NarrowQuery {
+        fun rayCastBody(ray: Ray, distance: Float): RayCast?
+
+        fun rayCastBodies(ray: Ray, distance: Float): Collection<BodyAccess>
+    }
+}
+
+fun <R> PhysicsSpace.bodies(block: PhysicsSpace.Bodies.() -> R): R {
+    return block(bodies)
+}
+
+fun <R> PhysicsSpace.broadQuery(block: PhysicsSpace.BroadQuery.() -> R): R {
+    return block(broadQuery)
+}
+
+fun <R> PhysicsSpace.narrowQuery(block: PhysicsSpace.NarrowQuery.() -> R): R {
+    return block(narrowQuery)
 }

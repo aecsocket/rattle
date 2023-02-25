@@ -4,7 +4,7 @@ import kotlin.math.PI
 import kotlin.math.max
 import kotlin.math.min
 
-private const val FPI = PI.toFloat()
+const val FPI = PI.toFloat()
 internal const val DECIMAL_FORMAT = "%.3f"
 
 fun sqr(x: Float) = x*x
