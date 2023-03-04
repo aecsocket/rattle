@@ -105,7 +105,18 @@ class JoltEngine(var settings: Settings, logger: Logger) : IgnacioEngine {
             if (settings.jobs.numThreads <= 0) clamp(Runtime.getRuntime().availableProcessors() - 2, 1, 16)
             else settings.jobs.numThreads
 
-        // TODO have one thread pool rather than JNI and Java pools
+        // TODO have one thread pool rather than Jolt and Java pools
+        // TODO allow multithreading with barriers?
+        /*
+                           [ ChunkGenerate (1, 1) ]
+        ChunkLoad -> ----- [ ChunkGenerate (1, 2) ]  -> DONE
+                           [ ChunkGenerate (1, 3) ]
+                           [ ...                  ]
+
+                                                    [ Raycast (Player1) ]
+                Raycast -> ------------------------ [ Raycast (Player2) ] -> DONE
+                                                    [ ...               ]
+         */
         executor = Executors.newSingleThreadExecutor { task ->
             Thread(task, "Ignacio-Worker-${executorId.getAndIncrement()}")
         }
@@ -168,14 +179,13 @@ class JoltEngine(var settings: Settings, logger: Logger) : IgnacioEngine {
                 BoxShape.of(geometry.halfExtent.toJolt())
             }
             is CapsuleGeometry -> CapsuleShape.of(geometry.halfHeight, geometry.radius)
-            is StaticCompoundGeometry -> {
-                throw UnsupportedOperationException()
-//                StaticCompoundShapeSettings().use { settings ->
-//                    geometry.children.forEach { child ->
-//                        settings.addShape(child.position.toJolt(), child.rotation.toJolt(), createShape(child.geometry), 0)
-//                    }
-//                    settings.create() // TODO use a temp allocator here which is thread-safe
-//                }
+            is StaticCompoundGeometry -> useArena {
+                StaticCompoundShapeSettings.of().use { settings ->
+                    geometry.children.forEach { child ->
+                        settings.addShape(child.position.toJolt(), child.rotation.toJolt(), createShape(child.geometry), 0)
+                    }
+                    settings.create() // TODO use a temp allocator here which is thread-safe
+                }
             }
             //else -> throw IllegalArgumentException("Unsupported geometry type ${geometry::class.simpleName}")
         }

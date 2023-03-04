@@ -75,10 +75,25 @@ interface IgnacioMessages {
                 numActiveBodies: Int,
             ): Message
         }
+
+        val space: Space
+        interface Space {
+            fun create(
+                worldName: String
+            ): Message
+
+            fun alreadyCreated(
+                worldName: String
+            ): Message
+
+            fun destroy(
+                worldName: String
+            ): Message
+        }
     }
 
-    val timingsDisplay: TimingsDisplay
-    interface TimingsDisplay {
+    val barDisplay: BarDisplay
+    interface BarDisplay {
         fun noPhysics(
             worldName: String,
         ): Message
@@ -90,6 +105,14 @@ interface IgnacioMessages {
             median: Component,
             best5: Component,
             worst5: Component,
+        ): Message
+
+        fun forSpaceCreate(
+            worldName: String,
+            chunksProcessed: Int,
+            chunksRemaining: Int,
+            chunksTotal: Int,
+            chunksProgress: Float,
         ): Message
     }
 }

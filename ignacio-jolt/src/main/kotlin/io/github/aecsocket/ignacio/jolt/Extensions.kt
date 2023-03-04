@@ -4,6 +4,7 @@ import io.github.aecsocket.ignacio.core.math.Quat
 import io.github.aecsocket.ignacio.core.math.Ray
 import io.github.aecsocket.ignacio.core.math.Vec3d
 import io.github.aecsocket.ignacio.core.math.Vec3f
+import jolt.Destroyable
 import jolt.math.*
 import jolt.physics.collision.DRayCast
 import java.lang.foreign.MemorySession
@@ -19,6 +20,12 @@ fun <R> useArena(block: MemorySession.() -> R): R {
         callsInPlace(block, InvocationKind.EXACTLY_ONCE)
     }
     return MemorySession.openConfined().use(block)
+}
+
+fun <T : Destroyable, R> T.use(block: (T) -> R): R {
+    val result = block(this)
+    destroy()
+    return result
 }
 
 context(MemorySession)

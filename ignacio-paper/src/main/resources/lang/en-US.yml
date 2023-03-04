@@ -45,9 +45,18 @@ translations:
           <p2>  {num_world_physics_spaces, plural, =0 {No world physics spaces.} other {World physics spaces (<p1>#</p1>):}}
         space: >-
           <p2>    · <sk>{world_name}</sk>: <p1>{num_active_bodies}</p1> active / <p1>{num_bodies}</p1> bodies
+      space:
+        create: |-
+          <p2>Creating physics space for <p1>{world_name}</p1>
+        already_created: |-
+          <p2>Physics space for <p1>{world_name}</p1> has already been created
+        destroy: |-
+          <p2>Destroying physics space for <p1>{world_name}</p1>
 
-    timings_display:
+    bar_display:
       no_physics: >-
         <p2><sk>{world_name}</sk>: <se>no physics</se>
       for_physics: >-
         <p2><sk>{world_name}</sk>: <p1>{num_active_bodies}</p1> active / <p1>{num_bodies}</p1> bodies <p3>|</p3> <p1><median> ms</p1> avg / <p1><best5> ms</p1> 5%ile / <p1><worst5> ms</p1> 95%ile
+      for_space_create: >-
+        <p2><sk>{world_name}</sk>: <p1>{chunks_processed}</p1> / <p1>{chunks_total}</p1> chunks

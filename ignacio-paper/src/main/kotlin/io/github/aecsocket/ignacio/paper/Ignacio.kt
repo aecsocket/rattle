@@ -39,8 +39,8 @@ import org.spongepowered.configurate.kotlin.extensions.get
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import org.spongepowered.configurate.objectmapping.ObjectMapper
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.collections.HashMap
 
 private lateinit var instance: Ignacio
 val IgnacioAPI get() = instance
@@ -79,11 +79,11 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
         val physicsSpaces: PhysicsSpace.Settings = PhysicsSpace.Settings(),
         val primitiveModels: PrimitiveModels = PrimitiveModels(),
         val engineTimings: EngineTimings = EngineTimings(),
-        val timingsDisplay: BossBarSettings = BossBarSettings(),
+        val barDisplay: BossBarSettings = BossBarSettings(),
     ) : AlexandriaApiPlugin.Settings {
         @ConfigSerializable
         data class Terrain(
-            val generate: Boolean = true,
+            val autogenerate: Boolean = true,
         )
 
         @ConfigSerializable
@@ -100,13 +100,45 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
         )
     }
 
+    interface Worlds {
+        operator fun get(world: World): WorldPhysics?
+
+        fun getOrCreate(world: World): WorldPhysics
+
+        fun destroy(world: World)
+
+        fun all(): Map<World, WorldPhysics>
+    }
+
     val renders = StandRenders()
     val primitiveBodies = PrimitiveBodies(this)
     private val mEngineTimings = timestampedList<Long>(0)
     val engineTimings: TimestampedList<Long> get() = mEngineTimings
-    val worldPhysics = HashMap<World, WorldPhysics>()
     val updatingPhysics = AtomicBoolean(false)
-    private val players = HashMap<Player, IgnacioPlayer>()
+    internal val players = ConcurrentHashMap<Player, IgnacioPlayer>()
+
+    private val worldPhysics = ConcurrentHashMap<World, WorldPhysics>()
+    val worlds = object : Worlds {
+        override fun get(world: World) = worldPhysics[world]
+
+        override fun getOrCreate(world: World) = worldPhysics.computeIfAbsent(world) {
+            WorldPhysics(this@Ignacio, world, engine.createSpace(settings.physicsSpaces)).also {
+                if (settings.terrain.autogenerate) {
+                    world.loadedChunks.forEach { chunk ->
+                        it.load(chunk)
+                    }
+                }
+            }
+        }
+
+        override fun destroy(world: World) {
+            val physics = worldPhysics[world] ?: return
+            physics.destroy()
+            worldPhysics.remove(world)
+        }
+
+        override fun all() = worldPhysics
+    }
 
     override lateinit var settings: Settings private set
     lateinit var engine: JoltEngine private set
@@ -156,7 +188,7 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
             // TODO
             engine.runTask {
                 Bukkit.getOnlinePlayers().forEach { player ->
-                    val physics = physicsInOr(player.world)?.physics ?: return@forEach
+                    val (physics) = worlds[player.world] ?: return@forEach
                     val nearby = physics.broadQuery.overlapSphere(player.location.position(), 16f)
                     val casts = physics.narrowQuery.rayCastBodies(
                         ray = Ray(player.eyeLocation.position(), player.location.direction.vec3d().f()),
@@ -201,16 +233,6 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
 
     internal fun removePlayerData(player: Player) {
         players.remove(player)
-    }
-
-    fun physicsInOr(world: World) = worldPhysics[world]
-
-    fun physicsIn(world: World) = worldPhysics.computeIfAbsent(world) {
-        WorldPhysics(this, world, engine.createSpace(settings.physicsSpaces)).also {
-            world.loadedChunks.forEach { chunk ->
-                it.load(chunk)
-            }
-        }
     }
 }
 

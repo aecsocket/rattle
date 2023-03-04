@@ -36,7 +36,7 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
             entity.isPersistent = false
             entity.setCanTick(false)
 
-            val physics = ignacio.physicsIn(world).physics
+            val (physics) = ignacio.worlds.getOrCreate(world)
             val body = addBody(physics)
             val render = createRender?.invoke(entity.playerTracker())
             bodies[entity] = Instance(physics, body, render)

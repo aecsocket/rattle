@@ -8,6 +8,7 @@ import org.bukkit.event.player.PlayerLocaleChangeEvent
 import org.bukkit.event.player.PlayerQuitEvent
 import org.bukkit.event.world.ChunkLoadEvent
 import org.bukkit.event.world.ChunkUnloadEvent
+import org.bukkit.event.world.WorldUnloadEvent
 
 internal class IgnacioListener(private val ignacio: Ignacio) : Listener {
     @EventHandler
@@ -32,13 +33,21 @@ internal class IgnacioListener(private val ignacio: Ignacio) : Listener {
 
     @EventHandler
     fun on(event: ChunkLoadEvent) {
-        val world = ignacio.physicsInOr(event.world) ?: return
+        if (!ignacio.settings.terrain.autogenerate) return
+        val world = ignacio.worlds[event.world] ?: return
         world.load(event.chunk)
     }
 
     @EventHandler
     fun on(event: ChunkUnloadEvent) {
-        val world = ignacio.physicsInOr(event.world) ?: return
+        val world = ignacio.worlds[event.world] ?: return
         world.unload(event.chunk)
+    }
+
+    @EventHandler
+    fun on(event: WorldUnloadEvent) {
+        ignacio.players.forEach { (_, player) ->
+            player.removeWorld(event.world)
+        }
     }
 }

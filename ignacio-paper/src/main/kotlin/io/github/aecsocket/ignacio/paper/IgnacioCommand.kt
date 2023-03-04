@@ -4,6 +4,7 @@ import cloud.commandframework.arguments.standard.BooleanArgument
 import cloud.commandframework.arguments.standard.DoubleArgument
 import cloud.commandframework.arguments.standard.FloatArgument
 import cloud.commandframework.arguments.standard.IntegerArgument
+import cloud.commandframework.bukkit.parsers.WorldArgument
 import cloud.commandframework.bukkit.parsers.location.LocationArgument
 import io.github.aecsocket.alexandria.core.extension.flag
 import io.github.aecsocket.alexandria.core.extension.getOr
@@ -22,18 +23,21 @@ import io.github.aecsocket.ignacio.paper.util.position
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import org.bukkit.Location
+import org.bukkit.World
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 import kotlin.math.max
 import kotlin.random.Random
 
 private const val COUNT = "count"
+private const val DISPLAY = "display"
 private const val HALF_EXTENT = "half-extent"
 private const val LOCATION = "location"
 private const val MASS = "mass"
 private const val RADIUS = "radius"
 private const val SPREAD = "spread"
 private const val VIRTUAL = "virtual"
+private const val WORLD = "world"
 private const val DEFAULT_HALF_EXTENT = 0.5f
 private const val DEFAULT_RADIUS = 0.5f
 private val timeColors = mapOf(
@@ -62,7 +66,7 @@ internal class IgnacioCommand(
                 .handler(::timings)
             )
             manager.command(timings
-                .argument(BooleanArgument.of("display"))
+                .argument(BooleanArgument.of(DISPLAY))
                 .senderType(Player::class)
                 .alexandriaPermission("timings")
                 .handler(::timingsDisplay)
@@ -125,6 +129,20 @@ internal class IgnacioCommand(
                 .alexandriaPermission("primitives.remove")
                 .handler(::primitivesRemove)
             )
+        }
+        root.literal("space")
+            .argument(WorldArgument.of(WORLD))
+            .let { space ->
+                manager.command(space
+                    .literal("create")
+                    .alexandriaPermission("space.create")
+                    .handler(::spaceCreate)
+                )
+                manager.command(space
+                    .literal("destroy")
+                    .alexandriaPermission("space.destroy")
+                    .handler(::spaceDestroy)
+                )
         }
     }
 
@@ -298,10 +316,10 @@ internal class IgnacioCommand(
         }
 
         messages.command.timings.spaceHeader(
-            numWorldPhysicsSpaces = ignacio.worldPhysics.size,
+            numWorldPhysicsSpaces = ignacio.worlds.all().size,
         ).sendTo(sender)
 
-        ignacio.worldPhysics.forEach { (_, world) ->
+        ignacio.worlds.all().forEach { (_, world) ->
             messages.command.timings.space(
                 worldName = world.world.name,
                 numBodies = world.physics.numBodies,
@@ -312,8 +330,48 @@ internal class IgnacioCommand(
 
     private fun timingsDisplay(ctx: Context) {
         val sender = ctx.sender as Player
+        val display = ctx.get<Boolean>(DISPLAY)
 
         val playerData = ignacio.playerData(sender)
-        playerData.setTimingsBar(ignacio.settings.timingsDisplay.create(Component.empty()))
+        if (display) {
+            playerData.addTimingsBar()
+        } else {
+            playerData.removeTimingsBar()
+        }
+    }
+
+    private fun spaceCreate(ctx: Context) {
+        val sender = ctx.sender
+        val messages = ignacio.messages.forAudience(sender)
+        val world = ctx.get<World>(WORLD)
+
+        ignacio.worlds[world]?.let {
+            messages.command.space.alreadyCreated(
+                worldName = world.name,
+            ).sendTo(sender)
+            return
+        }
+
+        messages.command.space.create(
+            worldName = world.name,
+        ).sendTo(sender)
+
+        if (sender is Player) {
+            ignacio.playerData(sender).addSpaceCreateBar(world)
+        }
+
+        ignacio.worlds.getOrCreate(world)
+    }
+
+    private fun spaceDestroy(ctx: Context) {
+        val sender = ctx.sender
+        val messages = ignacio.messages.forAudience(sender)
+        val world = ctx.get<World>(WORLD)
+
+        messages.command.space.destroy(
+            worldName = world.name
+        ).sendTo(sender)
+
+        ignacio.worlds.destroy(world)
     }
 }
