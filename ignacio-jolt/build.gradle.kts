@@ -4,9 +4,9 @@ plugins {
 
 dependencies {
     implementation(projects.ignacioCore)
-    implementation(libs.joltJni)
-    implementation(libs.joltJniKotlin)
-    runtimeOnly(libs.joltJniNativesLinux)
+    implementation(libs.joltJava)
+    implementation(libs.joltJavaKotlin)
+    runtimeOnly(libs.joltJavaNativesLinuxX86)
     //runtimeOnly(libs.joltJniNativesWindows)
     //runtimeOnly(libs.joltJniNativesMacos)
     //runtimeOnly(libs.joltJniNativesMacosArm64)

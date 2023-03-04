@@ -6,9 +6,7 @@ import io.github.aecsocket.ignacio.core.math.radians
 import io.github.aecsocket.ignacio.core.math.sqr
 import jolt.*
 import jolt.core.*
-import jolt.kotlin.BroadPhaseLayer
-import jolt.kotlin.ObjectLayer
-import jolt.kotlin.use
+import jolt.kotlin.*
 import jolt.physics.PhysicsSettings
 import jolt.physics.PhysicsSystem
 import jolt.physics.collision.ObjectLayerPairFilter
@@ -16,6 +14,7 @@ import jolt.physics.collision.broadphase.BroadPhaseLayerInterface
 import jolt.physics.collision.broadphase.ObjectVsBroadPhaseLayerFilter
 import jolt.physics.collision.shape.*
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
+import java.lang.foreign.MemorySession
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
@@ -37,12 +36,12 @@ class JoltEngine(var settings: Settings, logger: Logger) : IgnacioEngine {
     ) {
         @ConfigSerializable
         data class Jobs(
-            val maxJobs: Int = PhysicsSettings.MAX_PHYSICS_JOBS,
-            val maxBarriers: Int = PhysicsSettings.MAX_PHYSICS_BARRIERS,
+            val maxJobs: Int = JobSystem.MAX_PHYSICS_JOBS,
+            val maxBarriers: Int = JobSystem.MAX_PHYSICS_BARRIERS,
             val numThreads: Int = 0,
             // must be at least `maxContactConstraints` * 864
             // mConstraints = (ContactConstraint *)inContext->mTempAllocator->Allocate(mMaxConstraints * sizeof(ContactConstraint));
-            val tempAllocatorSize: Long = 20 * 1024 * 1024,
+            val tempAllocatorSize: Int = 20 * 1024 * 1024,
         )
 
         @ConfigSerializable
@@ -86,6 +85,7 @@ class JoltEngine(var settings: Settings, logger: Logger) : IgnacioEngine {
 
     override val build: String
 
+    private val arena = MemorySession.openShared()
     private val executorId = AtomicInteger(1)
     val spaces = HashMap<PhysicsSystem, JtPhysicsSpace>()
 
@@ -97,9 +97,9 @@ class JoltEngine(var settings: Settings, logger: Logger) : IgnacioEngine {
     val objPairLayerFilter: ObjectLayerPairFilter
 
     init {
-        JoltEnvironment.load()
+        Jolt.load()
 
-        build = "v${JoltEnvironment.JOLT_VERSION} ${JoltEnvironment.featureList().joinToString(" ") { it.name }}"
+        build = "v${Jolt.JOLT_VERSION} ${Jolt.featureSet().joinToString(" ") { it.name }}"
 
         numThreads =
             if (settings.jobs.numThreads <= 0) clamp(Runtime.getRuntime().availableProcessors() - 2, 1, 16)
@@ -110,44 +110,39 @@ class JoltEngine(var settings: Settings, logger: Logger) : IgnacioEngine {
             Thread(task, "Ignacio-Worker-${executorId.getAndIncrement()}")
         }
 
-        JoltEnvironment.registerDefaultAllocator()
-        RTTIFactory.setInstance(RTTIFactory())
-        JoltEnvironment.registerTypes()
-        jobSystem = JobSystemThreadPool(
+        Jolt.registerDefaultAllocator()
+        Jolt.createFactory()
+        Jolt.registerTypes()
+        jobSystem = JobSystem.of(
             settings.jobs.maxJobs,
             settings.jobs.maxBarriers,
             numThreads
         )
 
-        bpLayerInterface = object : BroadPhaseLayerInterface() {
-            override fun getNumBroadPhaseLayers() = 2
-            override fun getBroadPhaseLayer(layer: Short) = when (ObjectLayer(layer)) {
+        bpLayerInterface = BroadPhaseLayerInterface(arena,
+            getNumBroadPhaseLayers = { 2 },
+            getBroadPhaseLayer = { layer -> when (layer) {
                 objectLayerNonMoving -> bpLayerNonMoving
                 objectLayerMoving -> bpLayerMoving
                 else -> throw IllegalArgumentException("Invalid layer $layer")
-            }.id
-            override fun getBroadPhaseLayerName(layer: Byte) = when (BroadPhaseLayer(layer)) {
-                bpLayerNonMoving -> "NON_MOVING"
-                bpLayerMoving -> "MOVING"
-                else -> throw RuntimeException()
-            }
-        }
+            } }
+        )
 
-        objBpLayerFilter = object : ObjectVsBroadPhaseLayerFilter() {
-            override fun shouldCollide(layer1: Short, layer2: Byte) = when (ObjectLayer(layer1)) {
-                objectLayerNonMoving -> BroadPhaseLayer(layer2) == bpLayerMoving
+        objBpLayerFilter = ObjectVsBroadPhaseLayerFilter(arena,
+            shouldCollide = { layer1, layer2 -> when (layer1) {
+                objectLayerNonMoving -> layer2 == bpLayerMoving
                 objectLayerMoving -> true
                 else -> false
-            }
-        }
+            } }
+        )
 
-        objPairLayerFilter = object : ObjectLayerPairFilter() {
-            override fun shouldCollide(layer1: Short, layer2: Short) = when (ObjectLayer(layer1)) {
-                objectLayerNonMoving -> ObjectLayer(layer2) == objectLayerNonMoving
+        objPairLayerFilter = ObjectLayerPairFilter(arena,
+            shouldCollide = { layer1, layer2 -> when (layer1) {
+                objectLayerNonMoving -> layer2 == objectLayerNonMoving
                 objectLayerMoving -> true
                 else -> false
-            }
-        }
+            } }
+        )
     }
 
     override fun destroy() {
@@ -157,12 +152,9 @@ class JoltEngine(var settings: Settings, logger: Logger) : IgnacioEngine {
             space.destroy()
         }
 
-        objPairLayerFilter.delete()
-        objBpLayerFilter.delete()
-        bpLayerInterface.delete()
-        jobSystem.delete()
-        RTTIFactory.getInstance()?.delete()
-        RTTIFactory.setInstance(null)
+        jobSystem.destroy()
+        Jolt.destroyFactory()
+        arena.close()
     }
 
     override fun runTask(task: Runnable) {
@@ -171,25 +163,27 @@ class JoltEngine(var settings: Settings, logger: Logger) : IgnacioEngine {
 
     fun createShape(geometry: Geometry): Shape {
         return when (geometry) {
-            is SphereGeometry -> SphereShape(geometry.radius)
-            is BoxGeometry -> BoxShape(geometry.halfExtent.jolt())
-            is CapsuleGeometry -> CapsuleShape(geometry.halfHeight, geometry.radius)
+            is SphereGeometry -> SphereShape.of(geometry.radius)
+            is BoxGeometry -> useArena {
+                BoxShape.of(geometry.halfExtent.toJolt())
+            }
+            is CapsuleGeometry -> CapsuleShape.of(geometry.halfHeight, geometry.radius)
             is StaticCompoundGeometry -> {
-                StaticCompoundShapeSettings().use { settings ->
-                    geometry.children.forEach { child ->
-                        settings.addShape(child.position.jolt(), child.rotation.jolt(), createShape(child.geometry), 0)
-                    }
-                    settings.create() // TODO use a temp allocator here which is thread-safe
-                }
+                throw UnsupportedOperationException()
+//                StaticCompoundShapeSettings().use { settings ->
+//                    geometry.children.forEach { child ->
+//                        settings.addShape(child.position.toJolt(), child.rotation.toJolt(), createShape(child.geometry), 0)
+//                    }
+//                    settings.create() // TODO use a temp allocator here which is thread-safe
+//                }
             }
             //else -> throw IllegalArgumentException("Unsupported geometry type ${geometry::class.simpleName}")
         }
     }
 
     override fun createSpace(settings: PhysicsSpace.Settings): PhysicsSpace {
-        val system = PhysicsSystem()
-        val tempAllocator = TempAllocatorImpl.ofBytes(this.settings.jobs.tempAllocatorSize)
-        system.init(
+        val tempAllocator = TempAllocator.of(this.settings.jobs.tempAllocatorSize)
+        val system = PhysicsSystem.of(
             this.settings.spaces.maxBodies,
             this.settings.spaces.numBodyMutexes,
             this.settings.spaces.maxBodyPairs,
@@ -199,35 +193,40 @@ class JoltEngine(var settings: Settings, logger: Logger) : IgnacioEngine {
             objPairLayerFilter
         )
 
-        system.gravity = settings.gravity.jolt()
-
         val physics = this.settings.physics
-        system.physicsSettings.apply {
-            maxInFlightBodyPairs = physics.maxInFlightBodyPairs
-            stepListenersBatchSize = physics.stepListenersBatchSize
-            stepListenerBatchesPerJob = physics.stepListenerBatchesPerJob
-            baumgarte = physics.baumgarte
-            speculativeContactDistance = physics.speculativeContactDistance
-            penetrationSlop = physics.penetrationSlop
-            linearCastThreshold = physics.linearCastThreshold
-            linearCastMaxPenetration = physics.linearCastMaxPenetration
-            manifoldToleranceSq = physics.manifoldToleranceSq
-            maxPenetrationDistance = physics.maxPenetrationDistance
-            bodyPairCacheMaxDeltaPositionSq = physics.bodyPairCacheMaxDeltaPositionSq
-            bodyPairCacheCosMaxDeltaRotationDiv2 = physics.bodyPairCacheCosMaxDeltaRotationDiv2
-            contactNormalCosMaxDeltaRotation = physics.contactNormalCosMaxDeltaRotation
-            contactPointPreserveLambdaMaxDistSq = physics.contactPointPreserveLambdaMaxDistSq
-            numVelocitySteps = physics.numVelocitySteps
-            numPositionSteps = physics.numPositionSteps
-            minVelocityForRestitution = physics.minVelocityForRestitution
-            timeBeforeSleep = physics.timeBeforeSleep
-            pointVelocitySleepThreshold = physics.pointVelocitySleepThreshold
-            constraintWarmStart = physics.constraintWarmStart
-            useBodyPairContactCache = physics.useBodyPairContactCache
-            useManifoldReduction = physics.useManifoldReduction
-            allowSleeping = physics.allowSleeping
-            checkActiveEdges = physics.checkActiveEdges
+        useArena {
+            system.setGravity(settings.gravity.toJolt())
+            val physicsSettings = PhysicsSettings.of(this)
+            system.getPhysicsSettings(physicsSettings)
+            physicsSettings.apply {
+                maxInFlightBodyPairs = physics.maxInFlightBodyPairs
+                stepListenersBatchSize = physics.stepListenersBatchSize
+                stepListenerBatchesPerJob = physics.stepListenerBatchesPerJob
+                baumgarte = physics.baumgarte
+                speculativeContactDistance = physics.speculativeContactDistance
+                penetrationSlop = physics.penetrationSlop
+                linearCastThreshold = physics.linearCastThreshold
+                linearCastMaxPenetration = physics.linearCastMaxPenetration
+                manifoldToleranceSq = physics.manifoldToleranceSq
+                maxPenetrationDistance = physics.maxPenetrationDistance
+                bodyPairCacheMaxDeltaPositionSq = physics.bodyPairCacheMaxDeltaPositionSq
+                bodyPairCacheCosMaxDeltaRotationDiv2 = physics.bodyPairCacheCosMaxDeltaRotationDiv2
+                contactNormalCosMaxDeltaRotation = physics.contactNormalCosMaxDeltaRotation
+                contactPointPreserveLambdaMaxDistSq = physics.contactPointPreserveLambdaMaxDistSq
+                numVelocitySteps = physics.numVelocitySteps
+                numPositionSteps = physics.numPositionSteps
+                minVelocityForRestitution = physics.minVelocityForRestitution
+                timeBeforeSleep = physics.timeBeforeSleep
+                pointVelocitySleepThreshold = physics.pointVelocitySleepThreshold
+                constraintWarmStart = physics.constraintWarmStart
+                useBodyPairContactCache = physics.useBodyPairContactCache
+                useManifoldReduction = physics.useManifoldReduction
+                allowSleeping = physics.allowSleeping
+                checkActiveEdges = physics.checkActiveEdges
+            }
+            system.setPhysicsSettings(physicsSettings)
         }
+
         return JtPhysicsSpace(this, system, tempAllocator, settings).also {
             spaces[system] = it
         }

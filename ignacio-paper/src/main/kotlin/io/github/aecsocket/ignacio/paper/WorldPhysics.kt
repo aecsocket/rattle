@@ -2,9 +2,7 @@ package io.github.aecsocket.ignacio.paper
 
 import io.github.aecsocket.ignacio.core.*
 import io.github.aecsocket.ignacio.core.math.*
-import io.github.aecsocket.ignacio.paper.util.vec3d
 import org.bukkit.Chunk
-import org.bukkit.Material
 import org.bukkit.World
 import java.util.concurrent.ConcurrentHashMap
 
@@ -17,7 +15,7 @@ class WorldPhysics internal constructor(
     private val startY = world.minHeight
 
     data class SliceData(
-        val body: PhysicsBody
+        val body: BodyAccess
     )
 
     val terrain = ConcurrentHashMap<Long, Array<SliceData?>>()
@@ -25,6 +23,8 @@ class WorldPhysics internal constructor(
     operator fun component1() = physics
 
     fun load(chunk: Chunk) {
+        if (!ignacio.settings.terrain.generate) return
+
         val chunkKey = chunk.chunkKey
         if (terrain.containsKey(chunkKey)) return
 
@@ -101,10 +101,11 @@ class WorldPhysics internal constructor(
                 }
 
                 if (sliceChildren.isNotEmpty()) {
-                    val geometry = StaticCompoundGeometry(sliceChildren)
-                    val self = this@WorldPhysics
+                    val settings = StaticBodySettings(
+                        geometry = StaticCompoundGeometry(sliceChildren)
+                    )
                     SliceData(
-                        body = physics.addStaticBody(geometry, Transform(sliceBase))
+                        body = physics.bodies.addStatic(settings, Transform(sliceBase))
                     )
                 } else null
             }
@@ -120,7 +121,7 @@ class WorldPhysics internal constructor(
         val slices = terrain[chunkKey] ?: return
         slices.forEach { slice ->
             if (slice == null) return@forEach
-            physics.removeBody(slice.body)
+            physics.bodies.remove(slice.body)
         }
         terrain.remove(chunkKey)
     }

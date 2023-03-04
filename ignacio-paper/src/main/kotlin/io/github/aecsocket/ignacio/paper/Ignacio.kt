@@ -17,7 +17,7 @@ import io.github.aecsocket.glossa.core.messageProxy
 import io.github.aecsocket.ignacio.core.PhysicsSpace
 import io.github.aecsocket.ignacio.core.TimestampedList
 import io.github.aecsocket.ignacio.core.math.Ray
-import io.github.aecsocket.ignacio.core.math.sp
+import io.github.aecsocket.ignacio.core.math.f
 import io.github.aecsocket.ignacio.core.serializer.ignacioCoreSerializers
 import io.github.aecsocket.ignacio.core.timestampedList
 import io.github.aecsocket.ignacio.jolt.JoltEngine
@@ -77,9 +77,9 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
         val jolt: JoltEngine.Settings = JoltEngine.Settings(),
         val terrain: Terrain = Terrain(),
         val physicsSpaces: PhysicsSpace.Settings = PhysicsSpace.Settings(),
+        val primitiveModels: PrimitiveModels = PrimitiveModels(),
         val engineTimings: EngineTimings = EngineTimings(),
         val timingsDisplay: BossBarSettings = BossBarSettings(),
-        val primitiveModels: PrimitiveModels = PrimitiveModels(),
     ) : AlexandriaApiPlugin.Settings {
         @ConfigSerializable
         data class Terrain(
@@ -87,16 +87,16 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
         )
 
         @ConfigSerializable
+        data class PrimitiveModels(
+            val box: ItemDescriptor = ItemDescriptor(Material.STONE),
+            val sphere: ItemDescriptor = ItemDescriptor(Material.STONE),
+        )
+
+        @ConfigSerializable
         data class EngineTimings(
             val buffer: Double = 60.0,
             val buffersToDisplay: List<Double> = listOf(5.0, 15.0, 60.0),
             val barBuffer: Double = 5.0,
-        )
-
-        @ConfigSerializable
-        data class PrimitiveModels(
-            val box: ItemDescriptor = ItemDescriptor(Material.STONE),
-            val sphere: ItemDescriptor = ItemDescriptor(Material.STONE),
         )
     }
 
@@ -159,11 +159,11 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
                     val physics = physicsInOr(player.world)?.physics ?: return@forEach
                     val nearby = physics.broadQuery.overlapSphere(player.location.position(), 16f)
                     val casts = physics.narrowQuery.rayCastBodies(
-                        ray = Ray(player.eyeLocation.position(), player.location.direction.vec3d().sp()),
+                        ray = Ray(player.eyeLocation.position(), player.location.direction.vec3d().f()),
                         distance = 16f,
                     )
                     val cast = physics.narrowQuery.rayCastBody(
-                        Ray(player.eyeLocation.position(), player.location.direction.vec3d().sp()),
+                        Ray(player.eyeLocation.position(), player.location.direction.vec3d().f()),
                         16f
                     )
                     player.sendActionBar(Component.text("cast = $cast | casts = ${casts.size} | nearby = ${nearby.size}"))

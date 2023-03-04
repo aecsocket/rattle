@@ -134,14 +134,14 @@ internal class IgnacioCommand(
         virtual: Boolean,
         origin: Location,
         model: ItemDescriptor,
-        createBody: (physics: PhysicsSpace, transform: Transform) -> BodyAccess,
+        addBody: (physics: PhysicsSpace, transform: Transform) -> BodyAccess,
     ) {
         repeat(count) {
             val transform = Transform(origin.position() - spread + Random.nextVec3d() * (spread*2))
             ignacio.primitiveBodies.create(
                 world = origin.world,
                 transform = transform,
-                createBody = { createBody(it, transform) },
+                addBody = { addBody(it, transform) },
                 createRender = if (virtual) null else { { ignacio.renders.createModel(it, transform, model.create()) } },
             )
         }
@@ -155,8 +155,11 @@ internal class IgnacioCommand(
         model: ItemDescriptor,
         geometry: Geometry,
     ) {
+        val settings = StaticBodySettings(
+            geometry = geometry,
+        )
         primitivesCreate(count, spread, virtual, origin, model) { physics, transform ->
-            physics.bodies.addStaticBody(geometry, transform)
+            physics.bodies.addStatic(settings, transform)
         }
     }
 
@@ -169,12 +172,12 @@ internal class IgnacioCommand(
         model: ItemDescriptor,
         geometry: Geometry,
     ) {
-        val dynamics = BodyDynamics(
-            activate = true,
+        val settings = DynamicBodySettings(
+            geometry = geometry,
             mass = mass,
         )
         primitivesCreate(count, spread, virtual, origin, model) { physics, transform ->
-            physics.addDynamicBody(geometry, transform, dynamics)
+            physics.bodies.addDynamic(settings, transform, true)
         }
     }
 

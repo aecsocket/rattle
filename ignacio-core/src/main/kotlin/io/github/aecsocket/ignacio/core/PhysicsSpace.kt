@@ -28,15 +28,19 @@ interface PhysicsSpace {
     )
 
     interface Bodies {
-        fun createStaticBody(snapshot: StaticBodySnapshot, transform: Transform): StaticBodyAccess
+        fun createStatic(settings: StaticBodySettings, transform: Transform): StaticBodyAccess
 
-        fun createDynamicBody(snapshot: DynamicBodySnapshot, transform: Transform): DynamicBodyAccess
+        fun createDynamic(settings: DynamicBodySettings, transform: Transform): DynamicBodyAccess
 
-        fun destroyBody(body: BodyAccess)
+        fun destroy(body: BodyAccess)
 
-        fun addBody(body: BodyAccess, activate: Boolean)
+        fun add(body: BodyAccess, activate: Boolean)
 
-        fun removeBody(body: BodyAccess)
+        fun addStatic(settings: StaticBodySettings, transform: Transform): StaticBodyAccess
+
+        fun addDynamic(settings: DynamicBodySettings, transform: Transform, activate: Boolean): DynamicBodyAccess
+
+        fun remove(body: BodyAccess)
     }
 
     interface BroadQuery {

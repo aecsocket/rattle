@@ -2,7 +2,6 @@ package io.github.aecsocket.ignacio.paper
 
 import io.github.aecsocket.ignacio.core.BodyAccess
 import io.github.aecsocket.ignacio.core.PhysicsSpace
-import io.github.aecsocket.ignacio.core.bodies
 import io.github.aecsocket.ignacio.core.math.Transform
 import io.github.aecsocket.ignacio.paper.display.*
 import io.github.aecsocket.ignacio.paper.util.location
@@ -25,10 +24,10 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
     fun create(
         world: World,
         transform: Transform,
-        createBody: (physics: PhysicsSpace) -> BodyAccess,
+        addBody: (physics: PhysicsSpace) -> BodyAccess,
         createRender: ((playerTracker: PlayerTracker) -> WorldRender)?,
     ) {
-        val entity = world.spawnEntity(
+        world.spawnEntity(
             transform.position.location(world), EntityType.ARMOR_STAND, CreatureSpawnEvent.SpawnReason.COMMAND
         ) { entity ->
             entity as ArmorStand
@@ -36,12 +35,12 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
             entity.isMarker = true
             entity.isPersistent = false
             entity.setCanTick(false)
+
+            val physics = ignacio.physicsIn(world).physics
+            val body = addBody(physics)
+            val render = createRender?.invoke(entity.playerTracker())
+            bodies[entity] = Instance(physics, body, render)
         }
-        val physics = ignacio.physicsIn(world).physics
-        val body = createBody(physics)
-        physics.bodies.addBody(body)
-        val render = createRender?.invoke(entity.playerTracker())
-        bodies[entity] = Instance(physics, body, render)
     }
 
     internal fun update() {
@@ -70,7 +69,7 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
 
     fun removeAll() {
         bodies.forEach { (entity, instance) ->
-            instance.physics.bodies.destroyBody(instance.body)
+            instance.physics.bodies.destroy(instance.body)
             instance.render?.despawn()
             entity.remove()
         }

@@ -7,7 +7,7 @@ plugins {
 
 indra {
     javaVersions {
-        target(17)
+        target(19)
     }
 
     github("aecsocket", "ignacio")

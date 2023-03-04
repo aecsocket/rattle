@@ -4,29 +4,32 @@ import io.github.aecsocket.ignacio.core.BodyAccess
 import io.github.aecsocket.ignacio.core.DynamicBodyAccess
 import io.github.aecsocket.ignacio.core.StaticBodyAccess
 import io.github.aecsocket.ignacio.core.math.Transform
-import jolt.kotlin.BodyID
-import jolt.kotlin.getPositionAndRotationDp
-import jolt.kotlin.setPositionAndRotationDp
-import jolt.math.JtQuat
-import jolt.math.JtVec3d
+import jolt.kotlin.BodyId
 import jolt.physics.Activation
 import jolt.physics.PhysicsSystem
 
 open class JtBodyAccess(
     val system: PhysicsSystem,
-    val id: BodyID,
+    val id: BodyId,
 ) : BodyAccess {
     override fun toString() = "${id.id}"
 
     override var transform: Transform
         get() {
-            val position = JtVec3d()
-            val rotation = JtQuat()
-            system.bodyInterface.getPositionAndRotationDp(id, position, rotation)
-            return Transform(position.ignacio(), rotation.ignacio())
+            return useArena {
+                val position = DVec3()
+                val rotation = JQuat()
+                system.bodyInterface.getPositionAndRotation(id.id, position, rotation)
+                Transform(position.toIgnacio(), rotation.toIgnacio())
+            }
         }
         set(value) {
-            system.bodyInterface.setPositionAndRotationDp(id, value.position.jolt(), value.rotation.jolt(), Activation.DONT_ACTIVATE)
+            useArena {
+                system.bodyInterface.setPositionAndRotation(id.id,
+                    value.position.toJolt(), value.rotation.toJolt(),
+                    Activation.DONT_ACTIVATE
+                )
+            }
         }
 
     override fun asStatic() = JtStaticBodyAccess(system, id)
@@ -36,10 +39,10 @@ open class JtBodyAccess(
 
 class JtStaticBodyAccess internal constructor(
     system: PhysicsSystem,
-    id: BodyID
+    id: BodyId
 ) : JtBodyAccess(system, id), StaticBodyAccess
 
 class JtDynamicBodyAccess internal constructor(
     system: PhysicsSystem,
-    id: BodyID
+    id: BodyId
 ) : JtBodyAccess(system, id), DynamicBodyAccess

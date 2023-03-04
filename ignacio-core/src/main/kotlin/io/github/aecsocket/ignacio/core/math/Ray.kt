@@ -6,7 +6,7 @@ data class Ray(
 ) {
     val directionInv = direction.inverse()
 
-    fun at(t: Float) = origin + (direction * t).dp()
+    fun at(t: Float) = origin + (direction * t).d()
 
     fun asString(fmt: String = "%f") = "Ray(${origin.asString(fmt)}, ${direction.asString(fmt)})"
 

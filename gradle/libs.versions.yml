@@ -9,12 +9,12 @@ plugins:
 
 versions:
   indra: 3.0.1
-  kotlin: 1.8.10
+  kotlin: 1.8.20-Beta
   adventure: 4.12.0
   configurate: 4.1.2
   cloud: 1.8.0
   alexandria: 0.1.0-SNAPSHOT
-  joltJni: 0.1.0-SNAPSHOT
+  joltJava: 0.1.0-SNAPSHOT
   minecraft: 1.19.3
   glossa: 0.1.0-SNAPSHOT
   packetEvents: 2.0.0-SNAPSHOT
@@ -32,12 +32,11 @@ dependencies:
   cloudMinecraftExtras: { group: cloud.commandframework, name: cloud-minecraft-extras, version: { ref: cloud } }
   alexandriaCore: { group: io.github.aecsocket, name: alexandria-core, version: { ref: alexandria } }
   alexandriaPaper: { group: io.github.aecsocket, name: alexandria-paper, version: { ref: alexandria } }
-  joltJni: { group: io.github.aecsocket, name: jolt-jni, version: { ref: joltJni } }
-  joltJniKotlin: { group: io.github.aecsocket, name: jolt-jni-kotlin, version: { ref: joltJni } }
-  joltJniNativesLinux: { group: io.github.aecsocket, name: jolt-jni-natives-linux, version: { ref: joltJni } }
-  joltJniNativesWindows: { group: io.github.aecsocket, name: jolt-jni-natives-windows, version: { ref: joltJni } }
-  joltJniNativesMacos: { group: io.github.aecsocket, name: jolt-jni-natives-macos, version: { ref: joltJni } }
-  joltJniNativesMacosArm64: { group: io.github.aecsocket, name: jolt-jni-natives-macos-arm64, version: { ref: joltJni } }
+  joltJava: { group: io.github.aecsocket, name: jolt-java, version: { ref: joltJava } }
+  joltJavaKotlin: { group: io.github.aecsocket, name: jolt-java-kotlin, version: { ref: joltJava } }
+  joltJavaNativesLinuxX86: { group: io.github.aecsocket, name: jolt-java-natives-linux-x86, version: { ref: joltJava } }
+  joltJavaNativesWindows: { group: io.github.aecsocket, name: jolt-java-natives-windows-x86, version: { ref: joltJava } }
+  joltJavaNativesMacos: { group: io.github.aecsocket, name: jolt-java-natives-macos-x86, version: { ref: joltJava } }
   glossaCore: { group: io.github.aecsocket, name: glossa-core, version: { ref: glossa } }
   glossaConfigurate: { group: io.github.aecsocket, name: glossa-configurate, version: { ref: glossa } }
   packetEventsApi: { group: com.github.retrooper.packetevents, name: api, version: { ref: packetEvents } }

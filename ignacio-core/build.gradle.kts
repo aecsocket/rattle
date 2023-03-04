@@ -8,5 +8,5 @@ dependencies {
     implementation(libs.alexandriaCore)
 
     testImplementation(projects.ignacioJolt)
-    testImplementation(libs.joltJni)
+    testImplementation(libs.joltJava)
 }
