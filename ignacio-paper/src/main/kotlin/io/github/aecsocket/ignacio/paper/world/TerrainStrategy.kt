@@ -124,8 +124,11 @@ class PregenTerrainStrategy(
         }
 
         ignacio.engine.runTask {
+            val start = System.currentTimeMillis()
             val bodies = data.map { chunk -> async { createChunkBodies(chunk) } }.awaitAll().flatten()
             physics.bodies.addAll(bodies, false)
+            val end = System.currentTimeMillis()
+            println("time for all chunks = ${end - start} ms")
         }
     }
 

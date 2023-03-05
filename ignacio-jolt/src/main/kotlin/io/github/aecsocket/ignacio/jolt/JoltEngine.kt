@@ -19,9 +19,9 @@ import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import java.lang.foreign.MemorySession
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.logging.Logger
-import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.math.cos
 
 val objectLayerStatic = JObjectLayer(0)
@@ -34,7 +34,7 @@ val bpLayerTerrain = JBroadPhaseLayer(0)
 val bpLayerEntity = JBroadPhaseLayer(0)
 val bpLayerMoving = JBroadPhaseLayer(3)
 
-class JoltEngine(var settings: Settings, logger: Logger) : IgnacioEngine {
+class JoltEngine(var settings: Settings, private val logger: Logger) : IgnacioEngine {
     @ConfigSerializable
     data class Settings(
         val jobs: Jobs = Jobs(),
@@ -92,14 +92,14 @@ class JoltEngine(var settings: Settings, logger: Logger) : IgnacioEngine {
 
     override val build: String
 
-    private val destroy = DestroyFlag()
+    private val destroyed = DestroyFlag()
     private val arena = MemorySession.openShared()
     private val executorId = AtomicInteger(1)
     val spaces = HashMap<PhysicsSystem, JtPhysicsSpace>()
 
     val numThreads: Int
     val executor: ExecutorService
-    val executorDispatcher: CoroutineDispatcher
+    val executorScope: CoroutineScope
     val jobSystem: JobSystem
     val bpLayerInterface: BroadPhaseLayerInterface
     val objBpLayerFilter: ObjectVsBroadPhaseLayerFilter
@@ -137,7 +137,7 @@ class JoltEngine(var settings: Settings, logger: Logger) : IgnacioEngine {
         executor = Executors.newFixedThreadPool(8) { task ->
             Thread(task, "Ignacio-Worker-${executorId.getAndIncrement()}")
         }
-        executorDispatcher = executor.asCoroutineDispatcher()
+        executorScope = CoroutineScope(executor.asCoroutineDispatcher())
 
         Jolt.registerDefaultAllocator()
         Jolt.createFactory()
@@ -177,8 +177,14 @@ class JoltEngine(var settings: Settings, logger: Logger) : IgnacioEngine {
     }
 
     override fun destroy() {
-        destroy.mark()
+        destroyed.mark()
         executor.shutdown()
+        logger.info("Waiting for worker threads")
+        try {
+            executor.awaitTermination(5, TimeUnit.SECONDS)
+        } catch (ex: InterruptedException) {
+            logger.warning("Could not wait for worker threads")
+        }
 
         spaces.forEach { (_, space) ->
             space.destroy()
@@ -190,10 +196,8 @@ class JoltEngine(var settings: Settings, logger: Logger) : IgnacioEngine {
     }
 
     override fun runTask(block: suspend CoroutineScope.() -> Unit) {
-        executor.execute {
-            // TODO this SUCKS! any given task only uses a single thread of the executor service
-            runBlocking(block = block)
-        }
+        if (destroyed.marked()) return
+        executorScope.launch(block = block)
     }
 
     override fun createGeometry(settings: GeometrySettings): Geometry {

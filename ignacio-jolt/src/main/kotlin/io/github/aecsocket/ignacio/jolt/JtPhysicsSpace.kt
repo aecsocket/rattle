@@ -25,7 +25,7 @@ class JtPhysicsSpace(
     val tempAllocator: TempAllocator,
     settings: PhysicsSpace.Settings,
 ) : PhysicsSpace {
-    private val destroy = DestroyFlag()
+    private val destroyed = DestroyFlag()
 
     override var settings = settings
         set(value) {
@@ -185,7 +185,7 @@ class JtPhysicsSpace(
     override val numActiveBodies get() = handle.numActiveBodies
 
     override fun destroy() {
-        destroy.mark()
+        destroyed.mark()
         engine.spaces.remove(handle)
         // TODO delete bodies
         handle.destroy()

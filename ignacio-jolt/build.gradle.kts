@@ -10,6 +10,7 @@ dependencies {
     //runtimeOnly(libs.joltJniNativesMacos)
     //runtimeOnly(libs.joltJniNativesMacosArm64)
     implementation(libs.kotlinxCoroutinesCore)
+    implementation(libs.alexandriaCore)
     implementation(libs.configurateCore)
     implementation(libs.configurateExtraKotlin)
 }
