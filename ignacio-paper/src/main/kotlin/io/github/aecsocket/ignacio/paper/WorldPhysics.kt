@@ -19,6 +19,7 @@ class WorldPhysics internal constructor(
     )
 
     val terrain = ConcurrentHashMap<Long, Array<SliceData?>>()
+    val box = ignacio.engine.createGeometry(BoxGeometrySettings(Vec3f(0.5f)))
     private var destroyed = false
 
     operator fun component1() = physics
@@ -50,7 +51,7 @@ class WorldPhysics internal constructor(
                         sliceChildren += CompoundChild(
                             Vec3f(lx + 0.5f, ly + 0.5f, lz + 0.5f),
                             Quat.Identity,
-                            BoxGeometry(Vec3f(0.5f))
+                            box
                         )
                     }
                 }
@@ -65,7 +66,7 @@ class WorldPhysics internal constructor(
 
                 if (sliceChildren.isNotEmpty()) {
                     val settings = StaticBodySettings(
-                        geometry = StaticCompoundGeometry(sliceChildren)
+                        geometry = ignacio.engine.createGeometry(StaticCompoundGeometrySettings(sliceChildren))
                     )
                     SliceData(
                         body = physics.bodies.addStatic(settings, Transform(sliceBase))
@@ -95,10 +96,11 @@ class WorldPhysics internal constructor(
             slices.forEach { slice ->
                 if (slice == null) return@forEach
                 physics.bodies.destroy(slice.body)
+                // TODO destroy shape
             }
         }
         terrain.clear()
-        ignacio.engine.destroySpace(physics)
+        physics.destroy()
     }
 }
 

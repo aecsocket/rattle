@@ -1,6 +1,7 @@
 package io.github.aecsocket.ignacio.jolt
 
 import io.github.aecsocket.ignacio.core.*
+import io.github.aecsocket.ignacio.core.Geometry
 import io.github.aecsocket.ignacio.core.math.clamp
 import io.github.aecsocket.ignacio.core.math.radians
 import io.github.aecsocket.ignacio.core.math.sqr
@@ -85,6 +86,7 @@ class JoltEngine(var settings: Settings, logger: Logger) : IgnacioEngine {
 
     override val build: String
 
+    private val destroy = DestroyFlag()
     private val arena = MemorySession.openShared()
     private val executorId = AtomicInteger(1)
     val spaces = HashMap<PhysicsSystem, JtPhysicsSpace>()
@@ -157,6 +159,7 @@ class JoltEngine(var settings: Settings, logger: Logger) : IgnacioEngine {
     }
 
     override fun destroy() {
+        destroy.mark()
         executor.shutdown()
 
         spaces.forEach { (_, space) ->
@@ -172,23 +175,29 @@ class JoltEngine(var settings: Settings, logger: Logger) : IgnacioEngine {
         executor.execute(task)
     }
 
-    fun createShape(geometry: Geometry): Shape {
-        return when (geometry) {
-            is SphereGeometry -> SphereShape.of(geometry.radius)
-            is BoxGeometry -> useArena {
-                BoxShape.of(geometry.halfExtent.toJolt())
+    override fun createGeometry(settings: GeometrySettings): Geometry {
+        val shape: Shape = when (settings) {
+            is SphereGeometrySettings -> SphereShape.of(settings.radius)
+            is BoxGeometrySettings -> useArena {
+                BoxShape.of(settings.halfExtent.toJolt())
             }
-            is CapsuleGeometry -> CapsuleShape.of(geometry.halfHeight, geometry.radius)
-            is StaticCompoundGeometry -> useArena {
-                StaticCompoundShapeSettings.of().use { settings ->
-                    geometry.children.forEach { child ->
-                        settings.addShape(child.position.toJolt(), child.rotation.toJolt(), createShape(child.geometry), 0)
+            is CapsuleGeometrySettings -> CapsuleShape.of(settings.halfHeight, settings.radius)
+            is StaticCompoundGeometrySettings -> useArena {
+                StaticCompoundShapeSettings.of().use { compound ->
+                    settings.children.forEach { child ->
+                        compound.addShape(
+                            child.position.toJolt(),
+                            child.rotation.toJolt(),
+                            (child.geometry as JtGeometry).handle,
+                            0
+                        )
                     }
-                    settings.create() // TODO use a temp allocator here which is thread-safe
+                    // TODO use a thread-safe temp allocator
+                    compound.create(this).orThrow()
                 }
             }
-            //else -> throw IllegalArgumentException("Unsupported geometry type ${geometry::class.simpleName}")
         }
+        return JtGeometry(shape)
     }
 
     override fun createSpace(settings: PhysicsSpace.Settings): PhysicsSpace {
@@ -240,11 +249,5 @@ class JoltEngine(var settings: Settings, logger: Logger) : IgnacioEngine {
         return JtPhysicsSpace(this, system, tempAllocator, settings).also {
             spaces[system] = it
         }
-    }
-
-    override fun destroySpace(space: PhysicsSpace) {
-        space as JtPhysicsSpace
-        spaces.remove(space.handle)
-        space.destroy()
     }
 }

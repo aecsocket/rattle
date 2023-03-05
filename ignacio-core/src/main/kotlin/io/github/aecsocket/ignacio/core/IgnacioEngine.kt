@@ -5,7 +5,7 @@ interface IgnacioEngine : Destroyable {
 
     fun runTask(task: Runnable)
 
-    fun createSpace(settings: PhysicsSpace.Settings): PhysicsSpace
+    fun createGeometry(settings: GeometrySettings): Geometry
 
-    fun destroySpace(space: PhysicsSpace)
+    fun createSpace(settings: PhysicsSpace.Settings): PhysicsSpace
 }

@@ -8,13 +8,15 @@ import io.github.aecsocket.ignacio.core.math.Vec3d
 import io.github.aecsocket.ignacio.core.math.f
 import jolt.core.TempAllocator
 import jolt.kotlin.*
+import jolt.math.FMat44
 import jolt.physics.Activation
 import jolt.physics.PhysicsSystem
+import jolt.physics.body.MassProperties
 import jolt.physics.body.MotionType
+import jolt.physics.body.OverrideMassProperties
 import jolt.physics.collision.*
 import jolt.physics.collision.broadphase.BroadPhaseLayerFilter
 import jolt.physics.collision.broadphase.CollideShapeBodyCollector
-import jolt.physics.collision.broadphase.RayCastBodyCollector
 import java.lang.foreign.MemorySession
 
 class JtPhysicsSpace(
@@ -23,6 +25,8 @@ class JtPhysicsSpace(
     val tempAllocator: TempAllocator,
     settings: PhysicsSpace.Settings,
 ) : PhysicsSpace {
+    private val destroy = DestroyFlag()
+
     override var settings = settings
         set(value) {
             field = value
@@ -35,10 +39,9 @@ class JtPhysicsSpace(
 
     override val bodies = object : PhysicsSpace.Bodies {
         override fun createStatic(settings: StaticBodySettings, transform: Transform): JtStaticBodyAccess {
-            val shape = engine.createShape(settings.geometry)
             return useArena {
                 val bodySettings = BodyCreationSettings(this,
-                    shape,
+                    (settings.geometry as JtGeometry).handle,
                     transform.position.toJolt(),
                     transform.rotation.toJolt(),
                     MotionType.STATIC,
@@ -50,30 +53,25 @@ class JtPhysicsSpace(
         }
 
         override fun createDynamic(settings: DynamicBodySettings, transform: Transform): JtDynamicBodyAccess {
-            val shape = engine.createShape(settings.geometry)
             return useArena {
                 val bodySettings = BodyCreationSettings(this,
-                    shape,
+                    (settings.geometry as JtGeometry).handle,
                     transform.position.toJolt(),
                     transform.rotation.toJolt(),
                     MotionType.DYNAMIC,
                     objectLayerMoving
                 )
-                // TODO settings
-                /*
-
-                settings.overrideMassProperties = OverrideMassProperties.CALCULATE_INERTIA
-                settings.massPropertiesOverride = MassProperties(snapshot.mass, JtMat44f())
-                settings.linearVelocity = snapshot.linearVelocity.toJolt()
-                settings.angularVelocity = snapshot.angularVelocity.toJolt()
-                settings.friction = snapshot.friction
-                settings.restitution = snapshot.restitution
-                settings.linearDamping = snapshot.linearDamping
-                settings.angularDamping = snapshot.angularDamping
-                settings.maxLinearVelocity = snapshot.maxLinearVelocity
-                settings.maxAngularVelocity = snapshot.maxAngularVelocity
-                settings.gravityFactor = snapshot.gravityFactor
-                 */
+                bodySettings.overrideMassProperties = OverrideMassProperties.CALCULATE_INERTIA
+                bodySettings.massPropertiesOverride = MassProperties.of(this, settings.mass, FMat44.of(this, 0f))
+                bodySettings.linearVelocity = settings.linearVelocity.toJolt()
+                bodySettings.angularVelocity = settings.angularVelocity.toJolt()
+                bodySettings.friction = settings.friction
+                bodySettings.restitution = settings.restitution
+                bodySettings.linearDamping = settings.linearDamping
+                bodySettings.angularDamping = settings.angularDamping
+                bodySettings.maxLinearVelocity = settings.maxLinearVelocity
+                bodySettings.maxAngularVelocity = settings.maxAngularVelocity
+                bodySettings.gravityFactor = settings.gravityFactor
                 val body = handle.bodyInterface.createBody(bodySettings)
                 bodyAccess(body.bodyId).asDynamic()
             }
@@ -175,7 +173,9 @@ class JtPhysicsSpace(
     override val numBodies get() = handle.numBodies
     override val numActiveBodies get() = handle.numActiveBodies
 
-    fun destroy() {
+    override fun destroy() {
+        destroy.mark()
+        engine.spaces.remove(handle)
         // TODO delete bodies
         handle.destroy()
         tempAllocator.destroy()

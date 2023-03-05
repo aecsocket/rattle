@@ -5,16 +5,18 @@ import io.github.aecsocket.ignacio.core.math.Transform
 import io.github.aecsocket.ignacio.core.math.Vec3f
 import io.github.aecsocket.ignacio.core.math.f
 
-sealed interface Geometry
+interface Geometry : Destroyable
 
-data class SphereGeometry(val radius: Float) : Geometry
+sealed interface GeometrySettings
 
-data class BoxGeometry(val halfExtent: Vec3f) : Geometry
+data class SphereGeometrySettings(val radius: Float) : GeometrySettings
 
-data class CapsuleGeometry(val halfHeight: Float, val radius: Float) : Geometry
+data class BoxGeometrySettings(val halfExtent: Vec3f) : GeometrySettings
+
+data class CapsuleGeometrySettings(val halfHeight: Float, val radius: Float) : GeometrySettings
 
 data class CompoundChild(val position: Vec3f, val rotation: Quat, val geometry: Geometry) {
     constructor(transform: Transform, geometry: Geometry) : this(transform.position.f(), transform.rotation, geometry)
 }
 
-data class StaticCompoundGeometry(val children: List<CompoundChild>) : Geometry
+data class StaticCompoundGeometrySettings(val children: List<CompoundChild>) : GeometrySettings

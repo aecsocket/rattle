@@ -6,7 +6,7 @@ import io.github.aecsocket.ignacio.core.math.Vec3d
 import io.github.aecsocket.ignacio.core.math.Vec3f
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 
-interface PhysicsSpace {
+interface PhysicsSpace : Destroyable {
     @ConfigSerializable
     data class Settings(
         val gravity: Vec3f = Vec3f(0f, -9.81f, 0f),

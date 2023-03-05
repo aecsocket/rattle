@@ -171,10 +171,10 @@ internal class IgnacioCommand(
         virtual: Boolean,
         origin: Location,
         model: ItemDescriptor,
-        geometry: Geometry,
+        geometry: GeometrySettings,
     ) {
         val settings = StaticBodySettings(
-            geometry = geometry,
+            geometry = ignacio.engine.createGeometry(geometry),
         )
         primitivesCreate(count, spread, virtual, origin, model) { physics, transform ->
             physics.bodies.addStatic(settings, transform)
@@ -188,10 +188,10 @@ internal class IgnacioCommand(
         virtual: Boolean,
         origin: Location,
         model: ItemDescriptor,
-        geometry: Geometry,
+        geometry: GeometrySettings,
     ) {
         val settings = DynamicBodySettings(
-            geometry = geometry,
+            geometry = ignacio.engine.createGeometry(geometry),
             mass = mass,
         )
         primitivesCreate(count, spread, virtual, origin, model) { physics, transform ->
@@ -211,7 +211,7 @@ internal class IgnacioCommand(
         primitivesCreateStatic(
             count, spread, virtual, location,
             ignacio.settings.primitiveModels.box,
-            BoxGeometry(Vec3f(halfExtent))
+            BoxGeometrySettings(Vec3f(halfExtent))
         )
 
         messages.command.primitives.create.static.box(
@@ -232,7 +232,7 @@ internal class IgnacioCommand(
         primitivesCreateStatic(
             count, spread, virtual, location,
             ignacio.settings.primitiveModels.sphere,
-            SphereGeometry(radius)
+            SphereGeometrySettings(radius)
         )
 
         messages.command.primitives.create.static.sphere(
@@ -254,7 +254,7 @@ internal class IgnacioCommand(
         primitivesCreateDynamic(
             count, mass, spread, virtual, location,
             ignacio.settings.primitiveModels.box,
-            BoxGeometry(Vec3f(halfExtent))
+            BoxGeometrySettings(Vec3f(halfExtent))
         )
 
         messages.command.primitives.create.dynamic.box(
@@ -277,7 +277,7 @@ internal class IgnacioCommand(
         primitivesCreateDynamic(
             count, mass, spread, virtual, location,
             ignacio.settings.primitiveModels.sphere,
-            SphereGeometry(radius)
+            SphereGeometrySettings(radius)
         )
 
         messages.command.primitives.create.dynamic.sphere(

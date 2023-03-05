@@ -206,7 +206,7 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
 
     override fun onDisable() {
         worldPhysics.forEach { (_, world) ->
-            engine.destroySpace(world.physics)
+            world.physics.destroy()
         }
         engine.destroy()
     }
