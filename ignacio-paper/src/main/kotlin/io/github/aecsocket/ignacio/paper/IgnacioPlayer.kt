@@ -56,8 +56,8 @@ class IgnacioPlayer internal constructor(
                 )
                 messages.barDisplay.forPhysics(
                     worldName = world.name,
-                    numBodies = physics.numBodies,
-                    numActiveBodies = physics.numActiveBodies,
+                    numBodies = physics.bodies.num,
+                    numActiveBodies = physics.bodies.numActive,
                     median = formatTime(median, messages),
                     best5 = formatTime(best5, messages),
                     worst5 = formatTime(worst5, messages),

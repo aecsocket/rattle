@@ -6,6 +6,10 @@ import io.github.aecsocket.ignacio.core.math.Vec3d
 import io.github.aecsocket.ignacio.core.math.Vec3f
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 
+interface StepListener
+
+typealias StepListenerFn = (deltaTime: Float) -> Unit
+
 interface PhysicsSpace : Destroyable {
     @ConfigSerializable
     data class Settings(
@@ -18,11 +22,11 @@ interface PhysicsSpace : Destroyable {
 
     var settings: Settings
 
-    val numBodies: Int
-    val numActiveBodies: Int
-
     val bodies: Bodies
     interface Bodies {
+        val num: Int
+        val numActive: Int
+
         fun createStatic(settings: StaticBodySettings, transform: Transform): StaticBodyAccess
 
         fun createDynamic(settings: DynamicBodySettings, transform: Transform): DynamicBodyAccess
@@ -40,6 +44,10 @@ interface PhysicsSpace : Destroyable {
         fun addStatic(settings: StaticBodySettings, transform: Transform): StaticBodyAccess
 
         fun addDynamic(settings: DynamicBodySettings, transform: Transform, activate: Boolean): DynamicBodyAccess
+
+        fun all(): Collection<BodyAccess>
+
+        fun active(): Collection<BodyAccess>
     }
 
     val broadQuery: BroadQuery
@@ -53,6 +61,10 @@ interface PhysicsSpace : Destroyable {
 
         fun rayCastBodies(ray: Ray, distance: Float): Collection<BodyAccess>
     }
+
+    fun onStep(listener: StepListenerFn): StepListener
+
+    fun removeOnStep(listener: StepListener)
 
     fun update(deltaTime: Float)
 }

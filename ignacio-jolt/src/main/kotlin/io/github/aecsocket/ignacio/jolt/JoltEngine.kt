@@ -37,15 +37,22 @@ val bpLayerMoving = JBroadPhaseLayer(3)
 class JoltEngine(var settings: Settings, private val logger: Logger) : IgnacioEngine {
     @ConfigSerializable
     data class Settings(
+        val threads: Threads = Threads(),
         val jobs: Jobs = Jobs(),
         val spaces: Spaces = Spaces(),
         val physics: Physics = Physics(),
     ) {
         @ConfigSerializable
+        data class Threads(
+            val physics: Int = 0,
+            val workers: Int = 0,
+            val terminateTime: Double = 0.0,
+        )
+
+        @ConfigSerializable
         data class Jobs(
             val maxJobs: Int = JobSystem.MAX_PHYSICS_JOBS,
             val maxBarriers: Int = JobSystem.MAX_PHYSICS_BARRIERS,
-            val numThreads: Int = 0,
             // must be at least `maxContactConstraints` * 864
             // mConstraints = (ContactConstraint *)inContext->mTempAllocator->Allocate(mMaxConstraints * sizeof(ContactConstraint));
             val tempAllocatorSize: Int = 20 * 1024 * 1024,
@@ -90,16 +97,15 @@ class JoltEngine(var settings: Settings, private val logger: Logger) : IgnacioEn
         )
     }
 
+    private val destroyed = DestroyFlag()
     override val build: String
 
-    private val destroyed = DestroyFlag()
     private val arena = MemorySession.openShared()
     private val executorId = AtomicInteger(1)
-    val spaces = HashMap<PhysicsSystem, JtPhysicsSpace>()
+    private val executor: ExecutorService
+    private val executorScope: CoroutineScope
 
-    val numThreads: Int
-    val executor: ExecutorService
-    val executorScope: CoroutineScope
+    val spaces = HashMap<PhysicsSystem, JtPhysicsSpace>()
     val jobSystem: JobSystem
     val bpLayerInterface: BroadPhaseLayerInterface
     val objBpLayerFilter: ObjectVsBroadPhaseLayerFilter
@@ -113,14 +119,14 @@ class JoltEngine(var settings: Settings, private val logger: Logger) : IgnacioEn
         }
     }
 
+    private fun sanitizeNumThreads(num: Int) =
+        if (num > 0) num
+        else clamp(Runtime.getRuntime().availableProcessors() - 2, 1, 16)
+
     init {
         Jolt.load()
 
         build = "v${Jolt.JOLT_VERSION} ${Jolt.featureSet().joinToString(" ") { it.name }}"
-
-        numThreads =
-            if (settings.jobs.numThreads <= 0) clamp(Runtime.getRuntime().availableProcessors() - 2, 1, 16)
-            else settings.jobs.numThreads
 
         // TODO have one thread pool rather than Jolt and Java pools
         // TODO allow multithreading with barriers?
@@ -134,7 +140,7 @@ class JoltEngine(var settings: Settings, private val logger: Logger) : IgnacioEn
                 Raycast -> ------------------------ [ Raycast (Player2) ] -> DONE
                                                     [ ...               ]
          */
-        executor = Executors.newFixedThreadPool(8) { task ->
+        executor = Executors.newFixedThreadPool(sanitizeNumThreads(settings.threads.workers)) { task ->
             Thread(task, "Ignacio-Worker-${executorId.getAndIncrement()}")
         }
         executorScope = CoroutineScope(executor.asCoroutineDispatcher())
@@ -145,7 +151,7 @@ class JoltEngine(var settings: Settings, private val logger: Logger) : IgnacioEn
         jobSystem = JobSystem.of(
             settings.jobs.maxJobs,
             settings.jobs.maxBarriers,
-            numThreads
+            sanitizeNumThreads(settings.threads.physics),
         )
 
         bpLayerInterface = BroadPhaseLayerInterface.of(arena, object : BroadPhaseLayerInterfaceFn {
@@ -179,9 +185,9 @@ class JoltEngine(var settings: Settings, private val logger: Logger) : IgnacioEn
     override fun destroy() {
         destroyed.mark()
         executor.shutdown()
-        logger.info("Waiting for worker threads")
+        logger.info("Waiting ${settings.threads.terminateTime}s for worker threads")
         try {
-            executor.awaitTermination(5, TimeUnit.SECONDS)
+            executor.awaitTermination((settings.threads.terminateTime * 1000).toLong(), TimeUnit.MILLISECONDS)
         } catch (ex: InterruptedException) {
             logger.warning("Could not wait for worker threads")
         }

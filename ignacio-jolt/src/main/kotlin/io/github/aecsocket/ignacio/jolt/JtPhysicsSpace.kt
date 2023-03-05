@@ -9,6 +9,7 @@ import io.github.aecsocket.ignacio.core.math.f
 import jolt.core.TempAllocator
 import jolt.math.FMat44
 import jolt.physics.Activation
+import jolt.physics.PhysicsStepListener
 import jolt.physics.PhysicsSystem
 import jolt.physics.body.BodyCreationSettings
 import jolt.physics.body.MassProperties
@@ -18,6 +19,11 @@ import jolt.physics.collision.*
 import jolt.physics.collision.broadphase.BroadPhaseLayerFilter
 import jolt.physics.collision.broadphase.CollideShapeBodyCollector
 import java.lang.foreign.MemorySession
+
+class JtStepListener(
+    val handle: PhysicsStepListener,
+    val arena: MemorySession,
+) : StepListener
 
 class JtPhysicsSpace(
     private val engine: JoltEngine,
@@ -38,6 +44,9 @@ class JtPhysicsSpace(
     private fun bodyAccess(id: JBodyId) = JtBodyAccess(handle, id)
 
     override val bodies = object : PhysicsSpace.Bodies {
+        override val num get() = handle.numBodies
+        override val numActive get() = handle.numActiveBodies
+
         override fun createStatic(settings: StaticBodySettings, transform: Transform): JtStaticBodyAccess {
             return useArena {
                 val bodySettings = BodyCreationSettings.of(this,
@@ -121,6 +130,14 @@ class JtPhysicsSpace(
             add(body, activate)
             return body
         }
+
+        override fun all(): Collection<BodyAccess> {
+            return handle.bodies.map { bodyAccess(JBodyId(it)) }
+        }
+
+        override fun active(): Collection<BodyAccess> {
+            return handle.activeBodies.map { bodyAccess(JBodyId(it)) }
+        }
     }
 
     override val broadQuery = object : PhysicsSpace.BroadQuery {
@@ -181,15 +198,32 @@ class JtPhysicsSpace(
         }
     }
 
-    override val numBodies get() = handle.numBodies
-    override val numActiveBodies get() = handle.numActiveBodies
+    private val stepListeners = ArrayList<JtStepListener>()
 
     override fun destroy() {
         destroyed.mark()
+        stepListeners.forEach { listener ->
+            listener.arena.close()
+        }
         engine.spaces.remove(handle)
         // TODO delete bodies
         handle.destroy()
         tempAllocator.destroy()
+    }
+
+    override fun onStep(listener: StepListenerFn): StepListener {
+        val arena = MemorySession.openConfined()
+        val native = PhysicsStepListener.of(arena) { deltaTime, _ ->
+            listener(deltaTime)
+        }
+        handle.addStepListener(native)
+        return JtStepListener(native, arena)
+    }
+
+    override fun removeOnStep(listener: StepListener) {
+        listener as JtStepListener
+        handle.removeStepListener(listener.handle)
+        listener.arena.close()
     }
 
     override fun update(deltaTime: Float) {

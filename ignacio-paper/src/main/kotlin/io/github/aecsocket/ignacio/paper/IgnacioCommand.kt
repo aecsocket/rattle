@@ -324,8 +324,8 @@ internal class IgnacioCommand(
         ignacio.worlds.all().forEach { (_, world) ->
             messages.command.timings.space(
                 worldName = world.world.name,
-                numBodies = world.physics.numBodies,
-                numActiveBodies = world.physics.numActiveBodies,
+                numBodies = world.physics.bodies.num,
+                numActiveBodies = world.physics.bodies.numActive,
             ).sendTo(sender)
         }
     }

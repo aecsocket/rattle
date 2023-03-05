@@ -25,10 +25,10 @@ import io.github.aecsocket.ignacio.paper.display.StandRenders
 import io.github.aecsocket.ignacio.paper.util.position
 import io.github.aecsocket.ignacio.paper.util.vec3d
 import io.github.aecsocket.ignacio.paper.world.*
-import io.github.aecsocket.ignacio.paper.world.PregenTerrainStrategy
+import io.github.aecsocket.ignacio.paper.world.OnLoadTerrainStrategy
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder
 import io.papermc.paper.util.Tick
-import kotlinx.coroutines.runBlocking
+import io.papermc.paper.util.TickThread
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.TextColor
 import org.bukkit.Bukkit
@@ -62,8 +62,9 @@ private val configOptions: ConfigurationOptions = ConfigurationOptions.defaults(
 enum class TerrainStrategies(
     private val factory: (ignacio: Ignacio, world: World, physics: PhysicsSpace) -> TerrainStrategy
 ) {
-    NONE    ({ _, _, _ -> NoOpTerrainStrategy() }),
-    PREGEN  ({ ignacio, world, physics -> PregenTerrainStrategy(ignacio, world, physics) });
+    NONE        ({ _, _, _ -> NoOpTerrainStrategy() }),
+    ON_LOAD     ({ ignacio, world, physics -> OnLoadTerrainStrategy(ignacio, world, physics) }),
+    BY_ACTIVE   ({ ignacio, world, physics -> ByActiveTerrainStrategy(ignacio, world, physics) });
 
     fun create(ignacio: Ignacio, world: World, physics: PhysicsSpace) = factory(ignacio, world, physics)
 }
@@ -75,6 +76,11 @@ enum class EntityStrategies(
     DEFAULT ({ ignacio, world, physics -> DefaultEntityStrategy(ignacio, physics) });
 
     fun create(ignacio: Ignacio, world: World, physics: PhysicsSpace) = factory(ignacio, world, physics)
+}
+
+fun assertTickThread(operation: String) {
+    if (!TickThread.isTickThread())
+        throw IllegalStateException("Must run $operation on tick thread")
 }
 
 class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
@@ -103,7 +109,7 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
     ) : AlexandriaApiPlugin.Settings {
         @ConfigSerializable
         data class Worlds(
-            val terrainStrategy: TerrainStrategies = TerrainStrategies.PREGEN,
+            val terrainStrategy: TerrainStrategies = TerrainStrategies.BY_ACTIVE,
             val entityStrategy: EntityStrategies = EntityStrategies.DEFAULT,
             val spaceSettings: PhysicsSpace.Settings = PhysicsSpace.Settings(),
         )
@@ -122,6 +128,17 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
         )
     }
 
+    val renders = StandRenders()
+    val primitiveBodies = PrimitiveBodies(this)
+    private val mEngineTimings = timestampedList<Long>(0)
+    val engineTimings: TimestampedList<Long> get() = mEngineTimings
+    val updatingPhysics = AtomicBoolean(false)
+    private val players = ConcurrentHashMap<Player, IgnacioPlayer>()
+
+    // TODO the concurrency model here needs to be improved
+    // who should access this on what thread?
+    private val worldPhysics = ConcurrentHashMap<World, PhysicsWorld>()
+
     interface Worlds {
         operator fun get(world: World): PhysicsWorld?
 
@@ -131,15 +148,6 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
 
         fun all(): Map<World, PhysicsWorld>
     }
-
-    val renders = StandRenders()
-    val primitiveBodies = PrimitiveBodies(this)
-    private val mEngineTimings = timestampedList<Long>(0)
-    val engineTimings: TimestampedList<Long> get() = mEngineTimings
-    val updatingPhysics = AtomicBoolean(false)
-    internal val players = ConcurrentHashMap<Player, IgnacioPlayer>()
-
-    private val worldPhysics = ConcurrentHashMap<World, PhysicsWorld>()
     val worlds = object : Worlds {
         override fun get(world: World) = worldPhysics[world]
 
@@ -157,8 +165,10 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
 
         override fun destroy(world: World) {
             val physics = worldPhysics[world] ?: return
-            physics.destroy()
             worldPhysics.remove(world)
+            engine.runTask {
+                physics.destroy()
+            }
         }
 
         override fun all() = worldPhysics
