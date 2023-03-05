@@ -7,26 +7,32 @@ import io.github.aecsocket.ignacio.core.math.radians
 import io.github.aecsocket.ignacio.core.math.sqr
 import jolt.*
 import jolt.core.*
-import jolt.kotlin.*
 import jolt.physics.PhysicsSettings
 import jolt.physics.PhysicsSystem
 import jolt.physics.collision.ObjectLayerPairFilter
 import jolt.physics.collision.broadphase.BroadPhaseLayerInterface
+import jolt.physics.collision.broadphase.BroadPhaseLayerInterfaceFn
 import jolt.physics.collision.broadphase.ObjectVsBroadPhaseLayerFilter
 import jolt.physics.collision.shape.*
+import kotlinx.coroutines.*
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import java.lang.foreign.MemorySession
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.logging.Logger
+import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.math.cos
 
-val objectLayerNonMoving = ObjectLayer(0)
-val objectLayerMoving = ObjectLayer(1)
+val objectLayerStatic = JObjectLayer(0)
+val objectLayerTerrain = JObjectLayer(1)
+val objectLayerEntity = JObjectLayer(2)
+val objectLayerMoving = JObjectLayer(3)
 
-val bpLayerNonMoving = BroadPhaseLayer(0)
-val bpLayerMoving = BroadPhaseLayer(1)
+val bpLayerStatic = JBroadPhaseLayer(0)
+val bpLayerTerrain = JBroadPhaseLayer(0)
+val bpLayerEntity = JBroadPhaseLayer(0)
+val bpLayerMoving = JBroadPhaseLayer(3)
 
 class JoltEngine(var settings: Settings, logger: Logger) : IgnacioEngine {
     @ConfigSerializable
@@ -93,10 +99,19 @@ class JoltEngine(var settings: Settings, logger: Logger) : IgnacioEngine {
 
     val numThreads: Int
     val executor: ExecutorService
+    val executorDispatcher: CoroutineDispatcher
     val jobSystem: JobSystem
     val bpLayerInterface: BroadPhaseLayerInterface
     val objBpLayerFilter: ObjectVsBroadPhaseLayerFilter
     val objPairLayerFilter: ObjectLayerPairFilter
+    override val layers = object : IgnacioEngine.Layers {
+        override val ofObject = object : IgnacioEngine.Layers.OfObject {
+            override val static = JtObjectLayer(JObjectLayer(0))
+            override val terrain = JtObjectLayer(JObjectLayer(1))
+            override val entity = JtObjectLayer(JObjectLayer(2))
+            override val moving = JtObjectLayer(JObjectLayer(3))
+        }
+    }
 
     init {
         Jolt.load()
@@ -119,9 +134,10 @@ class JoltEngine(var settings: Settings, logger: Logger) : IgnacioEngine {
                 Raycast -> ------------------------ [ Raycast (Player2) ] -> DONE
                                                     [ ...               ]
          */
-        executor = Executors.newSingleThreadExecutor { task ->
+        executor = Executors.newFixedThreadPool(8) { task ->
             Thread(task, "Ignacio-Worker-${executorId.getAndIncrement()}")
         }
+        executorDispatcher = executor.asCoroutineDispatcher()
 
         Jolt.registerDefaultAllocator()
         Jolt.createFactory()
@@ -132,30 +148,32 @@ class JoltEngine(var settings: Settings, logger: Logger) : IgnacioEngine {
             numThreads
         )
 
-        bpLayerInterface = BroadPhaseLayerInterface(arena,
-            getNumBroadPhaseLayers = { 2 },
-            getBroadPhaseLayer = { layer -> when (layer) {
-                objectLayerNonMoving -> bpLayerNonMoving
-                objectLayerMoving -> bpLayerMoving
+        bpLayerInterface = BroadPhaseLayerInterface.of(arena, object : BroadPhaseLayerInterfaceFn {
+            override fun getNumBroadPhaseLayers() = 4
+            override fun getBroadPhaseLayer(layer: Short) = when (JObjectLayer(layer)) {
+                objectLayerStatic -> bpLayerStatic.layer
+                objectLayerTerrain -> bpLayerTerrain.layer
+                objectLayerEntity -> bpLayerEntity.layer
+                objectLayerMoving -> bpLayerMoving.layer
                 else -> throw IllegalArgumentException("Invalid layer $layer")
-            } }
-        )
+            }
+        })
 
-        objBpLayerFilter = ObjectVsBroadPhaseLayerFilter(arena,
-            shouldCollide = { layer1, layer2 -> when (layer1) {
-                objectLayerNonMoving -> layer2 == bpLayerMoving
+        objBpLayerFilter = ObjectVsBroadPhaseLayerFilter.of(arena) { layer1, layer2 ->
+            when (JObjectLayer(layer1)) {
+                objectLayerStatic, objectLayerTerrain, objectLayerEntity -> JBroadPhaseLayer(layer2) == bpLayerMoving
                 objectLayerMoving -> true
                 else -> false
-            } }
-        )
+            }
+        }
 
-        objPairLayerFilter = ObjectLayerPairFilter(arena,
-            shouldCollide = { layer1, layer2 -> when (layer1) {
-                objectLayerNonMoving -> layer2 == objectLayerNonMoving
+        objPairLayerFilter = ObjectLayerPairFilter.of(arena) { layer1, layer2 ->
+            when (JObjectLayer(layer1)) {
+                objectLayerStatic, objectLayerTerrain, objectLayerEntity -> JObjectLayer(layer2) == objectLayerMoving
                 objectLayerMoving -> true
                 else -> false
-            } }
-        )
+            }
+        }
     }
 
     override fun destroy() {
@@ -171,8 +189,11 @@ class JoltEngine(var settings: Settings, logger: Logger) : IgnacioEngine {
         arena.close()
     }
 
-    override fun runTask(task: Runnable) {
-        executor.execute(task)
+    override fun runTask(block: suspend CoroutineScope.() -> Unit) {
+        executor.execute {
+            // TODO this SUCKS! any given task only uses a single thread of the executor service
+            runBlocking(block = block)
+        }
     }
 
     override fun createGeometry(settings: GeometrySettings): Geometry {

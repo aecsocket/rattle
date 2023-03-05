@@ -1,21 +1,23 @@
 package io.github.aecsocket.ignacio.paper
 
 import io.github.aecsocket.glossa.core.component
-import io.github.aecsocket.ignacio.core.math.clamp01
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
-import org.bukkit.World
 import org.bukkit.entity.Player
 import java.util.Locale
+
+enum class PlayerDebugFlag {
+    SHOW_TIMINGS
+}
 
 class IgnacioPlayer internal constructor(
     private val ignacio: Ignacio,
     val player: Player
 ) {
     private var messages = createMessages(player.locale())
-    var timingsBar: BossBar? = null
+    var debugFlags: Set<PlayerDebugFlag> = HashSet()
         private set
-    private val spaceCreateBars = HashMap<World, BossBar>()
+    private var timingsBar: BossBar? = null
 
     private fun createMessages(locale: Locale) = ignacio.messages.forLocale(locale)
 
@@ -23,34 +25,26 @@ class IgnacioPlayer internal constructor(
         messages = createMessages(locale)
     }
 
-    fun addTimingsBar() {
+    private fun addTimingsBar() {
         removeTimingsBar()
         val bar = ignacio.settings.barDisplay.create(Component.empty())
         player.showBossBar(bar)
         timingsBar = bar
     }
 
-    fun removeTimingsBar() {
+    private fun removeTimingsBar() {
         val bar = timingsBar ?: return
         player.hideBossBar(bar)
         this.timingsBar = null
     }
 
-    fun addSpaceCreateBar(world: World) {
-        removeSpaceCreateBar(world)
-        val bar = ignacio.settings.barDisplay.create(Component.empty())
-        player.showBossBar(bar)
-        spaceCreateBars[world] = bar
-    }
-
-    fun removeSpaceCreateBar(world: World) {
-        val bar = spaceCreateBars[world] ?: return
-        player.hideBossBar(bar)
-        spaceCreateBars.remove(world)
-    }
-
-    internal fun removeWorld(world: World) {
-        removeSpaceCreateBar(world)
+    fun updateDebugFlags(flags: Collection<PlayerDebugFlag>) {
+        if (flags.contains(PlayerDebugFlag.SHOW_TIMINGS) && !debugFlags.contains(PlayerDebugFlag.SHOW_TIMINGS)) {
+            addTimingsBar()
+        } else if (!flags.contains(PlayerDebugFlag.SHOW_TIMINGS) && debugFlags.contains(PlayerDebugFlag.SHOW_TIMINGS)) {
+            removeTimingsBar()
+        }
+        debugFlags = flags.toSet()
     }
 
     internal fun update() {
@@ -72,21 +66,6 @@ class IgnacioPlayer internal constructor(
                 worldName = world.name
             )
             timingsBar.name(text.component())
-        }
-
-        spaceCreateBars.forEach { (world, bar) ->
-            val physics = ignacio.worlds[world] ?: return@forEach
-            val total = world.loadedChunks.size
-            val processed = physics.terrain.size
-            val progress = clamp01(processed.toFloat() / total)
-            bar.name(messages.barDisplay.forSpaceCreate(
-                worldName = world.name,
-                chunksProcessed = processed,
-                chunksRemaining = total - processed,
-                chunksTotal = total,
-                chunksProgress = progress,
-            ).component())
-            bar.progress(progress)
         }
     }
 }

@@ -30,11 +30,11 @@ import kotlin.math.max
 import kotlin.random.Random
 
 private const val COUNT = "count"
-private const val DISPLAY = "display"
 private const val HALF_EXTENT = "half-extent"
 private const val LOCATION = "location"
 private const val MASS = "mass"
 private const val RADIUS = "radius"
+private const val SHOW_TIMINGS = "show-timings"
 private const val SPREAD = "spread"
 private const val VIRTUAL = "virtual"
 private const val WORLD = "world"
@@ -59,19 +59,6 @@ internal class IgnacioCommand(
     private val ignacio: Ignacio
 ) : AlexandriaApiCommand(ignacio, ignacio.glossa.messageProxy()) {
     init {
-        root.literal("timings").let { timings ->
-            manager.command(timings
-                .senderType(Player::class)
-                .alexandriaPermission("timings")
-                .handler(::timings)
-            )
-            manager.command(timings
-                .argument(BooleanArgument.of(DISPLAY))
-                .senderType(Player::class)
-                .alexandriaPermission("timings")
-                .handler(::timingsDisplay)
-            )
-        }
         root.literal("primitives").let { primitives ->
             primitives.literal("create")
                 .flag(manager.flagBuilder(COUNT)
@@ -144,6 +131,19 @@ internal class IgnacioCommand(
                     .handler(::spaceDestroy)
                 )
         }
+        manager.command(root
+            .literal("timings")
+            .alexandriaPermission("timings")
+            .handler(::timings)
+        )
+        manager.command(root
+            .literal("debug")
+            .flag(manager.flagBuilder(SHOW_TIMINGS)
+                .withAliases("t")
+            )
+            .alexandriaPermission("debug")
+            .handler(::debug)
+        )
     }
 
     private fun primitivesCreate(
@@ -175,6 +175,7 @@ internal class IgnacioCommand(
     ) {
         val settings = StaticBodySettings(
             geometry = ignacio.engine.createGeometry(geometry),
+            layer = ignacio.engine.layers.ofObject.static,
         )
         primitivesCreate(count, spread, virtual, origin, model) { physics, transform ->
             physics.bodies.addStatic(settings, transform)
@@ -192,6 +193,7 @@ internal class IgnacioCommand(
     ) {
         val settings = DynamicBodySettings(
             geometry = ignacio.engine.createGeometry(geometry),
+            layer = ignacio.engine.layers.ofObject.moving,
             mass = mass,
         )
         primitivesCreate(count, spread, virtual, origin, model) { physics, transform ->
@@ -328,18 +330,6 @@ internal class IgnacioCommand(
         }
     }
 
-    private fun timingsDisplay(ctx: Context) {
-        val sender = ctx.sender as Player
-        val display = ctx.get<Boolean>(DISPLAY)
-
-        val playerData = ignacio.playerData(sender)
-        if (display) {
-            playerData.addTimingsBar()
-        } else {
-            playerData.removeTimingsBar()
-        }
-    }
-
     private fun spaceCreate(ctx: Context) {
         val sender = ctx.sender
         val messages = ignacio.messages.forAudience(sender)
@@ -356,10 +346,6 @@ internal class IgnacioCommand(
             worldName = world.name,
         ).sendTo(sender)
 
-        if (sender is Player) {
-            ignacio.playerData(sender).addSpaceCreateBar(world)
-        }
-
         ignacio.worlds.getOrCreate(world)
     }
 
@@ -373,5 +359,14 @@ internal class IgnacioCommand(
         ).sendTo(sender)
 
         ignacio.worlds.destroy(world)
+    }
+
+    private fun debug(ctx: Context) {
+        val sender = ctx.sender as Player
+        val showTimings = ctx.hasFlag(SHOW_TIMINGS)
+
+        ignacio.playerData(sender).updateDebugFlags(setOfNotNull(
+            if (showTimings) PlayerDebugFlag.SHOW_TIMINGS else null,
+        ))
     }
 }

@@ -14,6 +14,15 @@ import kotlin.contracts.contract
 
 typealias JQuat = jolt.math.Quat
 
+@JvmInline
+value class JObjectLayer(val id: Short)
+
+@JvmInline
+value class JBroadPhaseLayer(val layer: Byte)
+
+@JvmInline
+value class JBodyId(val id: Int)
+
 @OptIn(ExperimentalContracts::class)
 fun <R> useArena(block: MemorySession.() -> R): R {
     contract {

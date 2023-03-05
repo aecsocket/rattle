@@ -2,6 +2,7 @@ package io.github.aecsocket.ignacio.paper
 
 import io.github.aecsocket.ignacio.core.BodyAccess
 import io.github.aecsocket.ignacio.core.PhysicsSpace
+import io.github.aecsocket.ignacio.core.bodies
 import io.github.aecsocket.ignacio.core.math.Transform
 import io.github.aecsocket.ignacio.paper.display.*
 import io.github.aecsocket.ignacio.paper.util.location
@@ -45,8 +46,18 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
 
     internal fun update() {
         bodies.toMap().forEach { (entity, instance) ->
-            if (!entity.isValid) {
+            fun destroy() {
+                entity.remove()
+                instance.physics.bodies {
+                    remove(instance.body)
+                    destroy(instance.body)
+                }
+                instance.render?.despawn()
                 bodies.remove(entity)
+            }
+
+            if (!entity.isValid || !instance.body.isAdded) {
+                destroy()
                 return@forEach
             }
 
@@ -69,7 +80,10 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
 
     fun removeAll() {
         bodies.forEach { (entity, instance) ->
-            instance.physics.bodies.destroy(instance.body)
+            instance.physics.bodies {
+                remove(instance.body)
+                destroy(instance.body)
+            }
             instance.render?.despawn()
             entity.remove()
         }

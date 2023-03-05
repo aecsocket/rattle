@@ -10,6 +10,7 @@ plugins:
 versions:
   indra: 3.0.1
   kotlin: 1.8.20-Beta
+  kotlinxCoroutines: 1.6.4
   adventure: 4.12.0
   configurate: 4.1.2
   cloud: 1.8.0
@@ -23,6 +24,8 @@ dependencies:
   indraCommon: { group: net.kyori, name: indra-common, version: { ref: indra } }
   indraPublishingSonatype: { group: net.kyori, name: indra-publishing-sonatype, version: { ref: indra } }
   kotlin: { group: org.jetbrains.kotlin, name: kotlin-gradle-plugin, version: { ref: kotlin } }
+  kotlinxCoroutinesCore: { group: org.jetbrains.kotlinx, name: kotlinx-coroutines-core, version: { ref: kotlinxCoroutines } }
+  kotlinxCoroutinesJdk8: { group: org.jetbrains.kotlinx, name: kotlinx-coroutines-jdk8, version: { ref: kotlinxCoroutines } }
   adventureSerializerConfigurate: { group: net.kyori, name: adventure-serializer-configurate4, version: { ref: adventure } }
   configurateCore: { group: org.spongepowered, name: configurate-core, version: { ref: configurate } }
   configurateExtraKotlin: { group: org.spongepowered, name: configurate-extra-kotlin, version: { ref: configurate } }
@@ -33,7 +36,6 @@ dependencies:
   alexandriaCore: { group: io.github.aecsocket, name: alexandria-core, version: { ref: alexandria } }
   alexandriaPaper: { group: io.github.aecsocket, name: alexandria-paper, version: { ref: alexandria } }
   joltJava: { group: io.github.aecsocket, name: jolt-java, version: { ref: joltJava } }
-  joltJavaKotlin: { group: io.github.aecsocket, name: jolt-java-kotlin, version: { ref: joltJava } }
   joltJavaNativesLinuxX86: { group: io.github.aecsocket, name: jolt-java-natives-linux-x86, version: { ref: joltJava } }
   joltJavaNativesWindows: { group: io.github.aecsocket, name: jolt-java-natives-windows-x86, version: { ref: joltJava } }
   joltJavaNativesMacos: { group: io.github.aecsocket, name: jolt-java-natives-macos-x86, version: { ref: joltJava } }

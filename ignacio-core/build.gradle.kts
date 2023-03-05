@@ -3,6 +3,8 @@ plugins {
 }
 
 dependencies {
+    implementation(libs.kotlinxCoroutinesCore)
+    implementation(libs.kotlinxCoroutinesJdk8)
     implementation(libs.cloudCore)
     implementation(libs.configurateCore)
     implementation(libs.alexandriaCore)

@@ -2,15 +2,17 @@ package io.github.aecsocket.ignacio.jolt
 
 import io.github.aecsocket.ignacio.core.BodyAccess
 import io.github.aecsocket.ignacio.core.DynamicBodyAccess
+import io.github.aecsocket.ignacio.core.ObjectLayer
 import io.github.aecsocket.ignacio.core.StaticBodyAccess
 import io.github.aecsocket.ignacio.core.math.Transform
-import jolt.kotlin.BodyId
 import jolt.physics.Activation
 import jolt.physics.PhysicsSystem
 
+class JtObjectLayer(val layer: JObjectLayer) : ObjectLayer
+
 open class JtBodyAccess(
     val system: PhysicsSystem,
-    val id: BodyId,
+    val id: JBodyId,
 ) : BodyAccess {
     override fun toString() = "${id.id}"
 
@@ -32,6 +34,9 @@ open class JtBodyAccess(
             }
         }
 
+    override val isAdded: Boolean
+        get() = system.bodyInterface.isAdded(id.id)
+
     override fun asStatic() = JtStaticBodyAccess(system, id)
 
     override fun asDynamic() = JtDynamicBodyAccess(system, id)
@@ -39,10 +44,10 @@ open class JtBodyAccess(
 
 class JtStaticBodyAccess internal constructor(
     system: PhysicsSystem,
-    id: BodyId
+    id: JBodyId,
 ) : JtBodyAccess(system, id), StaticBodyAccess
 
 class JtDynamicBodyAccess internal constructor(
     system: PhysicsSystem,
-    id: BodyId
+    id: JBodyId,
 ) : JtBodyAccess(system, id), DynamicBodyAccess

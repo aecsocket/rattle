@@ -16,6 +16,7 @@ dependencies {
     implementation(projects.ignacioCore)
     implementation(projects.ignacioJolt)
     paperweight.paperDevBundle("$minecraft-R0.1-SNAPSHOT")
+    implementation(libs.kotlinxCoroutinesCore)
     implementation(libs.adventureSerializerConfigurate)
     implementation(libs.cloudCore)
     implementation(libs.cloudPaper)

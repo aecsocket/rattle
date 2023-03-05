@@ -7,10 +7,10 @@ import io.github.aecsocket.ignacio.core.math.Transform
 import io.github.aecsocket.ignacio.core.math.Vec3d
 import io.github.aecsocket.ignacio.core.math.f
 import jolt.core.TempAllocator
-import jolt.kotlin.*
 import jolt.math.FMat44
 import jolt.physics.Activation
 import jolt.physics.PhysicsSystem
+import jolt.physics.body.BodyCreationSettings
 import jolt.physics.body.MassProperties
 import jolt.physics.body.MotionType
 import jolt.physics.body.OverrideMassProperties
@@ -35,31 +35,31 @@ class JtPhysicsSpace(
             }
         }
 
-    private fun bodyAccess(id: BodyId) = JtBodyAccess(handle, id)
+    private fun bodyAccess(id: JBodyId) = JtBodyAccess(handle, id)
 
     override val bodies = object : PhysicsSpace.Bodies {
         override fun createStatic(settings: StaticBodySettings, transform: Transform): JtStaticBodyAccess {
             return useArena {
-                val bodySettings = BodyCreationSettings(this,
+                val bodySettings = BodyCreationSettings.of(this,
                     (settings.geometry as JtGeometry).handle,
                     transform.position.toJolt(),
                     transform.rotation.toJolt(),
                     MotionType.STATIC,
-                    objectLayerNonMoving
+                    (settings.layer as JtObjectLayer).layer.id,
                 )
                 val body = handle.bodyInterface.createBody(bodySettings)
-                bodyAccess(body.bodyId).asStatic()
+                bodyAccess(JBodyId(body.id)).asStatic()
             }
         }
 
         override fun createDynamic(settings: DynamicBodySettings, transform: Transform): JtDynamicBodyAccess {
             return useArena {
-                val bodySettings = BodyCreationSettings(this,
+                val bodySettings = BodyCreationSettings.of(this,
                     (settings.geometry as JtGeometry).handle,
                     transform.position.toJolt(),
                     transform.rotation.toJolt(),
                     MotionType.DYNAMIC,
-                    objectLayerMoving
+                    objectLayerMoving.id
                 )
                 bodySettings.overrideMassProperties = OverrideMassProperties.CALCULATE_INERTIA
                 bodySettings.massPropertiesOverride = MassProperties.of(this, settings.mass, FMat44.of(this, 0f))
@@ -73,21 +73,37 @@ class JtPhysicsSpace(
                 bodySettings.maxAngularVelocity = settings.maxAngularVelocity
                 bodySettings.gravityFactor = settings.gravityFactor
                 val body = handle.bodyInterface.createBody(bodySettings)
-                bodyAccess(body.bodyId).asDynamic()
+                bodyAccess(JBodyId(body.id)).asDynamic()
             }
         }
 
         override fun destroy(body: BodyAccess) {
             body as JtBodyAccess
-            if (handle.bodyInterface.isAdded(body.id.id)) {
-                handle.bodyInterface.removeBody(body.id.id)
-            }
+            if (body.isAdded)
+                throw IllegalStateException("Body is still added to physics space")
             handle.bodyInterface.destroyBody(body.id.id)
         }
 
         override fun add(body: BodyAccess, activate: Boolean) {
             body as JtBodyAccess
             handle.bodyInterface.addBody(body.id.id, Activation.ofValue(activate))
+        }
+
+        fun Iterable<BodyAccess>.ids() = map { (it as JtBodyAccess).id.id }
+
+        override fun addAll(bodies: Collection<BodyAccess>, activate: Boolean) {
+            val bulk = handle.bodyInterface.bodyBulk(bodies.ids())
+            handle.bodyInterface.addBodiesPrepare(bulk)
+            handle.bodyInterface.addBodiesFinalize(bulk, Activation.ofValue(activate))
+        }
+
+        override fun remove(body: BodyAccess) {
+            body as JtBodyAccess
+            handle.bodyInterface.removeBody(body.id.id)
+        }
+
+        override fun removeAll(bodies: Collection<BodyAccess>) {
+            handle.bodyInterface.removeBodies(bodies.ids())
         }
 
         override fun addStatic(settings: StaticBodySettings, transform: Transform): StaticBodyAccess {
@@ -105,21 +121,16 @@ class JtPhysicsSpace(
             add(body, activate)
             return body
         }
-
-        override fun remove(body: BodyAccess) {
-            body as JtBodyAccess
-            handle.bodyInterface.removeBody(body.id.id)
-        }
     }
 
     override val broadQuery = object : PhysicsSpace.BroadQuery {
         override fun overlapSphere(position: Vec3d, radius: Float): Collection<JtBodyAccess> {
-            val results = ArrayList<BodyId>()
+            val results = ArrayList<JBodyId>()
             return useArena {
                 handle.broadPhaseQuery.collideSphere(
                     position.f().toJolt(), radius,
                     CollideShapeBodyCollector.of(this) { result ->
-                        results += BodyId(result)
+                        results += JBodyId(result)
                     },
                     // TODO filters
                     BroadPhaseLayerFilter.passthrough(),
@@ -146,18 +157,18 @@ class JtPhysicsSpace(
                     ObjectLayerFilter.passthrough(),
                     BodyFilter.passthrough(),
                 )
-                if (result) PhysicsSpace.RayCast(bodyAccess(BodyId(hit.bodyId))) else null
+                if (result) PhysicsSpace.RayCast(bodyAccess(JBodyId(hit.bodyId))) else null
             }
         }
 
         override fun rayCastBodies(ray: Ray, distance: Float): Collection<BodyAccess> {
-            val results = ArrayList<BodyId>()
+            val results = ArrayList<JBodyId>()
             useArena {
                 handle.narrowPhaseQuery.castRay(
                     ray.toJolt(distance),
                     RayCastSettings(),
                     CastRayCollector.of(this) { result ->
-                        results += BodyId(result.bodyId)
+                        results += JBodyId(result.bodyId)
                     },
                     // TODO filters
                     BroadPhaseLayerFilter.passthrough(),

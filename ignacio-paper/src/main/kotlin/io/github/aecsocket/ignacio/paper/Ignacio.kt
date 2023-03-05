@@ -24,8 +24,11 @@ import io.github.aecsocket.ignacio.jolt.JoltEngine
 import io.github.aecsocket.ignacio.paper.display.StandRenders
 import io.github.aecsocket.ignacio.paper.util.position
 import io.github.aecsocket.ignacio.paper.util.vec3d
+import io.github.aecsocket.ignacio.paper.world.*
+import io.github.aecsocket.ignacio.paper.world.PregenTerrainStrategy
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder
 import io.papermc.paper.util.Tick
+import kotlinx.coroutines.runBlocking
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.TextColor
 import org.bukkit.Bukkit
@@ -56,6 +59,24 @@ private val configOptions: ConfigurationOptions = ConfigurationOptions.defaults(
         )
     }
 
+enum class TerrainStrategies(
+    private val factory: (ignacio: Ignacio, world: World, physics: PhysicsSpace) -> TerrainStrategy
+) {
+    NONE    ({ _, _, _ -> NoOpTerrainStrategy() }),
+    PREGEN  ({ ignacio, world, physics -> PregenTerrainStrategy(ignacio, world, physics) });
+
+    fun create(ignacio: Ignacio, world: World, physics: PhysicsSpace) = factory(ignacio, world, physics)
+}
+
+enum class EntityStrategies(
+    private val factory: (ignacio: Ignacio, world: World, physics: PhysicsSpace) -> EntityStrategy
+) {
+    NONE    ({ _, _, _ -> NoOpEntityStrategy() }),
+    DEFAULT ({ ignacio, world, physics -> DefaultEntityStrategy(ignacio, physics) });
+
+    fun create(ignacio: Ignacio, world: World, physics: PhysicsSpace) = factory(ignacio, world, physics)
+}
+
 class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
     accentColor = TextColor.color(0xdeab14),
     languageResources = listOf(
@@ -75,15 +96,16 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
         override val defaultLocale: Locale = fallbackLocale,
         val deltaTimeMultiplier: Float = 1f,
         val jolt: JoltEngine.Settings = JoltEngine.Settings(),
-        val terrain: Terrain = Terrain(),
-        val physicsSpaces: PhysicsSpace.Settings = PhysicsSpace.Settings(),
+        val worlds: Worlds = Worlds(),
         val primitiveModels: PrimitiveModels = PrimitiveModels(),
         val engineTimings: EngineTimings = EngineTimings(),
         val barDisplay: BossBarSettings = BossBarSettings(),
     ) : AlexandriaApiPlugin.Settings {
         @ConfigSerializable
-        data class Terrain(
-            val autogenerate: Boolean = true,
+        data class Worlds(
+            val terrainStrategy: TerrainStrategies = TerrainStrategies.PREGEN,
+            val entityStrategy: EntityStrategies = EntityStrategies.DEFAULT,
+            val spaceSettings: PhysicsSpace.Settings = PhysicsSpace.Settings(),
         )
 
         @ConfigSerializable
@@ -101,13 +123,13 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
     }
 
     interface Worlds {
-        operator fun get(world: World): WorldPhysics?
+        operator fun get(world: World): PhysicsWorld?
 
-        fun getOrCreate(world: World): WorldPhysics
+        fun getOrCreate(world: World): PhysicsWorld
 
         fun destroy(world: World)
 
-        fun all(): Map<World, WorldPhysics>
+        fun all(): Map<World, PhysicsWorld>
     }
 
     val renders = StandRenders()
@@ -117,17 +139,19 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
     val updatingPhysics = AtomicBoolean(false)
     internal val players = ConcurrentHashMap<Player, IgnacioPlayer>()
 
-    private val worldPhysics = ConcurrentHashMap<World, WorldPhysics>()
+    private val worldPhysics = ConcurrentHashMap<World, PhysicsWorld>()
     val worlds = object : Worlds {
         override fun get(world: World) = worldPhysics[world]
 
         override fun getOrCreate(world: World) = worldPhysics.computeIfAbsent(world) {
-            WorldPhysics(this@Ignacio, world, engine.createSpace(settings.physicsSpaces)).also {
-                if (settings.terrain.autogenerate) {
-                    world.loadedChunks.forEach { chunk ->
-                        it.load(chunk)
-                    }
-                }
+            val physics = engine.createSpace(settings.worlds.spaceSettings)
+            PhysicsWorld(
+                world = world,
+                physics = physics,
+                terrainStrategy = settings.worlds.terrainStrategy.create(this@Ignacio, world, physics),
+                entityStrategy = settings.worlds.entityStrategy.create(this@Ignacio, world, physics),
+            ).also {
+                it.loadChunks(world.loadedChunks.asList())
             }
         }
 

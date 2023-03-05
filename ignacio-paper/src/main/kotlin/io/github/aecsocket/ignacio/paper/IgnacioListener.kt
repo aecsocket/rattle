@@ -33,21 +33,18 @@ internal class IgnacioListener(private val ignacio: Ignacio) : Listener {
 
     @EventHandler
     fun on(event: ChunkLoadEvent) {
-        if (!ignacio.settings.terrain.autogenerate) return
         val world = ignacio.worlds[event.world] ?: return
-        world.load(event.chunk)
+        world.loadChunks(setOf(event.chunk))
     }
 
     @EventHandler
     fun on(event: ChunkUnloadEvent) {
         val world = ignacio.worlds[event.world] ?: return
-        world.unload(event.chunk)
+        world.unloadChunks(setOf(event.chunk))
     }
 
     @EventHandler
     fun on(event: WorldUnloadEvent) {
-        ignacio.players.forEach { (_, player) ->
-            player.removeWorld(event.world)
-        }
+        ignacio.worlds.destroy(event.world)
     }
 }

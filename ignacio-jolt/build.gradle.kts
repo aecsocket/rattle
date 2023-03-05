@@ -5,11 +5,11 @@ plugins {
 dependencies {
     implementation(projects.ignacioCore)
     implementation(libs.joltJava)
-    implementation(libs.joltJavaKotlin)
     runtimeOnly(libs.joltJavaNativesLinuxX86)
     //runtimeOnly(libs.joltJniNativesWindows)
     //runtimeOnly(libs.joltJniNativesMacos)
     //runtimeOnly(libs.joltJniNativesMacosArm64)
+    implementation(libs.kotlinxCoroutinesCore)
     implementation(libs.configurateCore)
     implementation(libs.configurateExtraKotlin)
 }

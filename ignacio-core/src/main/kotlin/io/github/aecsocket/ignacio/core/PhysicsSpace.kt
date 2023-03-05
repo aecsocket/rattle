@@ -12,21 +12,16 @@ interface PhysicsSpace : Destroyable {
         val gravity: Vec3f = Vec3f(0f, -9.81f, 0f),
     )
 
+    data class RayCast(
+        val body: BodyAccess,
+    )
+
     var settings: Settings
 
     val numBodies: Int
     val numActiveBodies: Int
 
     val bodies: Bodies
-    val broadQuery: BroadQuery
-    val narrowQuery: NarrowQuery
-
-    fun update(deltaTime: Float)
-
-    data class RayCast(
-        val body: BodyAccess,
-    )
-
     interface Bodies {
         fun createStatic(settings: StaticBodySettings, transform: Transform): StaticBodyAccess
 
@@ -36,22 +31,30 @@ interface PhysicsSpace : Destroyable {
 
         fun add(body: BodyAccess, activate: Boolean)
 
+        fun addAll(bodies: Collection<BodyAccess>, activate: Boolean)
+
+        fun remove(body: BodyAccess)
+
+        fun removeAll(bodies: Collection<BodyAccess>)
+
         fun addStatic(settings: StaticBodySettings, transform: Transform): StaticBodyAccess
 
         fun addDynamic(settings: DynamicBodySettings, transform: Transform, activate: Boolean): DynamicBodyAccess
-
-        fun remove(body: BodyAccess)
     }
 
+    val broadQuery: BroadQuery
     interface BroadQuery {
         fun overlapSphere(position: Vec3d, radius: Float): Collection<BodyAccess>
     }
 
+    val narrowQuery: NarrowQuery
     interface NarrowQuery {
         fun rayCastBody(ray: Ray, distance: Float): RayCast?
 
         fun rayCastBodies(ray: Ray, distance: Float): Collection<BodyAccess>
     }
+
+    fun update(deltaTime: Float)
 }
 
 fun <R> PhysicsSpace.bodies(block: PhysicsSpace.Bodies.() -> R): R {
