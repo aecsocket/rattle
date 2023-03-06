@@ -4,8 +4,8 @@ import org.spongepowered.configurate.objectmapping.ConfigSerializable
 
 @ConfigSerializable
 data class Transform(
-    val position: Vec3d = Vec3d.Zero,
-    val rotation: Quat = Quat.Identity
+    @JvmField val position: Vec3d = Vec3d.Zero,
+    @JvmField val rotation: Quat = Quat.Identity
 ) {
     companion object {
         val Identity = Transform()

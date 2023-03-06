@@ -167,7 +167,7 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
         override fun destroy(world: World) {
             val physics = worldPhysics[world] ?: return
             worldPhysics.remove(world)
-            engine.runTask {
+            engine.launchTask {
                 physics.destroy()
             }
         }
@@ -207,8 +207,8 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
                 player.update()
             }
 
-            engine.runTask {
-                if (updatingPhysics.getAndSet(true)) return@runTask
+            engine.launchTask {
+                if (updatingPhysics.getAndSet(true)) return@launchTask
 
                 val start = System.nanoTime()
                 worldPhysics.forEach { (_, world) ->
@@ -221,7 +221,7 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
             }
 
             // TODO
-            engine.runTask {
+            engine.launchTask {
                 Bukkit.getOnlinePlayers().forEach { player ->
                     val (physics) = worlds[player.world] ?: return@forEach
                     val nearby = physics.broadQuery.overlapSphere(player.location.position(), 16f)

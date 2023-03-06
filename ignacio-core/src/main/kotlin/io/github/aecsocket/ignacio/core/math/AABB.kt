@@ -1,6 +1,6 @@
 package io.github.aecsocket.ignacio.core.math
 
-data class AABB(val min: Vec3d, val max: Vec3d) {
+data class AABB(@JvmField val min: Vec3d, @JvmField val max: Vec3d) {
     fun center() = min.midpoint(max)
 
     fun extent() = max - min

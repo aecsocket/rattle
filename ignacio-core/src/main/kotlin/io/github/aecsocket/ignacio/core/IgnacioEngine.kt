@@ -1,6 +1,7 @@
 package io.github.aecsocket.ignacio.core
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Runnable
 
 interface IgnacioEngine : Destroyable {
     val build: String
@@ -19,7 +20,9 @@ interface IgnacioEngine : Destroyable {
         }
     }
 
-    fun runTask(block: suspend CoroutineScope.() -> Unit)
+    fun runTask(block: Runnable)
+
+    fun launchTask(block: suspend CoroutineScope.() -> Unit)
 
     fun createGeometry(settings: GeometrySettings): Geometry
 

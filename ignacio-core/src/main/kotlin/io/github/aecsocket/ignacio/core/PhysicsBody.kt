@@ -1,6 +1,7 @@
 package io.github.aecsocket.ignacio.core
 
 import io.github.aecsocket.ignacio.core.math.*
+import java.util.function.Consumer
 
 interface ObjectLayer
 
@@ -43,13 +44,13 @@ data class FluidSettings(
 interface BodyRef {
     val isValid: Boolean
 
-    fun read(block: (Read) -> Unit): Boolean
+    fun read(block: Consumer<Read>): Boolean
 
-    fun readUnlocked(block: (Read) -> Unit): Boolean
+    fun readUnlocked(block: Consumer<Read>): Boolean
 
-    fun write(block: (Write) -> Unit): Boolean
+    fun write(block: Consumer<Write>): Boolean
 
-    fun writeUnlocked(block: (Write) -> Unit): Boolean
+    fun writeUnlocked(block: Consumer<Write>): Boolean
 
     interface Access {
         val ref: BodyRef

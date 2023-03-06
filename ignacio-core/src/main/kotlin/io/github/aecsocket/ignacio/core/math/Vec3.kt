@@ -3,7 +3,7 @@ package io.github.aecsocket.ignacio.core.math
 import kotlin.math.acos
 import kotlin.math.sqrt
 
-data class Vec3f(val x: Float, val y: Float, val z: Float) {
+data class Vec3f(@JvmField val x: Float, @JvmField val y: Float, @JvmField val z: Float) {
     companion object {
         val Zero = Vec3f(0f)
         val One = Vec3f(0f)
@@ -76,7 +76,7 @@ data class Vec3f(val x: Float, val y: Float, val z: Float) {
     }
 }
 
-data class Vec3d(val x: Double, val y: Double, val z: Double) {
+data class Vec3d(@JvmField val x: Double, @JvmField val y: Double, @JvmField val z: Double) {
     companion object {
         val Zero = Vec3d(0.0)
         val One = Vec3d(0.0)

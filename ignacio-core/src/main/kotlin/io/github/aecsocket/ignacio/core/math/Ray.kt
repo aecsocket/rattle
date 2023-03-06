@@ -1,8 +1,8 @@
 package io.github.aecsocket.ignacio.core.math
 
 data class Ray(
-    val origin: Vec3d,
-    val direction: Vec3f
+    @JvmField val origin: Vec3d,
+    @JvmField val direction: Vec3f
 ) {
     val directionInv = direction.inverse()
 

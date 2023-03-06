@@ -201,7 +201,11 @@ class JoltEngine(var settings: Settings, private val logger: Logger) : IgnacioEn
         arena.close()
     }
 
-    override fun runTask(block: suspend CoroutineScope.() -> Unit) {
+    override fun runTask(block: Runnable) {
+        executor.execute(block)
+    }
+
+    override fun launchTask(block: suspend CoroutineScope.() -> Unit) {
         if (destroyed.marked()) return
         executorScope.launch(block = block)
     }

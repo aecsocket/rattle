@@ -12,6 +12,7 @@ import jolt.physics.body.BodyLockRead
 import jolt.physics.body.BodyLockWrite
 import jolt.physics.body.MutableBody
 import java.util.Objects
+import java.util.function.Consumer
 
 class JtObjectLayer(val layer: JObjectLayer) : ObjectLayer
 
@@ -50,8 +51,6 @@ class JtBodyRef(
                 DMat44().also { body.getCenterOfMassTransform(it) }.toTransform()
             }
     }
-
-    private interface StaticAccess : Access, BodyRef.StaticAccess
 
     private interface MovingAccess : Access, BodyRef.MovingAccess {
         override val linearVelocity: Vec3f
@@ -191,9 +190,9 @@ class JtBodyRef(
         result
     }
 
-    override fun read(block: (BodyRef.Read) -> Unit) = readWith(physics.bodyLockInterface, block)
+    override fun read(block: Consumer<BodyRef.Read>) = readWith(physics.bodyLockInterface) { block.accept(it) }
 
-    override fun readUnlocked(block: (BodyRef.Read) -> Unit) = readWith(physics.bodyLockInterfaceNoLock, block)
+    override fun readUnlocked(block: Consumer<BodyRef.Read>) = readWith(physics.bodyLockInterfaceNoLock) { block.accept(it) }
 
     private inline fun writeWith(lockInterface: BodyLockInterface, crossinline block: (BodyRef.Write) -> Unit): Boolean = useMemory {
         val bodyLock = BodyLockWrite.of(this)
@@ -206,9 +205,9 @@ class JtBodyRef(
         result
     }
 
-    override fun write(block: (BodyRef.Write) -> Unit) = writeWith(physics.bodyLockInterface, block)
+    override fun write(block: Consumer<BodyRef.Write>) = writeWith(physics.bodyLockInterface) { block.accept(it) }
 
-    override fun writeUnlocked(block: (BodyRef.Write) -> Unit) = writeWith(physics.bodyLockInterfaceNoLock, block)
+    override fun writeUnlocked(block: Consumer<BodyRef.Write>) = writeWith(physics.bodyLockInterfaceNoLock) { block.accept(it) }
 
     override fun toString(): String = id.toString()
 

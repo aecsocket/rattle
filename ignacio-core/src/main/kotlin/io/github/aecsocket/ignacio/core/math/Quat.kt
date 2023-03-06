@@ -2,7 +2,7 @@ package io.github.aecsocket.ignacio.core.math
 
 import kotlin.math.sqrt
 
-data class Quat(val x: Float, val y: Float, val z: Float, val w: Float) {
+data class Quat(@JvmField val x: Float, @JvmField val y: Float, @JvmField val z: Float, @JvmField val w: Float) {
     companion object {
         val Identity = Quat(0f, 0f, 0f, 1f)
     }

@@ -184,7 +184,7 @@ abstract class SliceTerrainStrategy(
             ySlices().map { sy -> ChunkSlice(chunk.x, sy, chunk.z) }
         }
 
-        ignacio.engine.runTask {
+        ignacio.engine.launchTask {
             val sliceData = slices.mapNotNull { slice -> sliceToData[slice] }
             val bodies = sliceData.bodies()
             physics.bodies {
@@ -215,7 +215,7 @@ class OnLoadTerrainStrategy(
             )
         }
 
-        ignacio.engine.runTask {
+        ignacio.engine.launchTask {
             val sliceData = chunkData.map { chunk -> async { createSlicesData(chunk) } }.awaitAll().flatten()
             val bodies = ArrayList<BodyRef>()
             sliceData.forEach { data ->

@@ -1,9 +1,9 @@
 package io.github.aecsocket.ignacio.core.math
 
 data class Mat3f(
-    val n00: Float, val n01: Float, val n02: Float,
-    val n10: Float, val n11: Float, val n12: Float,
-    val n20: Float, val n21: Float, val n22: Float,
+    @JvmField val n00: Float, @JvmField val n01: Float, @JvmField val n02: Float,
+    @JvmField val n10: Float, @JvmField val n11: Float, @JvmField val n12: Float,
+    @JvmField val n20: Float, @JvmField val n21: Float, @JvmField val n22: Float,
 ) {
     companion object {
         val Identity = Mat3f(
@@ -45,9 +45,9 @@ data class Mat3f(
 }
 
 data class Mat3d(
-    val n00: Double, val n01: Double, val n02: Double,
-    val n10: Double, val n11: Double, val n12: Double,
-    val n20: Double, val n21: Double, val n22: Double,
+    @JvmField val n00: Double, @JvmField val n01: Double, @JvmField val n02: Double,
+    @JvmField val n10: Double, @JvmField val n11: Double, @JvmField val n12: Double,
+    @JvmField val n20: Double, @JvmField val n21: Double, @JvmField val n22: Double,
 ) {
     companion object {
         val Identity = Mat3d(
