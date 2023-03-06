@@ -1,6 +1,5 @@
 package io.github.aecsocket.ignacio.paper
 
-import cloud.commandframework.arguments.standard.BooleanArgument
 import cloud.commandframework.arguments.standard.DoubleArgument
 import cloud.commandframework.arguments.standard.FloatArgument
 import cloud.commandframework.arguments.standard.IntegerArgument
@@ -9,7 +8,6 @@ import cloud.commandframework.bukkit.parsers.location.LocationArgument
 import io.github.aecsocket.alexandria.core.extension.flag
 import io.github.aecsocket.alexandria.core.extension.getOr
 import io.github.aecsocket.alexandria.core.extension.hasFlag
-import io.github.aecsocket.alexandria.core.extension.senderType
 import io.github.aecsocket.alexandria.paper.AlexandriaApiCommand
 import io.github.aecsocket.alexandria.paper.Context
 import io.github.aecsocket.alexandria.paper.ItemDescriptor
@@ -152,7 +150,7 @@ internal class IgnacioCommand(
         virtual: Boolean,
         origin: Location,
         model: ItemDescriptor,
-        addBody: (physics: PhysicsSpace, transform: Transform) -> BodyAccess,
+        addBody: (physics: PhysicsSpace, transform: Transform) -> BodyRef,
     ) {
         repeat(count) {
             val transform = Transform(origin.position() - spread + Random.nextVec3d() * (spread*2))
@@ -178,7 +176,7 @@ internal class IgnacioCommand(
             layer = ignacio.engine.layers.ofObject.static,
         )
         primitivesCreate(count, spread, virtual, origin, model) { physics, transform ->
-            physics.bodies.addStatic(settings, transform)
+            physics.bodies.addStatic(settings, transform).ref
         }
     }
 
@@ -191,13 +189,13 @@ internal class IgnacioCommand(
         model: ItemDescriptor,
         geometry: GeometrySettings,
     ) {
-        val settings = DynamicBodySettings(
+        val settings = MovingBodySettings(
             geometry = ignacio.engine.createGeometry(geometry),
             layer = ignacio.engine.layers.ofObject.moving,
             mass = mass,
         )
         primitivesCreate(count, spread, virtual, origin, model) { physics, transform ->
-            physics.bodies.addDynamic(settings, transform, true)
+            physics.bodies.addMoving(settings, transform, true).ref
         }
     }
 

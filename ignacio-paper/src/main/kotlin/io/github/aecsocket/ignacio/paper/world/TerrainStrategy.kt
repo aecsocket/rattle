@@ -9,13 +9,19 @@ import io.github.aecsocket.ignacio.paper.Ignacio
 import kotlinx.coroutines.*
 import org.bukkit.Chunk
 import org.bukkit.ChunkSnapshot
+import org.bukkit.Material
 import org.bukkit.World
 import org.bukkit.block.data.BlockData
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.coroutines.coroutineContext
+
+sealed interface TerrainData {
+    object Solid : TerrainData
+
+    data class Fluid(val a: Int) : TerrainData
+}
 
 interface TerrainStrategy : Destroyable {
-    fun isTerrain(body: BodyAccess): Boolean
+    fun terrainData(body: BodyRef): TerrainData?
 
     fun loadChunks(chunks: Collection<Chunk>)
 
@@ -29,7 +35,7 @@ class NoOpTerrainStrategy : TerrainStrategy {
 
     override fun unloadChunks(chunks: Collection<Chunk>) {}
 
-    override fun isTerrain(body: BodyAccess) = false
+    override fun terrainData(body: BodyRef) = null
 }
 
 abstract class SliceTerrainStrategy(
@@ -37,33 +43,70 @@ abstract class SliceTerrainStrategy(
     world: World,
     protected val physics: PhysicsSpace,
 ) : TerrainStrategy {
+    data class SliceData(
+        val slice: ChunkSlice,
+        val solid: Solid?,
+        val water: Water?,
+    ) {
+        data class Solid(
+            val body: BodyRef,
+            val data: TerrainData.Solid,
+        )
+
+        data class Water(
+            val body: BodyRef,
+            val data: TerrainData.Fluid,
+        )
+
+        fun terrainDataOf(body: BodyRef) = when (body) {
+            solid?.body -> solid.data
+            water?.body -> water.data
+            else -> throw IllegalStateException("Body is not part of this terrain slice")
+        }
+    }
+
     private val destroyed = DestroyFlag()
     private val cube = ignacio.engine.createGeometry(BoxGeometrySettings(Vec3f(0.5f)))
     protected val startY = world.minHeight
     protected val numYSlices = (world.maxHeight - startY) / 16
-    protected val sliceToBody = ConcurrentHashMap<ChunkSlice, BodyAccess>()
-    protected val bodyToSlice = ConcurrentHashMap<BodyAccess, ChunkSlice>()
+    protected val sliceToData = ConcurrentHashMap<ChunkSlice, SliceData>()
+    protected val bodyToData = ConcurrentHashMap<BodyRef, SliceData>()
 
     @OptIn(ExperimentalStdlibApi::class)
     protected fun ySlices() = (0 ..< numYSlices)
 
     override fun destroy() {
         destroyed.mark()
-        physics.bodies.removeAll(bodyToSlice.keys)
-        bodyToSlice.forEach { (body) ->
+        physics.bodies.removeAll(this.bodyToData.keys)
+        this.bodyToData.forEach { (body) ->
             physics.bodies.destroy(body)
         }
-        sliceToBody.clear()
-        bodyToSlice.clear()
+        sliceToData.clear()
+        this.bodyToData.clear()
         cube.destroy()
     }
 
-    override fun isTerrain(body: BodyAccess) = bodyToSlice.contains(body)
+    override fun terrainData(body: BodyRef) = bodyToData[body]?.terrainDataOf(body)
 
-    protected fun getBlockGeometry(block: BlockData): Geometry? {
-        return if (block.material.isCollidable) {
-            cube
-        } else null
+    protected interface BlockBodySettings {
+        data class Solid(
+            val geometry: Geometry
+        ) : BlockBodySettings
+
+        data class Liquid(
+            val geometry: Geometry
+        ) : BlockBodySettings
+
+        object Empty : BlockBodySettings
+    }
+
+    private fun getBlockSettings(block: BlockData): BlockBodySettings {
+        val material = block.material
+        return when {
+            material == Material.WATER -> BlockBodySettings.Liquid(cube)
+            material.isCollidable -> BlockBodySettings.Solid(cube)
+            else -> BlockBodySettings.Empty
+        }
     }
 
     data class ChunkData(
@@ -72,22 +115,28 @@ abstract class SliceTerrainStrategy(
         val snapshot: ChunkSnapshot,
     )
 
-    fun createSliceBody(chunk: ChunkData, sy: Int): BodyAccess? {
+    fun createSliceData(chunk: ChunkData, sy: Int): SliceData {
         val (sx, sz, snapshot) = chunk
         val sliceBase = Vec3d(sx * 16.0, startY + sy * 16.0, sz * 16.0)
-        val sliceChildren = ArrayList<CompoundChild>()
+        val solidChildren = ArrayList<CompoundChild>()
+        val waterChildren = ArrayList<CompoundChild>()
 
         fun process(lx: Int, ly: Int, lz: Int) {
             val gy = startY + sy * 16 + ly
             // snapshot is of size 16x[world height]x16
             // we use the local block X, global block Y, local block Z
             val block = snapshot.getBlockData(lx, gy, lz)
-            getBlockGeometry(block)?.let { geom ->
-                sliceChildren += CompoundChild(
-                    Vec3f(lx + 0.5f, ly + 0.5f, lz + 0.5f),
-                    Quat.Identity,
-                    geom
-                )
+
+            fun centerVec() = Vec3f(lx + 0.5f, ly + 0.5f, lz + 0.5f)
+
+            when (val blockSettings = getBlockSettings(block)) {
+                is BlockBodySettings.Solid -> {
+                    solidChildren += CompoundChild(centerVec(), Quat.Identity, blockSettings.geometry)
+                }
+                is BlockBodySettings.Liquid -> {
+                    waterChildren += CompoundChild(centerVec(), Quat.Identity, blockSettings.geometry)
+                }
+                is BlockBodySettings.Empty -> {}
             }
         }
 
@@ -99,16 +148,35 @@ abstract class SliceTerrainStrategy(
             }
         }
 
-        if (sliceChildren.isNotEmpty()) {
-            val geometry = ignacio.engine.createGeometry(StaticCompoundGeometrySettings(
-                children = sliceChildren
-            ))
-            return physics.bodies.createStatic(StaticBodySettings(
-                geometry = geometry,
-                layer = ignacio.engine.layers.ofObject.terrain,
-            ), Transform(sliceBase))
-        }
-        return null
+        fun geometryOf(children: List<CompoundChild>) =
+            ignacio.engine.createGeometry(StaticCompoundGeometrySettings(children))
+
+        return SliceData(
+            slice = ChunkSlice(sx, sy, sz),
+            solid = if (solidChildren.isEmpty()) null else {
+                SliceData.Solid(
+                    body = physics.bodies.createStatic(StaticBodySettings(
+                        geometry = geometryOf(solidChildren),
+                        layer = ignacio.engine.layers.ofObject.terrain,
+                    ), Transform(sliceBase)).ref,
+                    data = TerrainData.Solid,
+                )
+            },
+            water = if (waterChildren.isEmpty()) null else {
+                SliceData.Water(
+                    body = physics.bodies.createStatic(StaticBodySettings(
+                        geometry = geometryOf(waterChildren),
+                        layer = ignacio.engine.layers.ofObject.terrain,
+                        isSensor = true,
+                    ), Transform(sliceBase)).ref,
+                    data = TerrainData.Fluid(1),
+                )
+            },
+        )
+    }
+
+    protected fun Iterable<SliceData>.bodies() = flatMap { slice ->
+        listOfNotNull(slice.solid?.body, slice.water?.body)
     }
 
     override fun unloadChunks(chunks: Collection<Chunk>) {
@@ -117,10 +185,11 @@ abstract class SliceTerrainStrategy(
         }
 
         ignacio.engine.runTask {
-            val bodies = slices.mapNotNull { slice -> sliceToBody[slice] }
-            physics.bodies.removeAll(bodies)
-            bodies.forEach { body ->
-                physics.bodies.destroy(body)
+            val sliceData = slices.mapNotNull { slice -> sliceToData[slice] }
+            val bodies = sliceData.bodies()
+            physics.bodies {
+                removeAll(bodies)
+                destroyAll(bodies)
             }
         }
     }
@@ -131,19 +200,14 @@ class OnLoadTerrainStrategy(
     world: World,
     physics: PhysicsSpace
 ) : SliceTerrainStrategy(ignacio, world, physics) {
-    private suspend fun createChunkBodies(chunk: ChunkData): List<Pair<ChunkSlice, BodyAccess>> = with(CoroutineScope(coroutineContext)) {
-        val (sx, sz) = chunk
+    private fun createSlicesData(chunk: ChunkData): List<SliceData> {
         return ySlices().map { sy ->
-            val slice = ChunkSlice(sx, sy, sz)
-            async {
-                val body = createSliceBody(chunk, sy)
-                body?.let { slice to it }
-            }
-        }.awaitAll().filterNotNull()
+            createSliceData(chunk, sy)
+        }
     }
 
     override fun loadChunks(chunks: Collection<Chunk>) {
-        val data = chunks.map { chunk ->
+        val chunkData = chunks.map { chunk ->
             ChunkData(
                 chunk.x,
                 chunk.z,
@@ -152,12 +216,20 @@ class OnLoadTerrainStrategy(
         }
 
         ignacio.engine.runTask {
-            val bodies = data.map { chunk -> async { createChunkBodies(chunk) } }.awaitAll().flatten()
-            physics.bodies.addAll(bodies.map { (_, body) -> body }, false)
-            bodies.forEach { (slice, body) ->
-                bodyToSlice[body] = slice
-                sliceToBody[slice] = body
+            val sliceData = chunkData.map { chunk -> async { createSlicesData(chunk) } }.awaitAll().flatten()
+            val bodies = ArrayList<BodyRef>()
+            sliceData.forEach { data ->
+                sliceToData[data.slice] = data
+                data.solid?.body?.let {
+                    bodies += it
+                    bodyToData[it] = data
+                }
+                data.water?.body?.let {
+                    bodies += it
+                    bodyToData[it] = data
+                }
             }
+            physics.bodies.addAll(bodies, false)
         }
     }
 }
@@ -167,17 +239,17 @@ class ByActiveTerrainStrategy(
     world: World,
     physics: PhysicsSpace,
 ) : SliceTerrainStrategy(ignacio, world, physics) {
-    private val stepListener: StepListener
+    private val stepListener = StepListener { deltaTime ->
+        // TODO
+    }
 
     init {
-        stepListener = physics.onStep { deltaTime ->
-            physics.bodies.active()
-        }
+        physics.onStep(stepListener)
     }
 
     override fun destroy() {
         super.destroy()
-        physics.removeOnStep(stepListener)
+        physics.removeStepListener(stepListener)
     }
 
     override fun loadChunks(chunks: Collection<Chunk>) {}

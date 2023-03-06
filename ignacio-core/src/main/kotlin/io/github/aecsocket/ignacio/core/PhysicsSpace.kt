@@ -6,9 +6,15 @@ import io.github.aecsocket.ignacio.core.math.Vec3d
 import io.github.aecsocket.ignacio.core.math.Vec3f
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 
-interface StepListener
+fun interface StepListener {
+    fun onStep(deltaTime: Float)
+}
 
-typealias StepListenerFn = (deltaTime: Float) -> Unit
+interface ContactListener {
+    fun onAdded(body1: BodyRef.Read, body2: BodyRef.Read)
+
+    fun onRemoved(body1: BodyRef, body2: BodyRef)
+}
 
 interface PhysicsSpace : Destroyable {
     @ConfigSerializable
@@ -17,54 +23,60 @@ interface PhysicsSpace : Destroyable {
     )
 
     data class RayCast(
-        val body: BodyAccess,
+        val body: BodyRef,
     )
 
     var settings: Settings
 
-    val bodies: Bodies
     interface Bodies {
         val num: Int
         val numActive: Int
 
-        fun createStatic(settings: StaticBodySettings, transform: Transform): StaticBodyAccess
+        fun createStatic(settings: StaticBodySettings, transform: Transform): BodyRef.StaticWrite
 
-        fun createDynamic(settings: DynamicBodySettings, transform: Transform): DynamicBodyAccess
+        fun createMoving(settings: MovingBodySettings, transform: Transform): BodyRef.MovingWrite
 
-        fun destroy(body: BodyAccess)
+        fun destroy(bodyRef: BodyRef)
 
-        fun add(body: BodyAccess, activate: Boolean)
+        fun destroyAll(bodyRefs: Collection<BodyRef>)
 
-        fun addAll(bodies: Collection<BodyAccess>, activate: Boolean)
+        fun add(bodyRef: BodyRef, activate: Boolean)
 
-        fun remove(body: BodyAccess)
+        fun addAll(bodyRefs: Collection<BodyRef>, activate: Boolean)
 
-        fun removeAll(bodies: Collection<BodyAccess>)
+        fun remove(bodyRef: BodyRef)
 
-        fun addStatic(settings: StaticBodySettings, transform: Transform): StaticBodyAccess
+        fun removeAll(bodyRefs: Collection<BodyRef>)
 
-        fun addDynamic(settings: DynamicBodySettings, transform: Transform, activate: Boolean): DynamicBodyAccess
+        fun addStatic(settings: StaticBodySettings, transform: Transform): BodyRef.StaticWrite
 
-        fun all(): Collection<BodyAccess>
+        fun addMoving(settings: MovingBodySettings, transform: Transform, activate: Boolean): BodyRef.MovingWrite
 
-        fun active(): Collection<BodyAccess>
+        fun all(): Collection<BodyRef>
+
+        fun active(): Collection<BodyRef>
     }
+    val bodies: Bodies
 
-    val broadQuery: BroadQuery
     interface BroadQuery {
-        fun overlapSphere(position: Vec3d, radius: Float): Collection<BodyAccess>
+        fun overlapSphere(position: Vec3d, radius: Float): Collection<BodyRef>
     }
+    val broadQuery: BroadQuery
 
-    val narrowQuery: NarrowQuery
     interface NarrowQuery {
         fun rayCastBody(ray: Ray, distance: Float): RayCast?
 
-        fun rayCastBodies(ray: Ray, distance: Float): Collection<BodyAccess>
+        fun rayCastBodies(ray: Ray, distance: Float): Collection<BodyRef>
     }
+    val narrowQuery: NarrowQuery
 
-    fun onStep(listener: StepListenerFn): StepListener
+    fun onStep(listener: StepListener)
 
-    fun removeOnStep(listener: StepListener)
+    fun removeStepListener(listener: StepListener)
+
+    fun onContact(listener: ContactListener)
+
+    fun removeContactListener(listener: ContactListener)
 
     fun update(deltaTime: Float)
 }

@@ -1,6 +1,6 @@
 package io.github.aecsocket.ignacio.paper
 
-import io.github.aecsocket.ignacio.core.BodyAccess
+import io.github.aecsocket.ignacio.core.BodyRef
 import io.github.aecsocket.ignacio.core.PhysicsSpace
 import io.github.aecsocket.ignacio.core.bodies
 import io.github.aecsocket.ignacio.core.math.Transform
@@ -16,7 +16,7 @@ import org.bukkit.event.entity.CreatureSpawnEvent
 class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
     private data class Instance(
         val physics: PhysicsSpace,
-        val body: BodyAccess,
+        val body: BodyRef,
         val render: WorldRender?,
     )
 
@@ -25,7 +25,7 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
     fun create(
         world: World,
         transform: Transform,
-        addBody: (physics: PhysicsSpace) -> BodyAccess,
+        addBody: (physics: PhysicsSpace) -> BodyRef,
         createRender: ((playerTracker: PlayerTracker) -> WorldRender)?,
     ) {
         world.spawnEntity(
@@ -56,13 +56,16 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
                 bodies.remove(entity)
             }
 
-            if (!entity.isValid || !instance.body.isAdded) {
+            if (!entity.isValid || !instance.body.isValid) {
                 destroy()
                 return@forEach
             }
 
-            entity.teleport(instance.body.transform.position.location(entity.world))
-            instance.render?.transform = instance.body.transform
+            instance.body.read { body ->
+                val transform = body.transform
+                entity.teleport(transform.position.location(entity.world))
+                instance.render?.transform = transform
+            }
         }
     }
 

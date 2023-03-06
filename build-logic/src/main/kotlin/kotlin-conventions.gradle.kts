@@ -16,7 +16,7 @@ dependencies {
 afterEvaluate {
     tasks {
         withType<KotlinCompile> {
-            kotlinOptions.languageVersion = "2.0"
+            //kotlinOptions.languageVersion = "2.0"
             kotlinOptions.freeCompilerArgs += listOf("-Xcontext-receivers")
         }
     }

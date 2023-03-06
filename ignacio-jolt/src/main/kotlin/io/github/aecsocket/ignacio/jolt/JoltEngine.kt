@@ -209,11 +209,11 @@ class JoltEngine(var settings: Settings, private val logger: Logger) : IgnacioEn
     override fun createGeometry(settings: GeometrySettings): Geometry {
         val shape: Shape = when (settings) {
             is SphereGeometrySettings -> SphereShape.of(settings.radius)
-            is BoxGeometrySettings -> useArena {
+            is BoxGeometrySettings -> useMemory {
                 BoxShape.of(settings.halfExtent.toJolt())
             }
             is CapsuleGeometrySettings -> CapsuleShape.of(settings.halfHeight, settings.radius)
-            is StaticCompoundGeometrySettings -> useArena {
+            is StaticCompoundGeometrySettings -> useMemory {
                 StaticCompoundShapeSettings.of().use { compound ->
                     settings.children.forEach { child ->
                         compound.addShape(
@@ -244,8 +244,7 @@ class JoltEngine(var settings: Settings, private val logger: Logger) : IgnacioEn
         )
 
         val physics = this.settings.physics
-        useArena {
-            system.setGravity(settings.gravity.toJolt())
+        useMemory {
             val physicsSettings = PhysicsSettings.of(this)
             system.getPhysicsSettings(physicsSettings)
             physicsSettings.apply {

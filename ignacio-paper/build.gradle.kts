@@ -1,5 +1,6 @@
 plugins {
     id("kotlin-conventions")
+    id("publishing-conventions")
     id("io.papermc.paperweight.userdev")
     id("com.github.johnrengelman.shadow")
     id("xyz.jpenilla.run-paper")

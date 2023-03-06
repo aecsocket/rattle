@@ -14,6 +14,7 @@ import io.github.aecsocket.alexandria.paper.fallbackLocale
 import io.github.aecsocket.alexandria.paper.seralizer.alexandriaPaperSerializers
 import io.github.aecsocket.glossa.core.MessageProxy
 import io.github.aecsocket.glossa.core.messageProxy
+import io.github.aecsocket.ignacio.core.IgnacioEngine
 import io.github.aecsocket.ignacio.core.PhysicsSpace
 import io.github.aecsocket.ignacio.core.TimestampedList
 import io.github.aecsocket.ignacio.core.math.Ray
@@ -175,7 +176,7 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
     }
 
     override lateinit var settings: Settings private set
-    lateinit var engine: JoltEngine private set
+    lateinit var engine: IgnacioEngine private set
     lateinit var messages: MessageProxy<IgnacioMessages> private set
     private var deltaTime = 0f
 
@@ -255,7 +256,9 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
     }
 
     override fun reload(log: Logging) {
-        engine.settings = settings.jolt
+        when (val engine = engine) {
+            is JoltEngine -> engine.settings = settings.jolt
+        }
     }
 
     fun playerData(player: Player) = players.computeIfAbsent(player) {
