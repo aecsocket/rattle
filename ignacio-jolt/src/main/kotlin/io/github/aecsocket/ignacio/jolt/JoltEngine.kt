@@ -1,7 +1,7 @@
 package io.github.aecsocket.ignacio.jolt
 
 import io.github.aecsocket.ignacio.core.*
-import io.github.aecsocket.ignacio.core.Geometry
+import io.github.aecsocket.ignacio.core.Shape
 import io.github.aecsocket.ignacio.core.math.clamp
 import io.github.aecsocket.ignacio.core.math.radians
 import io.github.aecsocket.ignacio.core.math.sqr
@@ -210,29 +210,28 @@ class JoltEngine(var settings: Settings, private val logger: Logger) : IgnacioEn
         executorScope.launch(block = block)
     }
 
-    override fun createGeometry(settings: GeometrySettings): Geometry {
-        val shape: Shape = when (settings) {
-            is SphereGeometrySettings -> SphereShape.of(settings.radius)
-            is BoxGeometrySettings -> useMemory {
-                BoxShape.of(settings.halfExtent.toJolt())
+    override fun createShape(geometry: Geometry): Shape {
+        val shape: JShape = when (geometry) {
+            is SphereGeometry -> SphereShape.of(geometry.radius)
+            is BoxGeometry -> useMemory {
+                BoxShape.of(geometry.halfExtent.toJolt())
             }
-            is CapsuleGeometrySettings -> CapsuleShape.of(settings.halfHeight, settings.radius)
-            is StaticCompoundGeometrySettings -> useMemory {
+            is CapsuleGeometry -> CapsuleShape.of(geometry.halfHeight, geometry.radius)
+            is StaticCompoundGeometry -> useMemory {
                 StaticCompoundShapeSettings.of().use { compound ->
-                    settings.children.forEach { child ->
+                    geometry.children.forEach { child ->
                         compound.addShape(
                             child.position.toJolt(),
                             child.rotation.toJolt(),
-                            (child.geometry as JtGeometry).handle,
+                            (child.shape as JtShape).handle,
                             0
                         )
                     }
-                    // TODO use a thread-safe temp allocator
                     compound.create(this).orThrow()
                 }
             }
         }
-        return JtGeometry(shape)
+        return JtShape(shape)
     }
 
     override fun createSpace(settings: PhysicsSpace.Settings): PhysicsSpace {

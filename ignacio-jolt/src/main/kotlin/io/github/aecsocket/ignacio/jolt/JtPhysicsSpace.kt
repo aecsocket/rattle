@@ -3,6 +3,7 @@ package io.github.aecsocket.ignacio.jolt
 import io.github.aecsocket.ignacio.core.*
 import io.github.aecsocket.ignacio.core.BodyRef
 import io.github.aecsocket.ignacio.core.ContactListener
+import io.github.aecsocket.ignacio.core.ContactManifold
 import io.github.aecsocket.ignacio.core.math.Ray
 import io.github.aecsocket.ignacio.core.math.Transform
 import io.github.aecsocket.ignacio.core.math.Vec3d
@@ -59,7 +60,7 @@ class JtPhysicsSpace(
         context(MemorySession)
         private fun createBodySettings(settings: BodySettings, transform: Transform, motionType: MotionType): BodyCreationSettings {
             return BodyCreationSettings.of(this@MemorySession,
-                (settings.geometry as JtGeometry).handle,
+                (settings.shape as JtShape).handle,
                 transform.position.toJolt(),
                 transform.rotation.toJolt(),
                 motionType,
@@ -241,10 +242,16 @@ class JtPhysicsSpace(
                 return ValidateResult.ACCEPT_ALL_CONTACTS_FOR_THIS_BODY_PAIR
             }
 
-            override fun onContactAdded(body1: Body, body2: Body, manifold: ContactManifold, settings: ContactSettings) {
+            override fun onContactAdded(body1: Body, body2: Body, manifold: JContactManifold, settings: ContactSettings) {
                 val access1 = readAccess(body1)
                 val access2 = readAccess(body2)
+                val igManifold = ContactManifold(
+                    position = manifold.baseOffsetD.toIgnacio(),
+                    penetrationDepth = manifold.penetrationDepth,
+                    normal = manifold.worldSpaceNormal.toIgnacio(),
+                )
                 contactListeners.forEach {
+                    body1
                     it.onAdded(access1, access2)
                 }
             }

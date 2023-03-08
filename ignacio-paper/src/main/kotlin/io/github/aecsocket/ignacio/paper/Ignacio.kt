@@ -157,8 +157,8 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
             PhysicsWorld(
                 world = world,
                 physics = physics,
-                terrainStrategy = settings.worlds.terrainStrategy.create(this@Ignacio, world, physics),
-                entityStrategy = settings.worlds.entityStrategy.create(this@Ignacio, world, physics),
+                terrain = settings.worlds.terrainStrategy.create(this@Ignacio, world, physics),
+                entities = settings.worlds.entityStrategy.create(this@Ignacio, world, physics),
             ).also {
                 it.loadChunks(world.loadedChunks.asList())
             }
@@ -200,43 +200,6 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
     override fun onEnable() {
         IgnacioCommand(this)
         registerEvents(IgnacioListener(this))
-
-        runRepeating {
-            primitiveBodies.update()
-            players.forEach { (_, player) ->
-                player.update()
-            }
-
-            engine.launchTask {
-                if (updatingPhysics.getAndSet(true)) return@launchTask
-
-                val start = System.nanoTime()
-                worldPhysics.forEach { (_, world) ->
-                    world.physics.update(deltaTime)
-                }
-                val end = System.nanoTime()
-
-                mEngineTimings.add(end - start)
-                updatingPhysics.set(false)
-            }
-
-            // TODO
-            engine.launchTask {
-                Bukkit.getOnlinePlayers().forEach { player ->
-                    val (physics) = worlds[player.world] ?: return@forEach
-                    val nearby = physics.broadQuery.overlapSphere(player.location.position(), 16f)
-                    val casts = physics.narrowQuery.rayCastBodies(
-                        ray = Ray(player.eyeLocation.position(), player.location.direction.vec3d().f()),
-                        distance = 16f,
-                    )
-                    val cast = physics.narrowQuery.rayCastBody(
-                        Ray(player.eyeLocation.position(), player.location.direction.vec3d().f()),
-                        16f
-                    )
-                    player.sendActionBar(Component.text("cast = $cast | casts = ${casts.size} | nearby = ${nearby.size}"))
-                }
-            }
-        }
     }
 
     override fun onDisable() {
@@ -267,6 +230,26 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
 
     internal fun removePlayerData(player: Player) {
         players.remove(player)
+    }
+
+    internal fun update() {
+        primitiveBodies.update()
+        players.forEach { (_, player) ->
+            player.update()
+        }
+
+        engine.launchTask {
+            if (updatingPhysics.getAndSet(true)) return@launchTask
+
+            val start = System.nanoTime()
+            worldPhysics.forEach { (_, world) ->
+                world.update(deltaTime)
+            }
+            val end = System.nanoTime()
+
+            mEngineTimings.add(end - start)
+            updatingPhysics.set(false)
+        }
     }
 }
 

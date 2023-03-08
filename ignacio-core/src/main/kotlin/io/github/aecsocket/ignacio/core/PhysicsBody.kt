@@ -5,20 +5,22 @@ import java.util.function.Consumer
 
 interface ObjectLayer
 
+interface Shape : Destroyable
+
 interface BodySettings {
-    val geometry: Geometry
+    val shape: Shape
     val layer: ObjectLayer
     val isSensor: Boolean
 }
 
 data class StaticBodySettings(
-    override val geometry: Geometry,
+    override val shape: Shape,
     override val layer: ObjectLayer,
     override val isSensor: Boolean = false,
 ) : BodySettings
 
 data class MovingBodySettings(
-    override val geometry: Geometry,
+    override val shape: Shape,
     override val layer: ObjectLayer,
     override val isSensor: Boolean = false,
     val mass: Float = 1.0f,
@@ -34,11 +36,8 @@ data class MovingBodySettings(
 ) : BodySettings
 
 data class FluidSettings(
-    val surfacePosition: Vec3f,
-    val surfaceNormal: Vec3f,
     val linearDrag: Float,
     val angularDrag: Float,
-    val velocity: Vec3f,
 )
 
 interface BodyRef {
@@ -64,6 +63,8 @@ interface BodyRef {
         val transform: Transform
 
         val centerOfMass: Transform
+
+        val shape: Shape
     }
 
     interface StaticAccess : Access
@@ -90,6 +91,8 @@ interface BodyRef {
         override var rotation: Quat
 
         override var transform: Transform
+
+        override var shape: Shape
     }
 
     interface StaticWrite : StaticAccess, Write
@@ -111,7 +114,14 @@ interface BodyRef {
 
         fun applyAngularImpulse(impulse: Vec3f)
 
-        fun applyBuoyancy(deltaTime: Float, buoyancy: Float, fluid: FluidSettings)
+        fun applyBuoyancy(
+            deltaTime: Float,
+            buoyancy: Float,
+            fluidSurface: Vec3d,
+            fluidNormal: Vec3f,
+            fluidVelocity: Vec3f,
+            fluid: FluidSettings,
+        )
     }
 }
 

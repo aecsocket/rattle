@@ -24,7 +24,7 @@ interface IgnacioEngine : Destroyable {
 
     fun launchTask(block: suspend CoroutineScope.() -> Unit)
 
-    fun createGeometry(settings: GeometrySettings): Geometry
+    fun createShape(geometry: Geometry): Shape
 
     fun createSpace(settings: PhysicsSpace.Settings): PhysicsSpace
 }

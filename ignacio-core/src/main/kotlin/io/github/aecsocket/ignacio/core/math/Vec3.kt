@@ -6,7 +6,7 @@ import kotlin.math.sqrt
 data class Vec3f(@JvmField val x: Float, @JvmField val y: Float, @JvmField val z: Float) {
     companion object {
         val Zero = Vec3f(0f)
-        val One = Vec3f(0f)
+        val One = Vec3f(1f)
         val X = Vec3f(1f, 0f, 0f)
         val Y = Vec3f(0f, 1f, 0f)
         val Z = Vec3f(0f, 0f, 1f)
@@ -61,6 +61,8 @@ data class Vec3f(@JvmField val x: Float, @JvmField val y: Float, @JvmField val z
     fun radians() = Vec3f(radians(x), radians(y), radians(z))
     fun degrees() = Vec3f(degrees(x), degrees(y), degrees(z))
 
+    fun toPoint3() = Point3(x.toInt(), y.toInt(), z.toInt())
+
     fun asString(fmt: String = "%f") = "($fmt, $fmt, $fmt)".format(x, y, z)
 
     override fun toString() = asString(DECIMAL_FORMAT)
@@ -79,7 +81,7 @@ data class Vec3f(@JvmField val x: Float, @JvmField val y: Float, @JvmField val z
 data class Vec3d(@JvmField val x: Double, @JvmField val y: Double, @JvmField val z: Double) {
     companion object {
         val Zero = Vec3d(0.0)
-        val One = Vec3d(0.0)
+        val One = Vec3d(1.0)
         val X = Vec3d(1.0, 0.0, 0.0)
         val Y = Vec3d(0.0, 1.0, 0.0)
         val Z = Vec3d(0.0, 0.0, 1.0)
@@ -133,6 +135,8 @@ data class Vec3d(@JvmField val x: Double, @JvmField val y: Double, @JvmField val
 
     fun radians() = Vec3d(radians(x), radians(y), radians(z))
     fun degrees() = Vec3d(degrees(x), degrees(y), degrees(z))
+
+    fun toPoint3() = Point3(x.toInt(), y.toInt(), z.toInt())
 
     fun asString(fmt: String = "%f") = "($fmt, $fmt, $fmt)".format(x, y, z)
 

@@ -3,6 +3,7 @@ package io.github.aecsocket.ignacio.jolt
 import io.github.aecsocket.ignacio.core.BodyRef
 import io.github.aecsocket.ignacio.core.FluidSettings
 import io.github.aecsocket.ignacio.core.ObjectLayer
+import io.github.aecsocket.ignacio.core.Shape
 import io.github.aecsocket.ignacio.core.math.*
 import jolt.physics.Activation
 import jolt.physics.PhysicsSystem
@@ -19,6 +20,7 @@ class JtObjectLayer(val layer: JObjectLayer) : ObjectLayer
 class JtBodyRef(
     val physics: PhysicsSystem,
     val id: JBodyId,
+    var shape: JtShape,
 ) : BodyRef {
     // base classes
     private interface Access : BodyRef.Access {
@@ -97,6 +99,9 @@ class JtBodyRef(
     private open inner class BaseAccess(override val body: Body) : Access {
         override val ref: BodyRef
             get() = this@JtBodyRef
+
+        override val shape: Shape
+            get() = this@JtBodyRef.shape
     }
 
     private inner class StaticRead(body: Body) : BaseAccess(body), BodyRef.StaticRead
@@ -109,6 +114,15 @@ class JtBodyRef(
 
         override val physics: PhysicsSystem
             get() = this@JtBodyRef.physics
+
+        override var shape: Shape
+            get() = super.shape
+            set(value) {
+                value as JtShape
+                this@JtBodyRef.shape = value
+                // TODO update mass properties here?
+                physics.bodyInterfaceNoLock.setShape(bodyId, value.handle, false, Activation.DONT_ACTIVATE)
+            }
     }
 
     private inner class StaticWrite(override val body: MutableBody) : BaseWrite(body), BodyRef.StaticWrite
@@ -150,15 +164,22 @@ class JtBodyRef(
             body.addAngularImpulse(impulse.toJolt())
         }
 
-        override fun applyBuoyancy(deltaTime: Float, buoyancy: Float, fluid: FluidSettings): Unit = useMemory {
+        override fun applyBuoyancy(
+            deltaTime: Float,
+            buoyancy: Float,
+            fluidSurface: Vec3d,
+            fluidNormal: Vec3f,
+            fluidVelocity: Vec3f,
+            fluid: FluidSettings
+        ): Unit = useMemory {
             val gravity = FVec3().also { physics.getGravity(it) }
             body.applyBuoyancyImpulse(
-                fluid.surfacePosition.toJolt(),
-                fluid.surfaceNormal.toJolt(),
+                fluidSurface.toJolt(),
+                fluidNormal.toJolt(),
                 buoyancy,
                 fluid.linearDrag,
                 fluid.angularDrag,
-                fluid.velocity.toJolt(),
+                fluidVelocity.toJolt(),
                 gravity,
                 deltaTime,
             )

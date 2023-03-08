@@ -14,6 +14,8 @@ import kotlin.contracts.contract
 typealias JQuat = jolt.math.Quat
 typealias JContactListener = jolt.physics.collision.ContactListener
 typealias JContactListenerFn = jolt.physics.collision.ContactListenerFn.D
+typealias JShape = jolt.physics.collision.shape.Shape
+typealias JContactManifold = jolt.physics.collision.ContactManifold
 
 @JvmInline
 value class JObjectLayer(val id: Short)

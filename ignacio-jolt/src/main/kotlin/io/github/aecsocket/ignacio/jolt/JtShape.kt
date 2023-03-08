@@ -1,9 +1,9 @@
 package io.github.aecsocket.ignacio.jolt
 
 import io.github.aecsocket.ignacio.core.DestroyFlag
-import jolt.physics.collision.shape.Shape
+import io.github.aecsocket.ignacio.core.Shape
 
-class JtGeometry(val handle: Shape) : io.github.aecsocket.ignacio.core.Geometry {
+class JtShape(val handle: JShape) : Shape {
     private val destroyed = DestroyFlag()
 
     override fun destroy() {

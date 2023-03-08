@@ -37,8 +37,8 @@ dependencies:
   alexandriaPaper: { group: io.github.aecsocket, name: alexandria-paper, version: { ref: alexandria } }
   joltJava: { group: io.github.aecsocket, name: jolt-java, version: { ref: joltJava } }
   joltJavaNativesLinuxX86: { group: io.github.aecsocket, name: jolt-java-natives-linux-x86, version: { ref: joltJava } }
-  joltJavaNativesWindows: { group: io.github.aecsocket, name: jolt-java-natives-windows-x86, version: { ref: joltJava } }
-  joltJavaNativesMacos: { group: io.github.aecsocket, name: jolt-java-natives-macos-x86, version: { ref: joltJava } }
+  joltJavaNativesWindowsX86: { group: io.github.aecsocket, name: jolt-java-natives-linux-x86, version: { ref: joltJava } }
+  joltJavaNativesMacosX86: { group: io.github.aecsocket, name: jolt-java-natives-macos-x86, version: { ref: joltJava } }
   glossaCore: { group: io.github.aecsocket, name: glossa-core, version: { ref: glossa } }
   glossaConfigurate: { group: io.github.aecsocket, name: glossa-configurate, version: { ref: glossa } }
   packetEventsApi: { group: com.github.retrooper.packetevents, name: api, version: { ref: packetEvents } }

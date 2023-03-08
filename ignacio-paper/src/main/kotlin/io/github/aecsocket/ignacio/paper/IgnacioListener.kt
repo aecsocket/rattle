@@ -1,5 +1,6 @@
 package io.github.aecsocket.ignacio.paper
 
+import com.destroystokyo.paper.event.server.ServerTickEndEvent
 import io.papermc.paper.event.player.PlayerTrackEntityEvent
 import io.papermc.paper.event.player.PlayerUntrackEntityEvent
 import org.bukkit.event.EventHandler
@@ -11,6 +12,11 @@ import org.bukkit.event.world.ChunkUnloadEvent
 import org.bukkit.event.world.WorldUnloadEvent
 
 internal class IgnacioListener(private val ignacio: Ignacio) : Listener {
+    @EventHandler
+    fun on(event: ServerTickEndEvent) {
+        ignacio.update()
+    }
+
     @EventHandler
     fun on(event: PlayerQuitEvent) {
         ignacio.removePlayerData(event.player)
