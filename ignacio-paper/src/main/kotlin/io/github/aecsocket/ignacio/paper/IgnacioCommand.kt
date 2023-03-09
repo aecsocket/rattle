@@ -150,7 +150,7 @@ internal class IgnacioCommand(
         virtual: Boolean,
         origin: Location,
         model: ItemDescriptor,
-        addBody: (physics: PhysicsSpace, transform: Transform) -> BodyRef,
+        addBody: (physics: PhysicsSpace, transform: Transform) -> PhysicsBody,
     ) {
         repeat(count) {
             val transform = Transform(origin.position() - spread + Random.nextVec3d() * (spread*2))
@@ -176,7 +176,7 @@ internal class IgnacioCommand(
             layer = ignacio.engine.layers.ofObject.static,
         )
         primitivesCreate(count, spread, virtual, origin, model) { physics, transform ->
-            physics.bodies.addStatic(settings, transform).ref
+            physics.bodies.addStatic(settings, transform).body
         }
     }
 
@@ -195,7 +195,7 @@ internal class IgnacioCommand(
             mass = mass,
         )
         primitivesCreate(count, spread, virtual, origin, model) { physics, transform ->
-            physics.bodies.addMoving(settings, transform, true).ref
+            physics.bodies.addMoving(settings, transform, true).body
         }
     }
 
@@ -340,11 +340,11 @@ internal class IgnacioCommand(
             return
         }
 
+        ignacio.worlds.getOrCreate(world)
+
         messages.command.space.create(
             worldName = world.name,
         ).sendTo(sender)
-
-        ignacio.worlds.getOrCreate(world)
     }
 
     private fun spaceDestroy(ctx: Context) {
@@ -352,11 +352,11 @@ internal class IgnacioCommand(
         val messages = ignacio.messages.forAudience(sender)
         val world = ctx.get<World>(WORLD)
 
+        ignacio.worlds.destroy(world)
+
         messages.command.space.destroy(
             worldName = world.name
         ).sendTo(sender)
-
-        ignacio.worlds.destroy(world)
     }
 
     private fun debug(ctx: Context) {

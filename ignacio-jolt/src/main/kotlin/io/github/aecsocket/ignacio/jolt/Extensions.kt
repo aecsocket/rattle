@@ -3,6 +3,7 @@ package io.github.aecsocket.ignacio.jolt
 import io.github.aecsocket.ignacio.core.math.*
 import io.github.aecsocket.ignacio.core.math.Quat
 import jolt.Destroyable
+import jolt.geometry.AABox
 import jolt.math.*
 import jolt.physics.body.BodyIds
 import jolt.physics.collision.DRayCast
@@ -24,7 +25,7 @@ value class JObjectLayer(val id: Short)
 value class JBroadPhaseLayer(val layer: Byte)
 
 @JvmInline
-value class JBodyId(val id: Int) {
+value class BodyId(val id: Int) {
     override fun toString(): String = BodyIds.asString(id)
 }
 
@@ -59,6 +60,9 @@ fun JQuat() = JQuat.of(this@MemorySession)
 context(MemorySession)
 fun Quat.toJolt() = JQuat.of(this@MemorySession, x, y, z, w)
 fun JQuat.toIgnacio() = Quat(x, y, z, w)
+
+context(MemorySession)
+fun AABox() = AABox.of(this@MemorySession)
 
 context(MemorySession)
 fun FMat44() = FMat44.of(this@MemorySession)

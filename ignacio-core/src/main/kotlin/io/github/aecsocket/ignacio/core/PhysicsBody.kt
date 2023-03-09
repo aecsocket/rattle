@@ -40,7 +40,7 @@ data class FluidSettings(
     val angularDrag: Float,
 )
 
-interface BodyRef {
+interface PhysicsBody {
     val isValid: Boolean
 
     fun read(block: Consumer<Read>): Boolean
@@ -52,9 +52,11 @@ interface BodyRef {
     fun writeUnlocked(block: Consumer<Write>): Boolean
 
     interface Access {
-        val ref: BodyRef
+        val body: PhysicsBody
 
         val isActive: Boolean
+
+        val objectLayer: ObjectLayer
 
         val position: Vec3d
 
@@ -62,7 +64,7 @@ interface BodyRef {
 
         val transform: Transform
 
-        val centerOfMass: Transform
+        val boundingBox: AABB
 
         val shape: Shape
     }
@@ -125,7 +127,7 @@ interface BodyRef {
     }
 }
 
-inline fun <reified A : BodyRef.Read> BodyRef.readOf(crossinline block: (A) -> Unit): Boolean {
+inline fun <reified A : PhysicsBody.Read> PhysicsBody.readOf(crossinline block: (A) -> Unit): Boolean {
     var ran = false
     read { body ->
         if (body is A) {
@@ -136,7 +138,7 @@ inline fun <reified A : BodyRef.Read> BodyRef.readOf(crossinline block: (A) -> U
     return ran
 }
 
-inline fun <reified A : BodyRef.Read> BodyRef.readUnlockedOf(crossinline block: (A) -> Unit): Boolean {
+inline fun <reified A : PhysicsBody.Read> PhysicsBody.readUnlockedOf(crossinline block: (A) -> Unit): Boolean {
     var ran = false
     readUnlocked { body ->
         if (body is A) {
@@ -147,7 +149,7 @@ inline fun <reified A : BodyRef.Read> BodyRef.readUnlockedOf(crossinline block: 
     return ran
 }
 
-inline fun <reified A : BodyRef.Write> BodyRef.writeOf(crossinline block: (A) -> Unit): Boolean {
+inline fun <reified A : PhysicsBody.Write> PhysicsBody.writeOf(crossinline block: (A) -> Unit): Boolean {
     var ran = false
     write { body ->
         if (body is A) {
@@ -158,7 +160,7 @@ inline fun <reified A : BodyRef.Write> BodyRef.writeOf(crossinline block: (A) ->
     return ran
 }
 
-inline fun <reified A : BodyRef.Write> BodyRef.writeUnlockedOf(crossinline block: (A) -> Unit): Boolean {
+inline fun <reified A : PhysicsBody.Write> PhysicsBody.writeUnlockedOf(crossinline block: (A) -> Unit): Boolean {
     var ran = false
     writeUnlocked { body ->
         if (body is A) {

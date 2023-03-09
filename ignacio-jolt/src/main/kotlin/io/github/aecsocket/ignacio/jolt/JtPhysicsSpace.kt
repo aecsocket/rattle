@@ -1,7 +1,7 @@
 package io.github.aecsocket.ignacio.jolt
 
 import io.github.aecsocket.ignacio.core.*
-import io.github.aecsocket.ignacio.core.BodyRef
+import io.github.aecsocket.ignacio.core.PhysicsBody
 import io.github.aecsocket.ignacio.core.ContactListener
 import io.github.aecsocket.ignacio.core.ContactManifold
 import io.github.aecsocket.ignacio.core.math.Ray
@@ -29,7 +29,7 @@ import java.lang.foreign.MemorySession
 class JtPhysicsSpace(
     private val engine: JoltEngine,
     val handle: PhysicsSystem,
-    val tempAllocator: TempAllocator,
+    private val tempAllocator: TempAllocator,
     settings: PhysicsSpace.Settings,
 ) : PhysicsSpace {
     private val destroyed = DestroyFlag()
@@ -47,11 +47,11 @@ class JtPhysicsSpace(
             updateSettings()
         }
 
-    fun bodyRef(id: JBodyId) = JtBodyRef(handle, id)
+    fun bodyOf(id: BodyId) = JtPhysicsBody(handle, id)
 
-    fun readAccess(body: Body) = JtBodyRef(handle, JBodyId(body.id)).readAccess(body)
+    fun readAccess(body: Body) = bodyOf(BodyId(body.id)).readAccess(body)
 
-    fun writeAccess(body: MutableBody) = JtBodyRef(handle, JBodyId(body.id)).writeAccess(body)
+    fun writeAccess(body: MutableBody) = bodyOf(BodyId(body.id)).writeAccess(body)
 
     override val bodies = object : PhysicsSpace.Bodies {
         override val num get() = handle.numBodies
@@ -70,15 +70,15 @@ class JtPhysicsSpace(
             }
         }
 
-        override fun createStatic(settings: StaticBodySettings, transform: Transform): BodyRef.StaticWrite {
+        override fun createStatic(settings: StaticBodySettings, transform: Transform): PhysicsBody.StaticWrite {
             return useMemory {
                 val bodySettings = createBodySettings(settings, transform, MotionType.STATIC)
-                val body = handle.bodyInterface.createBody(bodySettings)
-                writeAccess(body) as BodyRef.StaticWrite
+                val handle = handle.bodyInterface.createBody(bodySettings)
+                writeAccess(handle) as PhysicsBody.StaticWrite
             }
         }
 
-        override fun createMoving(settings: MovingBodySettings, transform: Transform): BodyRef.MovingWrite {
+        override fun createMoving(settings: MovingBodySettings, transform: Transform): PhysicsBody.MovingWrite {
             return useMemory {
                 val bodySettings = createBodySettings(settings, transform, MotionType.DYNAMIC).also { bodySettings ->
                     bodySettings.isSensor = settings.isSensor
@@ -94,54 +94,54 @@ class JtPhysicsSpace(
                     bodySettings.maxAngularVelocity = settings.maxAngularVelocity
                     bodySettings.gravityFactor = settings.gravityFactor
                 }
-                val body = handle.bodyInterface.createBody(bodySettings)
-                writeAccess(body) as BodyRef.MovingWrite
+                val handle = handle.bodyInterface.createBody(bodySettings)
+                writeAccess(handle) as PhysicsBody.MovingWrite
             }
         }
 
-        override fun destroy(bodyRef: BodyRef) {
-            bodyRef as JtBodyRef
-            if (handle.bodyInterface.isAdded(bodyRef.id.id))
+        override fun destroy(body: PhysicsBody) {
+            body as JtPhysicsBody
+            if (handle.bodyInterface.isAdded(body.id.id))
                 throw IllegalStateException("Body is still added to physics space")
-            handle.bodyInterface.destroyBody(bodyRef.id.id)
+            handle.bodyInterface.destroyBody(body.id.id)
         }
 
-        override fun destroyAll(bodyRefs: Collection<BodyRef>) {
-            bodyRefs.forEach { body ->
-                body as JtBodyRef
+        override fun destroyAll(bodies: Collection<PhysicsBody>) {
+            bodies.forEach { body ->
+                body as JtPhysicsBody
                 handle.bodyInterface.destroyBody(body.id.id)
             }
         }
 
-        override fun add(bodyRef: BodyRef, activate: Boolean) {
-            bodyRef as JtBodyRef
-            handle.bodyInterface.addBody(bodyRef.id.id, Activation.ofValue(activate))
+        override fun add(body: PhysicsBody, activate: Boolean) {
+            body as JtPhysicsBody
+            handle.bodyInterface.addBody(body.id.id, Activation.ofValue(activate))
         }
 
-        fun Iterable<JtBodyRef>.ids() = map { it.id.id }
+        fun Iterable<JtPhysicsBody>.ids() = map { it.id.id }
 
-        override fun addAll(bodyRefs: Collection<BodyRef>, activate: Boolean) {
+        override fun addAll(bodies: Collection<PhysicsBody>, activate: Boolean) {
             @Suppress("UNCHECKED_CAST")
-            bodyRefs as Collection<JtBodyRef>
-            val bulk = handle.bodyInterface.bodyBulk(bodyRefs.ids())
+            bodies as Collection<JtPhysicsBody>
+            val bulk = handle.bodyInterface.bodyBulk(bodies.ids())
             handle.bodyInterface.addBodiesPrepare(bulk)
             handle.bodyInterface.addBodiesFinalize(bulk, Activation.ofValue(activate))
         }
 
-        override fun remove(bodyRef: BodyRef) {
-            bodyRef as JtBodyRef
-            handle.bodyInterface.removeBody(bodyRef.id.id)
+        override fun remove(body: PhysicsBody) {
+            body as JtPhysicsBody
+            handle.bodyInterface.removeBody(body.id.id)
         }
 
-        override fun removeAll(bodyRefs: Collection<BodyRef>) {
+        override fun removeAll(bodies: Collection<PhysicsBody>) {
             @Suppress("UNCHECKED_CAST")
-            bodyRefs as Collection<JtBodyRef>
-            handle.bodyInterface.removeBodies(bodyRefs.ids())
+            bodies as Collection<JtPhysicsBody>
+            handle.bodyInterface.removeBodies(bodies.ids())
         }
 
-        override fun addStatic(settings: StaticBodySettings, transform: Transform): BodyRef.StaticWrite {
+        override fun addStatic(settings: StaticBodySettings, transform: Transform): PhysicsBody.StaticWrite {
             val body = createStatic(settings, transform)
-            add(body.ref, false)
+            add(body.body, false)
             return body
         }
 
@@ -149,34 +149,34 @@ class JtPhysicsSpace(
             settings: MovingBodySettings,
             transform: Transform,
             activate: Boolean
-        ): BodyRef.MovingWrite {
+        ): PhysicsBody.MovingWrite {
             val body = createMoving(settings, transform)
-            add(body.ref, activate)
+            add(body.body, activate)
             return body
         }
 
-        override fun all(): Collection<BodyRef> {
-            return handle.bodies.map { bodyRef(JBodyId(it)) }
+        override fun all(): Collection<PhysicsBody> {
+            return handle.bodies.map { bodyOf(BodyId(it)) }
         }
 
-        override fun active(): Collection<BodyRef> {
-            return handle.activeBodies.map { bodyRef(JBodyId(it)) }
+        override fun active(): Collection<PhysicsBody> {
+            return handle.activeBodies.map { bodyOf(BodyId(it)) }
         }
     }
 
     override val broadQuery = object : PhysicsSpace.BroadQuery {
-        override fun overlapSphere(position: Vec3d, radius: Float): Collection<JtBodyRef> {
-            val results = ArrayList<JBodyId>()
+        override fun overlapSphere(position: Vec3d, radius: Float): Collection<JtPhysicsBody> {
+            val results = ArrayList<BodyId>()
             return useMemory {
                 handle.broadPhaseQuery.collideSphere(
                     position.f().toJolt(), radius,
                     CollideShapeBodyCollector.of(this) { result ->
-                        results += JBodyId(result)
+                        results += BodyId(result)
                     },
                     // TODO filters
                     BroadPhaseLayerFilter.passthrough(),
                     ObjectLayerFilter.passthrough())
-                results.map { bodyRef(it) }
+                results.map { bodyOf(it) }
             }
         }
     }
@@ -198,18 +198,18 @@ class JtPhysicsSpace(
                     ObjectLayerFilter.passthrough(),
                     BodyFilter.passthrough(),
                 )
-                if (result) PhysicsSpace.RayCast(bodyRef(JBodyId(hit.bodyId))) else null
+                if (result) PhysicsSpace.RayCast(bodyOf(BodyId(hit.bodyId))) else null
             }
         }
 
-        override fun rayCastBodies(ray: Ray, distance: Float): Collection<BodyRef> {
-            val results = ArrayList<JBodyId>()
+        override fun rayCastBodies(ray: Ray, distance: Float): Collection<PhysicsBody> {
+            val results = ArrayList<BodyId>()
             useMemory {
                 handle.narrowPhaseQuery.castRay(
                     ray.toJolt(distance),
                     RayCastSettings(),
                     CastRayCollector.of(this) { result ->
-                        results += JBodyId(result.bodyId)
+                        results += BodyId(result.bodyId)
                     },
                     // TODO filters
                     BroadPhaseLayerFilter.passthrough(),
@@ -218,7 +218,7 @@ class JtPhysicsSpace(
                     ShapeFilter.passthrough()
                 )
             }
-            return results.map { bodyRef(it) }
+            return results.map { bodyOf(it) }
         }
     }
 
@@ -251,21 +251,20 @@ class JtPhysicsSpace(
                     normal = manifold.worldSpaceNormal.toIgnacio(),
                 )
                 contactListeners.forEach {
-                    body1
-                    it.onAdded(access1, access2)
+                    it.onAdded(access1, access2, igManifold)
                 }
             }
 
             override fun onContactPersisted(
                 body1: Body,
                 body2: Body,
-                manifold: ContactManifold,
+                manifold: JContactManifold,
                 settings: ContactSettings
             ) {}
 
             override fun onContactRemoved(subShapeIdPair: SubShapeIdPair) {
-                val access1 = bodyRef(JBodyId(subShapeIdPair.bodyId1))
-                val access2 = bodyRef(JBodyId(subShapeIdPair.bodyId2))
+                val access1 = bodyOf(BodyId(subShapeIdPair.bodyId1))
+                val access2 = bodyOf(BodyId(subShapeIdPair.bodyId2))
                 contactListeners.forEach {
                     it.onRemoved(access1, access2)
                 }

@@ -3,6 +3,12 @@ package io.github.aecsocket.ignacio.paper.world
 import io.github.aecsocket.ignacio.core.*
 import org.bukkit.World
 
+interface PhysicsUpdatable {
+    fun tickUpdate()
+
+    fun physicsUpdate(deltaTime: Float)
+}
+
 class PhysicsWorld(
     val world: World,
     val physics: PhysicsSpace,
@@ -11,7 +17,14 @@ class PhysicsWorld(
 ) : Destroyable {
     private val destroyed = DestroyFlag()
 
-    fun update(deltaTime: Float) {
+    fun tickUpdate() {
+        terrain.tickUpdate()
+        entities.tickUpdate()
+    }
+
+    fun physicsUpdate(deltaTime: Float) {
+        terrain.physicsUpdate(deltaTime)
+        entities.physicsUpdate(deltaTime)
         physics.update(deltaTime)
     }
 

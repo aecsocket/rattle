@@ -26,7 +26,7 @@ data class Point3(@JvmField val x: Int, @JvmField val y: Int, @JvmField val z: I
 
     fun asString(fmt: String = "%d") = "($fmt, $fmt, $fmt)".format(x, y, z)
 
-    override fun toString() = asString(DECIMAL_FORMAT)
+    override fun toString() = asString(INTEGER_FORMAT)
 
     override fun equals(other: Any?) = other is Point3 &&
             x.compareTo(other.x) == 0 && y.compareTo(other.y) == 0 && z.compareTo(other.z) == 0

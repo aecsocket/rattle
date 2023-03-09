@@ -40,13 +40,13 @@ internal class IgnacioListener(private val ignacio: Ignacio) : Listener {
     @EventHandler
     fun on(event: ChunkLoadEvent) {
         val world = ignacio.worlds[event.world] ?: return
-        world.loadChunks(setOf(event.chunk))
+        world.terrain.onChunksLoad(setOf(event.chunk))
     }
 
     @EventHandler
     fun on(event: ChunkUnloadEvent) {
         val world = ignacio.worlds[event.world] ?: return
-        world.unloadChunks(setOf(event.chunk))
+        world.terrain.onChunksLoad(setOf(event.chunk))
     }
 
     @EventHandler

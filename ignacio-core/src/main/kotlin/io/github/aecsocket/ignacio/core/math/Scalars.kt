@@ -6,6 +6,7 @@ import kotlin.math.min
 
 const val FPI = PI.toFloat()
 internal const val DECIMAL_FORMAT = "%.3f"
+internal const val INTEGER_FORMAT = "%d"
 
 fun sqr(x: Float) = x*x
 fun sqr(x: Double) = x*x

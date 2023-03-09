@@ -1,6 +1,6 @@
 package io.github.aecsocket.ignacio.paper
 
-import io.github.aecsocket.ignacio.core.BodyRef
+import io.github.aecsocket.ignacio.core.PhysicsBody
 import io.github.aecsocket.ignacio.core.PhysicsSpace
 import io.github.aecsocket.ignacio.core.bodies
 import io.github.aecsocket.ignacio.core.math.Transform
@@ -16,7 +16,7 @@ import org.bukkit.event.entity.CreatureSpawnEvent
 class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
     private data class Instance(
         val physics: PhysicsSpace,
-        val body: BodyRef,
+        val body: PhysicsBody,
         val render: WorldRender?,
     )
 
@@ -25,7 +25,7 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
     fun create(
         world: World,
         transform: Transform,
-        addBody: (physics: PhysicsSpace) -> BodyRef,
+        addBody: (physics: PhysicsSpace) -> PhysicsBody,
         createRender: ((playerTracker: PlayerTracker) -> WorldRender)?,
     ) {
         world.spawnEntity(

@@ -47,11 +47,11 @@ translations:
           <p2>    · <sk>{world_name}</sk>: <p1>{num_active_bodies}</p1> active / <p1>{num_bodies}</p1> bodies
       space:
         create: |-
-          <p2>Creating physics space for <p1>{world_name}</p1>
+          <p2>Created physics space for <p1>{world_name}</p1>
         already_created: |-
           <p2>Physics space for <p1>{world_name}</p1> has already been created
         destroy: |-
-          <p2>Destroying physics space for <p1>{world_name}</p1>
+          <p2>Destroyed physics space for <p1>{world_name}</p1>
 
     bar_display:
       no_physics: >-

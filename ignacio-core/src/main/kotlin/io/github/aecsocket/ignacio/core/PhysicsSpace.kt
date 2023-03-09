@@ -11,9 +11,9 @@ fun interface StepListener {
 }
 
 interface ContactListener {
-    fun onAdded(body1: BodyRef.Read, body2: BodyRef.Read)
+    fun onAdded(body1: PhysicsBody.Read, body2: PhysicsBody.Read, manifold: ContactManifold)
 
-    fun onRemoved(body1: BodyRef, body2: BodyRef)
+    fun onRemoved(body1: PhysicsBody, body2: PhysicsBody)
 }
 
 interface PhysicsSpace : Destroyable {
@@ -23,7 +23,7 @@ interface PhysicsSpace : Destroyable {
     )
 
     data class RayCast(
-        val body: BodyRef,
+        val body: PhysicsBody,
     )
 
     var settings: Settings
@@ -32,41 +32,41 @@ interface PhysicsSpace : Destroyable {
         val num: Int
         val numActive: Int
 
-        fun createStatic(settings: StaticBodySettings, transform: Transform): BodyRef.StaticWrite
+        fun createStatic(settings: StaticBodySettings, transform: Transform): PhysicsBody.StaticWrite
 
-        fun createMoving(settings: MovingBodySettings, transform: Transform): BodyRef.MovingWrite
+        fun createMoving(settings: MovingBodySettings, transform: Transform): PhysicsBody.MovingWrite
 
-        fun destroy(bodyRef: BodyRef)
+        fun destroy(body: PhysicsBody)
 
-        fun destroyAll(bodyRefs: Collection<BodyRef>)
+        fun destroyAll(bodies: Collection<PhysicsBody>)
 
-        fun add(bodyRef: BodyRef, activate: Boolean)
+        fun add(body: PhysicsBody, activate: Boolean)
 
-        fun addAll(bodyRefs: Collection<BodyRef>, activate: Boolean)
+        fun addAll(bodies: Collection<PhysicsBody>, activate: Boolean)
 
-        fun remove(bodyRef: BodyRef)
+        fun remove(body: PhysicsBody)
 
-        fun removeAll(bodyRefs: Collection<BodyRef>)
+        fun removeAll(bodies: Collection<PhysicsBody>)
 
-        fun addStatic(settings: StaticBodySettings, transform: Transform): BodyRef.StaticWrite
+        fun addStatic(settings: StaticBodySettings, transform: Transform): PhysicsBody.StaticWrite
 
-        fun addMoving(settings: MovingBodySettings, transform: Transform, activate: Boolean): BodyRef.MovingWrite
+        fun addMoving(settings: MovingBodySettings, transform: Transform, activate: Boolean): PhysicsBody.MovingWrite
 
-        fun all(): Collection<BodyRef>
+        fun all(): Collection<PhysicsBody>
 
-        fun active(): Collection<BodyRef>
+        fun active(): Collection<PhysicsBody>
     }
     val bodies: Bodies
 
     interface BroadQuery {
-        fun overlapSphere(position: Vec3d, radius: Float): Collection<BodyRef>
+        fun overlapSphere(position: Vec3d, radius: Float): Collection<PhysicsBody>
     }
     val broadQuery: BroadQuery
 
     interface NarrowQuery {
         fun rayCastBody(ray: Ray, distance: Float): RayCast?
 
-        fun rayCastBodies(ray: Ray, distance: Float): Collection<BodyRef>
+        fun rayCastBodies(ray: Ray, distance: Float): Collection<PhysicsBody>
     }
     val narrowQuery: NarrowQuery
 

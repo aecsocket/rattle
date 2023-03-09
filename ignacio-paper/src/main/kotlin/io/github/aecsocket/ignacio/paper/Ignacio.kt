@@ -9,7 +9,6 @@ import io.github.aecsocket.alexandria.core.serializer.alexandriaCoreSerializers
 import io.github.aecsocket.alexandria.paper.AlexandriaApiPlugin
 import io.github.aecsocket.alexandria.paper.ItemDescriptor
 import io.github.aecsocket.alexandria.paper.extension.registerEvents
-import io.github.aecsocket.alexandria.paper.extension.runRepeating
 import io.github.aecsocket.alexandria.paper.fallbackLocale
 import io.github.aecsocket.alexandria.paper.seralizer.alexandriaPaperSerializers
 import io.github.aecsocket.glossa.core.MessageProxy
@@ -17,22 +16,14 @@ import io.github.aecsocket.glossa.core.messageProxy
 import io.github.aecsocket.ignacio.core.IgnacioEngine
 import io.github.aecsocket.ignacio.core.PhysicsSpace
 import io.github.aecsocket.ignacio.core.TimestampedList
-import io.github.aecsocket.ignacio.core.math.Ray
-import io.github.aecsocket.ignacio.core.math.f
 import io.github.aecsocket.ignacio.core.serializer.ignacioCoreSerializers
 import io.github.aecsocket.ignacio.core.timestampedList
 import io.github.aecsocket.ignacio.jolt.JoltEngine
 import io.github.aecsocket.ignacio.paper.display.StandRenders
-import io.github.aecsocket.ignacio.paper.util.position
-import io.github.aecsocket.ignacio.paper.util.vec3d
 import io.github.aecsocket.ignacio.paper.world.*
-import io.github.aecsocket.ignacio.paper.world.OnLoadTerrainStrategy
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder
 import io.papermc.paper.util.Tick
-import io.papermc.paper.util.TickThread
-import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.TextColor
-import org.bukkit.Bukkit
 import org.bukkit.Material
 import org.bukkit.World
 import org.bukkit.entity.Player
@@ -61,27 +52,21 @@ private val configOptions: ConfigurationOptions = ConfigurationOptions.defaults(
     }
 
 enum class TerrainStrategies(
-    private val factory: (ignacio: Ignacio, world: World, physics: PhysicsSpace) -> TerrainStrategy
+    private val factory: TerrainStrategyFactory
 ) {
     NONE        ({ _, _, _ -> NoOpTerrainStrategy() }),
-    ON_LOAD     ({ ignacio, world, physics -> OnLoadTerrainStrategy(ignacio, world, physics) }),
-    BY_ACTIVE   ({ ignacio, world, physics -> ByActiveTerrainStrategy(ignacio, world, physics) });
+    SLICE       ({ engine, world, physics -> SliceTerrainStrategy(engine, world, physics) });
 
-    fun create(ignacio: Ignacio, world: World, physics: PhysicsSpace) = factory(ignacio, world, physics)
+    fun create(engine: IgnacioEngine, world: World, physics: PhysicsSpace) = factory.create(engine, world, physics)
 }
 
 enum class EntityStrategies(
-    private val factory: (ignacio: Ignacio, world: World, physics: PhysicsSpace) -> EntityStrategy
+    private val factory: EntityStrategyFactory
 ) {
     NONE    ({ _, _, _ -> NoOpEntityStrategy() }),
-    DEFAULT ({ ignacio, world, physics -> DefaultEntityStrategy(ignacio, physics) });
+    DEFAULT ({ engine, world, physics -> DefaultEntityStrategy(engine, physics) });
 
-    fun create(ignacio: Ignacio, world: World, physics: PhysicsSpace) = factory(ignacio, world, physics)
-}
-
-fun assertTickThread(operation: String) {
-    if (!TickThread.isTickThread())
-        throw IllegalStateException("Must run $operation on tick thread")
+    fun create(engine: IgnacioEngine, world: World, physics: PhysicsSpace) = factory.create(engine, world, physics)
 }
 
 class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
@@ -110,7 +95,7 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
     ) : AlexandriaApiPlugin.Settings {
         @ConfigSerializable
         data class Worlds(
-            val terrainStrategy: TerrainStrategies = TerrainStrategies.BY_ACTIVE,
+            val terrainStrategy: TerrainStrategies = TerrainStrategies.SLICE,
             val entityStrategy: EntityStrategies = EntityStrategies.DEFAULT,
             val spaceSettings: PhysicsSpace.Settings = PhysicsSpace.Settings(),
         )
@@ -157,10 +142,10 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
             PhysicsWorld(
                 world = world,
                 physics = physics,
-                terrain = settings.worlds.terrainStrategy.create(this@Ignacio, world, physics),
-                entities = settings.worlds.entityStrategy.create(this@Ignacio, world, physics),
+                terrain = settings.worlds.terrainStrategy.create(engine, world, physics),
+                entities = settings.worlds.entityStrategy.create(engine, world, physics),
             ).also {
-                it.loadChunks(world.loadedChunks.asList())
+                it.terrain.onChunksLoad(world.loadedChunks.asList())
             }
         }
 
@@ -237,13 +222,16 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
         players.forEach { (_, player) ->
             player.update()
         }
+        worldPhysics.forEach { (_, world) ->
+            world.tickUpdate()
+        }
 
         engine.launchTask {
             if (updatingPhysics.getAndSet(true)) return@launchTask
 
             val start = System.nanoTime()
             worldPhysics.forEach { (_, world) ->
-                world.update(deltaTime)
+                world.physicsUpdate(deltaTime)
             }
             val end = System.nanoTime()
 
