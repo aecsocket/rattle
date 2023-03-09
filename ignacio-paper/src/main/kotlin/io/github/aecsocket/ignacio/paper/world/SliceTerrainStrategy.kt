@@ -7,7 +7,6 @@ import kotlinx.coroutines.awaitAll
 import org.bukkit.Chunk
 import org.bukkit.ChunkSnapshot
 import org.bukkit.World
-import java.util.concurrent.atomic.AtomicBoolean
 
 // note: negative slice Y coordinates are possible
 typealias SlicePos = Point3
@@ -32,10 +31,10 @@ class SliceTerrainStrategy(
     private val numSlices = (world.maxHeight - startY) / 16
     private val negativeYSlices = -startY / 16
 
-    private val updating = AtomicBoolean(false)
-    private val toSnapshot = HashSet<SlicePos>()
-    private val toCreate = HashMap<SlicePos, SliceSnapshot>()
+    private val toCreate = HashSet<SlicePos>()
+    private val toSnapshot = HashMap<SlicePos, SliceSnapshot>()
     private val toRemove = HashSet<SlicePos>()
+
     private val chunkSnapshots = HashMap<Long, ChunkSnapshot>()
     private val bodyToSlice = HashMap<PhysicsBody, SliceData>()
 
@@ -44,10 +43,6 @@ class SliceTerrainStrategy(
     override fun destroy() {
         cube.destroy()
     }
-
-    private fun startUpdating() = updating.compareAndSet(false, true)
-
-    private fun endUpdating() = updating.set(false)
 
     private fun createSliceData(slice: SliceSnapshot): SliceData {
         val solidChildren = ArrayList<CompoundChild>()
@@ -90,66 +85,66 @@ class SliceTerrainStrategy(
     }
 
     override fun tickUpdate() {
-        if (startUpdating()) {
-            toSnapshot.forEach { pos ->
-                // don't load chunks if they're not loaded yet
-                if (!world.isChunkLoaded(pos.x, pos.z)) return@forEach
-                // already created body, no need to recreate
-                if (sliceData.contains(pos)) return@forEach
-                val sy = pos.y + negativeYSlices
-                // out of range
-                if (sy < 0 || sy >= numSlices) return@forEach
+        // generate snapshots for positions to be
+        synchronized(toCreate) {
+            synchronized(toSnapshot) {
+                toCreate.forEach { pos ->
+                    // chunk not loaded, don't load it
+                    if (!world.isChunkLoaded(pos.x, pos.z)) return@forEach
+                    // already created body, don't remake it
+                    if (sliceData.contains(pos)) return@forEach
+                    val sy = pos.y + negativeYSlices
+                    // out of range, we can't make a body
+                    if (sy < 0 || sy >= numSlices) return@forEach
 
-                val chunkKey = Chunk.getChunkKey(pos.x, pos.z)
-                val snapshot = chunkSnapshots.computeIfAbsent(chunkKey) {
-                    world.getChunkAt(pos.x, pos.z).getChunkSnapshot(false, false, false)
+                    val chunkKey = Chunk.getChunkKey(pos.x, pos.z)
+                    val snapshot = chunkSnapshots.computeIfAbsent(chunkKey) {
+                        world.getChunkAt(pos.x, pos.z).getChunkSnapshot(false, false, false)
+                    }
+                    // empty slices aren't even passed to toCreate
+                    if (snapshot.isSectionEmpty(sy)) return@forEach
+
+                    toSnapshot[pos] = SliceSnapshot(
+                        pos = pos,
+                        blocks = snapshot,
+                    )
                 }
-                // empty slices aren't even passed to toCreate
-                if (snapshot.isSectionEmpty(sy)) return@forEach
-
-                toCreate[pos] = SliceSnapshot(
-                    pos = pos,
-                    blocks = snapshot,
-                )
+                toCreate.clear()
             }
-            toSnapshot.clear()
-            chunkSnapshots.clear()
-
-            endUpdating()
         }
 
         engine.launchTask {
-            if (startUpdating()) {
-                // clear all the bodies we've marked as unused last tick
+            // clear all the bodies we've marked as unused last tick
+            synchronized(toRemove) {
                 val bodiesToRemove = toRemove.mapNotNull { pos -> sliceData[pos]?.body }
                 physics.bodies {
                     removeAll(bodiesToRemove)
                     destroyAll(bodiesToRemove)
                 }
                 toRemove.clear()
-
-                // create all the bodies we've generated snapshots for last tick
-                val slices = toCreate.map { (_, slice) ->
-                    async { createSliceData(slice) }
-                }.awaitAll()
-                val bodiesToAdd = ArrayList<PhysicsBody>()
-                slices.forEach { data ->
-                    sliceData[data.pos] = data
-                    data.body?.let {
-                        bodyToSlice[it] = data
-                        bodiesToAdd += it
-                    }
-                }
-                physics.bodies.addAll(bodiesToAdd, false)
-                toCreate.clear()
-
-                endUpdating()
             }
+
+            // create all the bodies we've generated snapshots for last tick
+            val slices = synchronized(toSnapshot) {
+                toSnapshot.map { (_, slice) ->
+                    async { createSliceData(slice) }
+                }
+            }.awaitAll()
+            val bodiesToAdd = ArrayList<PhysicsBody>()
+            slices.forEach { data ->
+                sliceData[data.pos] = data
+                data.body?.let {
+                    bodyToSlice[it] = data
+                    bodiesToAdd += it
+                }
+            }
+            physics.bodies.addAll(bodiesToAdd, false)
+            toSnapshot.clear()
         }
     }
 
     override fun physicsUpdate(deltaTime: Float) {
-        if (startUpdating()) {
+        synchronized(toCreate) {
             // mark all the chunk slices we need to generate
             physics.bodies.active().forEach { body ->
                 body.readUnlocked { access ->
@@ -157,10 +152,9 @@ class SliceTerrainStrategy(
                     if (access.objectLayer != engine.layers.ofObject.moving) return@readUnlocked
                     // next tick, we will create snapshots of the chunk slices this body covers
                     val overlappingSlices = (access.boundingBox / 16.0).points()
-                    toSnapshot += overlappingSlices
+                    toCreate += overlappingSlices
                 }
             }
-            endUpdating()
         }
     }
 
