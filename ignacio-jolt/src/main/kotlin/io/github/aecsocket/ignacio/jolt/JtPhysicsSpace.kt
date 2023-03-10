@@ -4,10 +4,7 @@ import io.github.aecsocket.ignacio.core.*
 import io.github.aecsocket.ignacio.core.PhysicsBody
 import io.github.aecsocket.ignacio.core.ContactListener
 import io.github.aecsocket.ignacio.core.ContactManifold
-import io.github.aecsocket.ignacio.core.math.Ray
-import io.github.aecsocket.ignacio.core.math.Transform
-import io.github.aecsocket.ignacio.core.math.Vec3d
-import io.github.aecsocket.ignacio.core.math.f
+import io.github.aecsocket.ignacio.core.math.*
 import jolt.core.TempAllocator
 import jolt.math.DVec3
 import jolt.math.FMat44
@@ -56,11 +53,9 @@ class JtPhysicsSpace(
     private var numBodies = 0
     private var numActiveBodies = 0
 
-    fun bodyOf(id: BodyId, name: String?, added: Boolean) = bodyWrappers.computeIfAbsent(id) {
+    fun bodyOf(id: BodyId, added: Boolean = true, name: String? = null) = bodyWrappers.computeIfAbsent(id) {
         JtPhysicsBody(handle, id, name, added)
     }
-
-    fun bodyOf(id: BodyId) = bodyOf(id, null, handle.bodyInterfaceNoLock.isAdded(id.id))
 
     fun readAccess(body: Body) = bodyOf(BodyId(body.id)).readAccess(body)
 
@@ -232,7 +227,10 @@ class JtPhysicsSpace(
     }
 
     override val broadQuery = object : PhysicsSpace.BroadQuery {
-        override fun overlapSphere(position: Vec3d, radius: Float): Collection<JtPhysicsBody> {
+        override fun overlapSphere(position: Vec3d, radius: Float, filter: BroadFilter?): Collection<JtPhysicsBody> {
+            val filterHandle = filter as? JtBroadFilter
+            if (filterHandle?.destroyed() == true)
+                throw IllegalArgumentException("Filter is destroyed")
             val results = ArrayList<BodyId>()
             return useMemory {
                 handle.broadPhaseQuery.collideSphere(
@@ -240,9 +238,27 @@ class JtPhysicsSpace(
                     CollideShapeBodyCollector.of(this) { result ->
                         results += BodyId(result)
                     },
-                    // TODO filters
-                    BroadPhaseLayerFilter.passthrough(),
-                    ObjectLayerFilter.passthrough())
+                    filterHandle?.broad ?: BroadPhaseLayerFilter.passthrough(),
+                    filterHandle?.objects ?: ObjectLayerFilter.passthrough(),
+                )
+                results.map { bodyOf(it) }
+            }
+        }
+
+        override fun overlapAABox(box: AABB, filter: BroadFilter?): Collection<PhysicsBody> {
+            val filterHandle = filter as? JtBroadFilter
+            if (filterHandle?.destroyed() == true)
+                throw IllegalArgumentException("Filter is destroyed")
+            val results = ArrayList<BodyId>()
+            return useMemory {
+                handle.broadPhaseQuery.collideAABox(
+                    box.toJoltF(),
+                    CollideShapeBodyCollector.of(this) { result ->
+                        results += BodyId(result)
+                    },
+                    filterHandle?.broad ?: BroadPhaseLayerFilter.passthrough(),
+                    filterHandle?.objects ?: ObjectLayerFilter.passthrough(),
+                )
                 results.map { bodyOf(it) }
             }
         }

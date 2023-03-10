@@ -1,9 +1,6 @@
 package io.github.aecsocket.ignacio.core
 
-import io.github.aecsocket.ignacio.core.math.Ray
-import io.github.aecsocket.ignacio.core.math.Transform
-import io.github.aecsocket.ignacio.core.math.Vec3d
-import io.github.aecsocket.ignacio.core.math.Vec3f
+import io.github.aecsocket.ignacio.core.math.*
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 
 fun interface StepListener {
@@ -28,6 +25,7 @@ interface PhysicsSpace : Destroyable {
 
     var settings: Settings
 
+    val bodies: Bodies
     interface Bodies {
         val num: Int
         val numActive: Int
@@ -58,19 +56,20 @@ interface PhysicsSpace : Destroyable {
 
         fun active(): Collection<PhysicsBody>
     }
-    val bodies: Bodies
 
-    interface BroadQuery {
-        fun overlapSphere(position: Vec3d, radius: Float): Collection<PhysicsBody>
-    }
     val broadQuery: BroadQuery
+    interface BroadQuery {
+        fun overlapSphere(position: Vec3d, radius: Float, filter: BroadFilter? = null): Collection<PhysicsBody>
 
+        fun overlapAABox(box: AABB, filter: BroadFilter? = null): Collection<PhysicsBody>
+    }
+
+    val narrowQuery: NarrowQuery
     interface NarrowQuery {
         fun rayCastBody(ray: Ray, distance: Float): RayCast?
 
         fun rayCastBodies(ray: Ray, distance: Float): Collection<PhysicsBody>
     }
-    val narrowQuery: NarrowQuery
 
     fun onStep(listener: StepListener)
 

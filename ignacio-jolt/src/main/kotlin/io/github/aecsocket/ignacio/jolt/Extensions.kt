@@ -22,7 +22,7 @@ typealias JContactManifold = jolt.physics.collision.ContactManifold
 value class JObjectLayer(val id: Short)
 
 @JvmInline
-value class JBroadPhaseLayer(val layer: Byte)
+value class JBroadPhaseLayer(val id: Byte)
 
 @JvmInline
 value class BodyId(val id: Int) {
@@ -63,6 +63,8 @@ fun JQuat.toIgnacio() = Quat(x, y, z, w)
 
 context(MemorySession)
 fun AABox() = AABox.of(this@MemorySession)
+context(MemorySession)
+fun AABB.toJoltF() = AABox.of(this@MemorySession, min.f().toJolt(), max.f().toJolt())
 
 context(MemorySession)
 fun FMat44() = FMat44.of(this@MemorySession)

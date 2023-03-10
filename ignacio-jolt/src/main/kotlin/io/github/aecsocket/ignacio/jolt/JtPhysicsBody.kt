@@ -12,10 +12,6 @@ import jolt.physics.body.MutableBody
 import java.util.Objects
 import java.util.function.Consumer
 
-data class JtObjectLayer(val layer: JObjectLayer) : ObjectLayer {
-    override fun toString() = "${layer.id}"
-}
-
 class JtPhysicsBody(
     val physics: PhysicsSystem,
     val id: BodyId,
@@ -154,6 +150,14 @@ class JtPhysicsBody(
             set(value) = useMemory {
                 handle.setAngularVelocityClamped(value.toJolt())
             }
+
+        override fun activate() {
+            physics.bodyInterfaceNoLock.activateBody(bodyId)
+        }
+
+        override fun deactivate() {
+            physics.bodyInterfaceNoLock.deactivateBody(bodyId)
+        }
 
         override fun applyForce(force: Vec3f): Unit = useMemory {
             handle.addForce(force.toJolt())

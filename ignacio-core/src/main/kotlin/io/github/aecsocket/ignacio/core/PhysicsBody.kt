@@ -3,8 +3,6 @@ package io.github.aecsocket.ignacio.core
 import io.github.aecsocket.ignacio.core.math.*
 import java.util.function.Consumer
 
-interface ObjectLayer
-
 interface Shape : Destroyable
 
 sealed interface BodySettings {
@@ -108,6 +106,10 @@ interface PhysicsBody {
         override var linearVelocity: Vec3f
 
         override var angularVelocity: Vec3f
+
+        fun activate()
+
+        fun deactivate()
 
         fun applyForce(force: Vec3f)
 

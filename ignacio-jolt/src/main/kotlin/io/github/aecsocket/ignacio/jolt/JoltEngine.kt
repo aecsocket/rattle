@@ -9,7 +9,9 @@ import jolt.*
 import jolt.core.*
 import jolt.physics.PhysicsSettings
 import jolt.physics.PhysicsSystem
+import jolt.physics.collision.ObjectLayerFilter
 import jolt.physics.collision.ObjectLayerPairFilter
+import jolt.physics.collision.broadphase.BroadPhaseLayerFilter
 import jolt.physics.collision.broadphase.BroadPhaseLayerInterface
 import jolt.physics.collision.broadphase.BroadPhaseLayerInterfaceFn
 import jolt.physics.collision.broadphase.ObjectVsBroadPhaseLayerFilter
@@ -33,6 +35,37 @@ val bpLayerStatic = JBroadPhaseLayer(0)
 val bpLayerTerrain = JBroadPhaseLayer(0)
 val bpLayerEntity = JBroadPhaseLayer(0)
 val bpLayerMoving = JBroadPhaseLayer(3)
+
+data class JtBroadPhaseLayer(val layer: JBroadPhaseLayer) : BroadPhaseLayer {
+    override fun toString() = "BroadPhaseLayer(${layer.id})"
+
+    override fun equals(other: Any?) = other is JtBroadPhaseLayer && layer == other.layer
+
+    override fun hashCode() = layer.hashCode()
+}
+
+data class JtObjectLayer(val layer: JObjectLayer) : ObjectLayer {
+    override fun toString() = "ObjectLayer(${layer.id})"
+
+    override fun equals(other: Any?) = other is JtObjectLayer && layer == other.layer
+
+    override fun hashCode() = layer.hashCode()
+}
+
+data class JtBroadFilter(
+    val broad: BroadPhaseLayerFilter,
+    val objects: ObjectLayerFilter,
+    val arena: MemorySession,
+) : BroadFilter {
+    private val destroyed = DestroyFlag()
+
+    fun destroyed() = destroyed.marked()
+
+    override fun destroy() {
+        destroyed.mark()
+        arena.close()
+    }
+}
 
 class JoltEngine(var settings: Settings, private val logger: Logger) : IgnacioEngine {
     @ConfigSerializable
@@ -110,12 +143,38 @@ class JoltEngine(var settings: Settings, private val logger: Logger) : IgnacioEn
     val bpLayerInterface: BroadPhaseLayerInterface
     val objBpLayerFilter: ObjectVsBroadPhaseLayerFilter
     val objPairLayerFilter: ObjectLayerPairFilter
+
     override val layers = object : IgnacioEngine.Layers {
+        override val ofBroadPhase = object : IgnacioEngine.Layers.OfBroadPhase {
+            override val static = JtBroadPhaseLayer(bpLayerStatic)
+            override val terrain = JtBroadPhaseLayer(bpLayerTerrain)
+            override val entity = JtBroadPhaseLayer(bpLayerEntity)
+            override val moving = JtBroadPhaseLayer(bpLayerMoving)
+        }
+
         override val ofObject = object : IgnacioEngine.Layers.OfObject {
-            override val static = JtObjectLayer(JObjectLayer(0))
-            override val terrain = JtObjectLayer(JObjectLayer(1))
-            override val entity = JtObjectLayer(JObjectLayer(2))
-            override val moving = JtObjectLayer(JObjectLayer(3))
+            override val static = JtObjectLayer(objectLayerStatic)
+            override val terrain = JtObjectLayer(objectLayerTerrain)
+            override val entity = JtObjectLayer(objectLayerEntity)
+            override val moving = JtObjectLayer(objectLayerMoving)
+        }
+    }
+
+    override val filters = object : IgnacioEngine.Filters {
+        override fun createBroad(
+            broad: BroadFilterTest,
+            objects: ObjectFilterTest,
+        ): BroadFilter {
+            val arena = MemorySession.openShared()
+            return JtBroadFilter(
+                BroadPhaseLayerFilter.of(arena) { layer ->
+                    broad.test(JtBroadPhaseLayer(JBroadPhaseLayer(layer)))
+                },
+                ObjectLayerFilter.of(arena) { layer ->
+                    objects.test(JtObjectLayer(JObjectLayer(layer)))
+                },
+                arena
+            )
         }
     }
 
@@ -157,10 +216,10 @@ class JoltEngine(var settings: Settings, private val logger: Logger) : IgnacioEn
         bpLayerInterface = BroadPhaseLayerInterface.of(arena, object : BroadPhaseLayerInterfaceFn {
             override fun getNumBroadPhaseLayers() = 4
             override fun getBroadPhaseLayer(layer: Short) = when (JObjectLayer(layer)) {
-                objectLayerStatic -> bpLayerStatic.layer
-                objectLayerTerrain -> bpLayerTerrain.layer
-                objectLayerEntity -> bpLayerEntity.layer
-                objectLayerMoving -> bpLayerMoving.layer
+                objectLayerStatic -> bpLayerStatic.id
+                objectLayerTerrain -> bpLayerTerrain.id
+                objectLayerEntity -> bpLayerEntity.id
+                objectLayerMoving -> bpLayerMoving.id
                 else -> throw IllegalArgumentException("Invalid layer $layer")
             }
         })

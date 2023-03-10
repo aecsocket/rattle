@@ -29,14 +29,17 @@ class SliceTerrainStrategy(
 
     private val bodyKey = ignacioBodyName("SliceTerrainStrategy-${world.name}")
     private val cube = engine.createShape(BoxGeometry(Vec3f(0.5f)))
+    private val movingFilter = engine.filters.createBroad(
+        broad = { layer -> layer == engine.layers.ofBroadPhase.moving },
+        objects = { true }
+    )
     private val startY = world.minHeight
     private val numSlices = (world.maxHeight - startY) / 16
-    private val negativeYSlices = -startY / 16
+    private val startYSlices = -startY / 16
 
-    private val chunkSnapshots = HashMap<Long, ChunkSnapshot>()
     private var toRemove: MutableSet<SlicePos> = HashSet()
-    private var toCreate: MutableSet<SlicePos> = HashSet()
-    private var toSnapshot: MutableMap<SlicePos, SliceSnapshot> = HashMap()
+    private var toCreateSnapshotOf: MutableSet<SlicePos> = HashSet()
+    private val toUpdate = HashSet<SlicePos>()
 
     private val sliceData = HashMap<SlicePos, SliceData>()
     private val bodyToSlice = HashMap<PhysicsBody, SliceData>()
@@ -56,7 +59,7 @@ class SliceTerrainStrategy(
         enabled = false
     }
 
-    private fun createSliceData(slice: SliceSnapshot): SliceData {
+    private fun createGeometry(slice: SliceSnapshot): Geometry? {
         val solidChildren = ArrayList<CompoundChild>()
 
         fun processBlock(lx: Int, ly: Int, lz: Int) {
@@ -79,55 +82,59 @@ class SliceTerrainStrategy(
             }
         }
 
-        if (solidChildren.isNotEmpty()) {
-            val shape = engine.createShape(StaticCompoundGeometry(solidChildren))
+        return if (solidChildren.isNotEmpty()) {
+            StaticCompoundGeometry(solidChildren)
+        } else null
+    }
+
+    private fun createSliceData(slice: SliceSnapshot): SliceData {
+        return createGeometry(slice)?.let { solidGeometry ->
+            val shape = engine.createShape(solidGeometry)
             val body = physics.bodies.createStatic(StaticBodySettings(
                 name = "$bodyKey-${slice.pos}",
                 shape = shape,
                 layer = engine.layers.ofObject.terrain,
             ), Transform(slice.pos.toVec3d() * 16.0))
-            return SliceData(
+            SliceData(
                 pos = slice.pos,
                 body = body.body,
             )
-        }
-        return SliceData(
-            pos = slice.pos,
-            body = null,
-        )
+        } ?: SliceData(pos = slice.pos, body = null)
+    }
+
+    private fun isValidPosition(pos: SlicePos): Boolean {
+        if (!world.isChunkLoaded(pos.x, pos.z))
+            return false
+        val sy = pos.y + startYSlices
+        if (sy < 0 || sy >= numSlices)
+            return false
+        return true
     }
 
     override fun tickUpdate() {
         if (!enabled) return
 
         // create snapshots for positions
-        val toSnapshot = HashMap<SlicePos, SliceSnapshot>()
-        toCreate.forEach { pos ->
-            // chunk not loaded, don't load it
-            if (!world.isChunkLoaded(pos.x, pos.z)) return@forEach
-            // already created body, don't remake it
+        val toCreateFromSnapshot = HashMap<SlicePos, SliceSnapshot>()
+        val chunkSnapshots = HashMap<Long, ChunkSnapshot>()
+        toCreateSnapshotOf.forEach { pos ->
+            if (!isValidPosition(pos)) return@forEach
             if (sliceData.contains(pos)) return@forEach
-            val sy = pos.y + negativeYSlices
-            // out of range, we can't make a body
-            if (sy < 0 || sy >= numSlices) return@forEach
 
             val chunkKey = Chunk.getChunkKey(pos.x, pos.z)
-            val snapshot = chunkSnapshots.computeIfAbsent(chunkKey) {
+            val blocks = chunkSnapshots.computeIfAbsent(chunkKey) {
                 world.getChunkAt(pos.x, pos.z).getChunkSnapshot(false, false, false)
             }
-            // empty slices aren't even passed to toCreate
-            if (snapshot.isSectionEmpty(sy)) return@forEach
+            if (blocks.isSectionEmpty(pos.y + startYSlices)) return@forEach
 
-            toSnapshot[pos] = SliceSnapshot(
+            toCreateFromSnapshot[pos] = SliceSnapshot(
                 pos = pos,
-                blocks = snapshot,
+                blocks = blocks,
             )
         }
-        chunkSnapshots.clear()
         // even though we're double buffering, we clear it afterwards anyway
         // in case we go through a 2nd tick and the buffer hasn't updated yet
-        toCreate.clear()
-        this.toSnapshot = toSnapshot
+        toCreateSnapshotOf.clear()
 
         engine.launchTask {
             // clear all the bodies we've marked as unused last tick
@@ -147,10 +154,10 @@ class SliceTerrainStrategy(
             }
 
             // create all the bodies we've created snapshots for last tick
-            val slices = toSnapshot.map { (_, slice) ->
+            val slices = toCreateFromSnapshot.map { (_, slice) ->
                 async { createSliceData(slice) }
             }.awaitAll()
-            toSnapshot.clear()
+            toCreateFromSnapshot.clear()
 
             val bodiesToAdd = ArrayList<PhysicsBody>()
             synchronized(sliceData) {
@@ -184,7 +191,7 @@ class SliceTerrainStrategy(
             }
         }
         this.toRemove = toRemove
-        this.toCreate = toCreate
+        this.toCreateSnapshotOf = toCreate
     }
 
     override fun isTerrain(body: PhysicsBody) = synchronized(bodyToSlice) { bodyToSlice.contains(body) }
@@ -193,11 +200,61 @@ class SliceTerrainStrategy(
 
     override fun onChunksUnload(chunks: Collection<Chunk>) {
         if (!enabled) return
-
     }
 
-    override fun onBlocksUpdate(blocks: Collection<BlockPos>) {
+    override fun onSlicesUpdate(slices: Collection<SlicePos>) {
         if (!enabled) return
+        slices.forEach { pos ->
+            if (!isValidPosition(pos)) return@forEach
 
+            engine.launchTask {
+                val nearbyBodies = physics.broadQuery.overlapAABox(
+                    box = AABB((pos * 16).toVec3d(), ((pos + 1) * 16).toVec3d()),
+                    filter = movingFilter,
+                )
+                // there are no physics bodies in this slice, don't bother creating/updating it
+                if (nearbyBodies.isEmpty()) return@launchTask
+
+                synchronized(toUpdate) { toUpdate += pos }
+
+                /*
+
+            if (synchronized(sliceData) { !sliceData.contains(pos) }) return@forEach
+            if (!world.isChunkLoaded(pos.x, pos.z)) return@forEach
+            val sy = pos.y + negativeYSlices
+            if (sy < 0 || sy >= numSlices) return@forEach
+
+            val chunkKey = Chunk.getChunkKey(pos.x, pos.z)
+            val blocks = chunkSnapshots.computeIfAbsent(chunkKey) {
+                world.getChunkAt(pos.x, pos.z).getChunkSnapshot(false, false, false)
+            }
+            if (blocks.isSectionEmpty(sy)) return@forEach
+
+            val snapshot = SliceSnapshot(
+                pos = pos,
+                blocks = blocks,
+            )
+
+            engine.launchTask {
+                val slice = synchronized(sliceData) { sliceData[pos] } ?: return@launchTask
+                slice.body?.write { body ->
+                    createGeometry(snapshot)?.let { solidGeometry ->
+                        val newShape = engine.createShape(solidGeometry)
+                        body.shape.destroy()
+                        body.shape = newShape
+                    }
+                }
+                physics.broadQuery.overlapAABox(
+                    box = AABB((pos * 16).toVec3d(), ((pos + 1) * 16).toVec3d()),
+                    filter = movingFilter,
+                ).forEach { access ->
+                    access.writeOf<PhysicsBody.MovingWrite> { body ->
+                        body.activate()
+                    }
+                }
+            }
+                 */
+            }
+        }
     }
 }

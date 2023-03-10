@@ -14,7 +14,7 @@ interface TerrainStrategy : PhysicsWorldHook, Destroyable {
 
     fun onChunksUnload(chunks: Collection<Chunk>)
 
-    fun onBlocksUpdate(blocks: Collection<BlockPos>)
+    fun onSlicesUpdate(slices: Collection<SlicePos>)
 }
 
 fun interface TerrainStrategyFactory {
@@ -28,9 +28,9 @@ class NoOpTerrainStrategy : TerrainStrategy {
 
     override fun disable() {}
 
-    override fun physicsUpdate(deltaTime: Float) {}
-
     override fun tickUpdate() {}
+
+    override fun physicsUpdate(deltaTime: Float) {}
 
     override fun isTerrain(body: PhysicsBody) = false
 
@@ -38,5 +38,5 @@ class NoOpTerrainStrategy : TerrainStrategy {
 
     override fun onChunksUnload(chunks: Collection<Chunk>) {}
 
-    override fun onBlocksUpdate(blocks: Collection<BlockPos>) {}
+    override fun onSlicesUpdate(slices: Collection<SlicePos>) {}
 }
