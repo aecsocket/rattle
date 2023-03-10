@@ -192,9 +192,10 @@ class JoltEngine(var settings: Settings, private val logger: Logger) : IgnacioEn
             logger.warning("Could not wait for worker threads")
         }
 
-        spaces.forEach { (_, space) ->
+        spaces.toMap().forEach { (_, space) ->
             space.destroy()
         }
+        spaces.clear()
 
         jobSystem.destroy()
         Jolt.destroyFactory()

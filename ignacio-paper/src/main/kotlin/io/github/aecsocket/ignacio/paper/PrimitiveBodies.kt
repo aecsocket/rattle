@@ -6,6 +6,7 @@ import io.github.aecsocket.ignacio.core.bodies
 import io.github.aecsocket.ignacio.core.math.Transform
 import io.github.aecsocket.ignacio.paper.display.*
 import io.github.aecsocket.ignacio.paper.util.location
+import org.bukkit.Location
 import org.bukkit.World
 import org.bukkit.entity.ArmorStand
 import org.bukkit.entity.Entity
@@ -21,11 +22,12 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
     )
 
     private val bodies = HashMap<Entity, Instance>()
+    private var nextMove: Map<Entity, Location> = emptyMap()
 
     fun create(
         world: World,
         transform: Transform,
-        addBody: (physics: PhysicsSpace) -> PhysicsBody,
+        addBody: (physics: PhysicsSpace, name: String) -> PhysicsBody,
         createRender: ((playerTracker: PlayerTracker) -> WorldRender)?,
     ) {
         world.spawnEntity(
@@ -38,13 +40,21 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
             entity.setCanTick(false)
 
             val (physics) = ignacio.worlds.getOrCreate(world)
-            val body = addBody(physics)
+            val body = addBody(physics, ignacioBodyName("Primitive-${bodies.size}"))
             val render = createRender?.invoke(entity.playerTracker())
             bodies[entity] = Instance(physics, body, render)
         }
     }
 
-    internal fun update() {
+    internal fun tickUpdate() {
+        nextMove.forEach { (entity, location) ->
+            entity.teleport(location)
+        }
+    }
+
+    internal fun physicsUpdate() {
+        // double buffer nextMove
+        val nextMove = HashMap<Entity, Location>()
         bodies.toMap().forEach { (entity, instance) ->
             fun destroy() {
                 entity.remove()
@@ -63,10 +73,11 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
 
             instance.body.read { body ->
                 val transform = body.transform
-                entity.teleport(transform.position.location(entity.world))
+                nextMove[entity] = transform.position.location(entity.world)
                 instance.render?.transform = transform
             }
         }
+        this.nextMove = nextMove
     }
 
     internal fun track(player: Player, entity: Entity) {

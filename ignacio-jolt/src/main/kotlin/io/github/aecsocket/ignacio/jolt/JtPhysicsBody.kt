@@ -1,9 +1,6 @@
 package io.github.aecsocket.ignacio.jolt
 
-import io.github.aecsocket.ignacio.core.PhysicsBody
-import io.github.aecsocket.ignacio.core.FluidSettings
-import io.github.aecsocket.ignacio.core.ObjectLayer
-import io.github.aecsocket.ignacio.core.Shape
+import io.github.aecsocket.ignacio.core.*
 import io.github.aecsocket.ignacio.core.math.*
 import jolt.physics.Activation
 import jolt.physics.PhysicsSystem
@@ -22,6 +19,8 @@ data class JtObjectLayer(val layer: JObjectLayer) : ObjectLayer {
 class JtPhysicsBody(
     val physics: PhysicsSystem,
     val id: BodyId,
+    override val name: String?,
+    override var isAdded: Boolean,
 ) : PhysicsBody {
     // base classes
     private interface Access : PhysicsBody.Access {
@@ -202,9 +201,29 @@ class JtPhysicsBody(
         }
     }
 
-    override val isValid: Boolean
-        get() = !physics.isDestroyed && physics.bodyInterfaceNoLock.isAdded(id.id)
+    internal var isDestroyed = false
 
+    override val isValid: Boolean
+        get() = !physics.isDestroyed && !isDestroyed
+
+    fun assertCanBeDestroyed() {
+        if (isDestroyed)
+            throw IllegalStateException("Already destroyed")
+    }
+
+    fun assertCanBeAdded() {
+        if (isAdded)
+            throw IllegalStateException("Already added")
+        if (isDestroyed)
+            throw IllegalStateException("Already destroyed")
+    }
+
+    fun assertCanBeRemoved() {
+        if (!isAdded)
+            throw IllegalStateException("Already removed")
+        if (isDestroyed)
+            throw IllegalStateException("Already destroyed")
+    }
 
     fun readAccess(body: Body): PhysicsBody.Read = when {
         body.isStatic -> StaticRead(body)
@@ -223,7 +242,7 @@ class JtPhysicsBody(
             block(readAccess(body))
             true
         } ?: false
-        physics.bodyLockInterface.unlockRead(bodyLock)
+        lockInterface.unlockRead(bodyLock)
         result
     }
 
@@ -246,7 +265,7 @@ class JtPhysicsBody(
 
     override fun writeUnlocked(block: Consumer<PhysicsBody.Write>) = writeWith(physics.bodyLockInterfaceNoLock) { block.accept(it) }
 
-    override fun toString(): String = id.toString()
+    override fun toString(): String = name?.let { "$name ($id)" } ?: id.toString()
 
     override fun equals(other: Any?) = other is JtPhysicsBody
             && physics == other.physics

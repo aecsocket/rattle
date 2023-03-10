@@ -150,14 +150,14 @@ internal class IgnacioCommand(
         virtual: Boolean,
         origin: Location,
         model: ItemDescriptor,
-        addBody: (physics: PhysicsSpace, transform: Transform) -> PhysicsBody,
+        addBody: (physics: PhysicsSpace, transform: Transform, name: String) -> PhysicsBody,
     ) {
         repeat(count) {
             val transform = Transform(origin.position() - spread + Random.nextVec3d() * (spread*2))
             ignacio.primitiveBodies.create(
                 world = origin.world,
                 transform = transform,
-                addBody = { addBody(it, transform) },
+                addBody = { physics, name -> addBody(physics, transform, name) },
                 createRender = if (virtual) null else { { ignacio.renders.createModel(it, transform, model.create()) } },
             )
         }
@@ -175,8 +175,8 @@ internal class IgnacioCommand(
             shape = ignacio.engine.createShape(geometry),
             layer = ignacio.engine.layers.ofObject.static,
         )
-        primitivesCreate(count, spread, virtual, origin, model) { physics, transform ->
-            physics.bodies.addStatic(settings, transform).body
+        primitivesCreate(count, spread, virtual, origin, model) { physics, transform, name ->
+            physics.bodies.addStatic(settings.copy(name = name), transform).body
         }
     }
 
@@ -194,8 +194,8 @@ internal class IgnacioCommand(
             layer = ignacio.engine.layers.ofObject.moving,
             mass = mass,
         )
-        primitivesCreate(count, spread, virtual, origin, model) { physics, transform ->
-            physics.bodies.addMoving(settings, transform, true).body
+        primitivesCreate(count, spread, virtual, origin, model) { physics, transform, name ->
+            physics.bodies.addMoving(settings.copy(name = name), transform, true).body
         }
     }
 

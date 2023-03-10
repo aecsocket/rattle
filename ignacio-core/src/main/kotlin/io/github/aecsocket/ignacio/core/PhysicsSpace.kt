@@ -36,6 +36,8 @@ interface PhysicsSpace : Destroyable {
 
         fun createMoving(settings: MovingBodySettings, transform: Transform): PhysicsBody.MovingWrite
 
+        fun create(settings: BodySettings, transform: Transform): PhysicsBody.Write
+
         fun destroy(body: PhysicsBody)
 
         fun destroyAll(bodies: Collection<PhysicsBody>)

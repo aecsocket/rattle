@@ -218,7 +218,7 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
     }
 
     internal fun update() {
-        primitiveBodies.update()
+        primitiveBodies.tickUpdate()
         players.forEach { (_, player) ->
             player.update()
         }
@@ -230,6 +230,7 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
             if (updatingPhysics.getAndSet(true)) return@launchTask
 
             val start = System.nanoTime()
+            primitiveBodies.physicsUpdate()
             worldPhysics.forEach { (_, world) ->
                 world.physicsUpdate(deltaTime)
             }
@@ -243,3 +244,5 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
 
 internal fun Player.sendPacket(packet: PacketWrapper<*>) =
     PacketEvents.getAPI().playerManager.sendPacket(this, packet)
+
+fun ignacioBodyName(value: String) = "Ignacio-$value"

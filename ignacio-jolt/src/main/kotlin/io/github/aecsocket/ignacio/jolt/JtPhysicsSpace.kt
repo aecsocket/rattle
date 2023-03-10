@@ -24,6 +24,7 @@ import jolt.physics.collision.*
 import jolt.physics.collision.broadphase.BroadPhaseLayerFilter
 import jolt.physics.collision.broadphase.CollideShapeBodyCollector
 import jolt.physics.collision.shape.SubShapeIdPair
+import java.lang.Exception
 import java.lang.foreign.MemorySession
 
 class JtPhysicsSpace(
@@ -47,7 +48,13 @@ class JtPhysicsSpace(
             updateSettings()
         }
 
-    fun bodyOf(id: BodyId) = JtPhysicsBody(handle, id)
+    private val bodyWrappers = HashMap<BodyId, JtPhysicsBody>()
+
+    fun bodyOf(id: BodyId, name: String?, added: Boolean) = bodyWrappers.computeIfAbsent(id) {
+        JtPhysicsBody(handle, id, name, added)
+    }
+
+    fun bodyOf(id: BodyId) = bodyOf(id, null, handle.bodyInterfaceNoLock.isAdded(id.id))
 
     fun readAccess(body: Body) = bodyOf(BodyId(body.id)).readAccess(body)
 
@@ -70,11 +77,16 @@ class JtPhysicsSpace(
             }
         }
 
+        private fun createBody(bodySettings: BodyCreationSettings, settings: BodySettings): PhysicsBody.Write {
+            val handle = handle.bodyInterface.createBody(bodySettings)
+            val body = bodyOf(BodyId(handle.id), name = settings.name, added = false)
+            return body.writeAccess(handle)
+        }
+
         override fun createStatic(settings: StaticBodySettings, transform: Transform): PhysicsBody.StaticWrite {
             return useMemory {
                 val bodySettings = createBodySettings(settings, transform, MotionType.STATIC)
-                val handle = handle.bodyInterface.createBody(bodySettings)
-                writeAccess(handle) as PhysicsBody.StaticWrite
+                createBody(bodySettings, settings) as PhysicsBody.StaticWrite
             }
         }
 
@@ -94,35 +106,69 @@ class JtPhysicsSpace(
                     bodySettings.maxAngularVelocity = settings.maxAngularVelocity
                     bodySettings.gravityFactor = settings.gravityFactor
                 }
-                val handle = handle.bodyInterface.createBody(bodySettings)
-                writeAccess(handle) as PhysicsBody.MovingWrite
+                createBody(bodySettings, settings) as PhysicsBody.MovingWrite
+            }
+        }
+
+        override fun create(settings: BodySettings, transform: Transform): PhysicsBody.Write {
+            return when (settings) {
+                is StaticBodySettings -> createStatic(settings, transform)
+                is MovingBodySettings -> createMoving(settings, transform)
             }
         }
 
         override fun destroy(body: PhysicsBody) {
             body as JtPhysicsBody
-            if (handle.bodyInterface.isAdded(body.id.id))
-                throw IllegalStateException("Body is still added to physics space")
+            try {
+                body.assertCanBeDestroyed()
+            } catch (ex: Exception) {
+                throw IllegalStateException("Could not destroy body $body: ${ex.message}")
+            }
+            body.isDestroyed = true
             handle.bodyInterface.destroyBody(body.id.id)
         }
 
         override fun destroyAll(bodies: Collection<PhysicsBody>) {
-            bodies.forEach { body ->
-                body as JtPhysicsBody
+            @Suppress("UNCHECKED_CAST")
+            bodies as Collection<JtPhysicsBody>
+            if (bodies.isEmpty()) return
+            bodies.forEachIndexed { idx, body ->
+                try {
+                    body.assertCanBeDestroyed()
+                } catch (ex: Exception) {
+                    throw IllegalStateException("Could not destroy body $body (index $idx): ${ex.message}")
+                }
+                body.isDestroyed = true
+                bodyWrappers -= body.id
                 handle.bodyInterface.destroyBody(body.id.id)
             }
         }
 
         override fun add(body: PhysicsBody, activate: Boolean) {
             body as JtPhysicsBody
+            try {
+                body.assertCanBeAdded()
+            } catch (ex: Exception) {
+                throw IllegalStateException("Could not add body $body: ${ex.message}")
+            }
+            body.isAdded = true
             handle.bodyInterface.addBody(body.id.id, Activation.ofValue(activate))
         }
 
         fun Iterable<JtPhysicsBody>.ids() = map { it.id.id }
 
         override fun addAll(bodies: Collection<PhysicsBody>, activate: Boolean) {
+            if (bodies.isEmpty()) return
             @Suppress("UNCHECKED_CAST")
             bodies as Collection<JtPhysicsBody>
+            bodies.forEachIndexed { idx, body ->
+                try {
+                    body.assertCanBeAdded()
+                } catch (ex: Exception) {
+                    throw IllegalStateException("Could not add body $body (index $idx): ${ex.message}")
+                }
+                body.isAdded = true
+            }
             val bulk = handle.bodyInterface.bodyBulk(bodies.ids())
             handle.bodyInterface.addBodiesPrepare(bulk)
             handle.bodyInterface.addBodiesFinalize(bulk, Activation.ofValue(activate))
@@ -130,12 +176,27 @@ class JtPhysicsSpace(
 
         override fun remove(body: PhysicsBody) {
             body as JtPhysicsBody
+            try {
+                body.assertCanBeRemoved()
+            } catch (ex: Exception) {
+                throw IllegalStateException("Could not remove body $body: ${ex.message}")
+            }
+            body.isAdded = false
             handle.bodyInterface.removeBody(body.id.id)
         }
 
         override fun removeAll(bodies: Collection<PhysicsBody>) {
+            if (bodies.isEmpty()) return
             @Suppress("UNCHECKED_CAST")
             bodies as Collection<JtPhysicsBody>
+            bodies.forEachIndexed { idx, body ->
+                try {
+                    body.assertCanBeRemoved()
+                } catch (ex: Exception) {
+                    throw IllegalStateException("Could not remove body $body (index $idx): ${ex.message}")
+                }
+                body.isAdded = false
+            }
             handle.bodyInterface.removeBodies(bodies.ids())
         }
 

@@ -7,19 +7,22 @@ interface ObjectLayer
 
 interface Shape : Destroyable
 
-interface BodySettings {
+sealed interface BodySettings {
+    val name: String?
     val shape: Shape
     val layer: ObjectLayer
     val isSensor: Boolean
 }
 
 data class StaticBodySettings(
+    override val name: String? = null,
     override val shape: Shape,
     override val layer: ObjectLayer,
     override val isSensor: Boolean = false,
 ) : BodySettings
 
 data class MovingBodySettings(
+    override val name: String? = null,
     override val shape: Shape,
     override val layer: ObjectLayer,
     override val isSensor: Boolean = false,
@@ -41,7 +44,9 @@ data class FluidSettings(
 )
 
 interface PhysicsBody {
+    val name: String?
     val isValid: Boolean
+    val isAdded: Boolean
 
     fun read(block: Consumer<Read>): Boolean
 
