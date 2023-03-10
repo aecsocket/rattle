@@ -41,8 +41,19 @@ class SliceTerrainStrategy(
     private val sliceData = HashMap<SlicePos, SliceData>()
     private val bodyToSlice = HashMap<PhysicsBody, SliceData>()
 
+    var enabled = true
+        private set
+
     override fun destroy() {
         cube.destroy()
+    }
+
+    override fun enable() {
+        enabled = true
+    }
+
+    override fun disable() {
+        enabled = false
     }
 
     private fun createSliceData(slice: SliceSnapshot): SliceData {
@@ -87,6 +98,8 @@ class SliceTerrainStrategy(
     }
 
     override fun tickUpdate() {
+        if (!enabled) return
+
         // create snapshots for positions
         val toSnapshot = HashMap<SlicePos, SliceSnapshot>()
         toCreate.forEach { pos ->
@@ -156,6 +169,8 @@ class SliceTerrainStrategy(
     }
 
     override fun physicsUpdate(deltaTime: Float) {
+        if (!enabled) return
+
         val toRemove = synchronized(sliceData) { HashSet(sliceData.keys) }
         val toCreate = HashSet<SlicePos>()
         physics.bodies.active().forEach { body ->
@@ -177,10 +192,12 @@ class SliceTerrainStrategy(
     override fun onChunksLoad(chunks: Collection<Chunk>) {}
 
     override fun onChunksUnload(chunks: Collection<Chunk>) {
+        if (!enabled) return
 
     }
 
     override fun onBlocksUpdate(blocks: Collection<BlockPos>) {
+        if (!enabled) return
 
     }
 }

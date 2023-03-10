@@ -20,7 +20,7 @@ class JtPhysicsBody(
     val physics: PhysicsSystem,
     val id: BodyId,
     override val name: String?,
-    override var isAdded: Boolean,
+    override var added: Boolean,
 ) : PhysicsBody {
     // base classes
     private interface Access : PhysicsBody.Access {
@@ -203,7 +203,7 @@ class JtPhysicsBody(
 
     internal var isDestroyed = false
 
-    override val isValid: Boolean
+    override val valid: Boolean
         get() = !physics.isDestroyed && !isDestroyed
 
     fun assertCanBeDestroyed() {
@@ -212,14 +212,14 @@ class JtPhysicsBody(
     }
 
     fun assertCanBeAdded() {
-        if (isAdded)
+        if (added)
             throw IllegalStateException("Already added")
         if (isDestroyed)
             throw IllegalStateException("Already destroyed")
     }
 
     fun assertCanBeRemoved() {
-        if (!isAdded)
+        if (!added)
             throw IllegalStateException("Already removed")
         if (isDestroyed)
             throw IllegalStateException("Already destroyed")

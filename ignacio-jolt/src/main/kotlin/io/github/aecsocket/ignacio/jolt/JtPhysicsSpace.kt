@@ -157,7 +157,7 @@ class JtPhysicsSpace(
             } catch (ex: Exception) {
                 throw IllegalStateException("Could not add body $body: ${ex.message}")
             }
-            body.isAdded = true
+            body.added = true
             handle.bodyInterface.addBody(body.id.id, Activation.ofValue(activate))
         }
 
@@ -173,7 +173,7 @@ class JtPhysicsSpace(
                 } catch (ex: Exception) {
                     throw IllegalStateException("Could not add body $body (index $idx): ${ex.message}")
                 }
-                body.isAdded = true
+                body.added = true
             }
             val bulk = handle.bodyInterface.bodyBulk(bodies.ids())
             handle.bodyInterface.addBodiesPrepare(bulk)
@@ -187,7 +187,7 @@ class JtPhysicsSpace(
             } catch (ex: Exception) {
                 throw IllegalStateException("Could not remove body $body: ${ex.message}")
             }
-            body.isAdded = false
+            body.added = false
             handle.bodyInterface.removeBody(body.id.id)
         }
 
@@ -201,7 +201,7 @@ class JtPhysicsSpace(
                 } catch (ex: Exception) {
                     throw IllegalStateException("Could not remove body $body (index $idx): ${ex.message}")
                 }
-                body.isAdded = false
+                body.added = false
             }
             handle.bodyInterface.removeBodies(bodies.ids())
         }

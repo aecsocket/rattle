@@ -3,7 +3,11 @@ package io.github.aecsocket.ignacio.paper.world
 import io.github.aecsocket.ignacio.core.*
 import org.bukkit.World
 
-interface PhysicsUpdatable {
+interface PhysicsWorldHook {
+    fun enable()
+
+    fun disable()
+
     fun tickUpdate()
 
     fun physicsUpdate(deltaTime: Float)

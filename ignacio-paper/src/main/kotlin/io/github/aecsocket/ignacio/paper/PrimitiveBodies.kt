@@ -66,7 +66,7 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
                 bodies.remove(entity)
             }
 
-            if (!entity.isValid || !instance.body.isValid) {
+            if (!entity.isValid || !instance.body.valid) {
                 destroy()
                 return@forEach
             }

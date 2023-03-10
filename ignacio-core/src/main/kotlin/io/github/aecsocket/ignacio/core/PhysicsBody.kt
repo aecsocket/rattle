@@ -45,8 +45,8 @@ data class FluidSettings(
 
 interface PhysicsBody {
     val name: String?
-    val isValid: Boolean
-    val isAdded: Boolean
+    val valid: Boolean
+    val added: Boolean
 
     fun read(block: Consumer<Read>): Boolean
 

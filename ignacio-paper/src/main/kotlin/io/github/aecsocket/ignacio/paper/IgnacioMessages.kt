@@ -4,6 +4,20 @@ import io.github.aecsocket.glossa.core.Message
 import net.kyori.adventure.text.Component
 
 interface IgnacioMessages {
+    val error: Error
+    interface Error {
+        val physicsSpace: PhysicsSpace
+        interface PhysicsSpace {
+            fun alreadyExists(
+                worldName: String,
+            ): Message
+
+            fun doesNotExist(
+                worldName: String,
+            ): Message
+        }
+    }
+
     val command: Command
     interface Command {
         val primitives: Primitives
@@ -48,7 +62,7 @@ interface IgnacioMessages {
             }
 
             fun remove(
-                count: Int
+                count: Int,
             ): Message
         }
 
@@ -66,7 +80,7 @@ interface IgnacioMessages {
             ): Message
 
             fun spaceHeader(
-                numWorldPhysicsSpaces: Int
+                numWorldPhysicsSpaces: Int,
             ): Message
 
             fun space(
@@ -79,16 +93,23 @@ interface IgnacioMessages {
         val space: Space
         interface Space {
             fun create(
-                worldName: String
-            ): Message
-
-            fun alreadyCreated(
-                worldName: String
+                worldName: String,
             ): Message
 
             fun destroy(
-                worldName: String
+                worldName: String,
             ): Message
+
+            val terrain: Terrain
+            interface Terrain {
+                fun enable(
+                    worldName: String,
+                ): Message
+
+                fun disable(
+                    worldName: String,
+                ): Message
+            }
         }
     }
 

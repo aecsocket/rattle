@@ -128,6 +128,18 @@ internal class IgnacioCommand(
                     .alexandriaPermission("space.destroy")
                     .handler(::spaceDestroy)
                 )
+                space.literal("terrain").let { terrain ->
+                    manager.command(terrain
+                        .literal("enable")
+                        .alexandriaPermission("space.terrain.enable")
+                        .handler(::spaceTerrainEnable)
+                    )
+                    manager.command(terrain
+                        .literal("disable")
+                        .alexandriaPermission("space.terrain.disable")
+                        .handler(::spaceTerrainDisable)
+                    )
+                }
         }
         manager.command(root
             .literal("timings")
@@ -333,15 +345,14 @@ internal class IgnacioCommand(
         val messages = ignacio.messages.forAudience(sender)
         val world = ctx.get<World>(WORLD)
 
-        ignacio.worlds[world]?.let {
-            messages.command.space.alreadyCreated(
+        if (ignacio.worlds.contains(world)) {
+            messages.error.physicsSpace.alreadyExists(
                 worldName = world.name,
             ).sendTo(sender)
             return
         }
 
         ignacio.worlds.getOrCreate(world)
-
         messages.command.space.create(
             worldName = world.name,
         ).sendTo(sender)
@@ -352,10 +363,50 @@ internal class IgnacioCommand(
         val messages = ignacio.messages.forAudience(sender)
         val world = ctx.get<World>(WORLD)
 
-        ignacio.worlds.destroy(world)
+        if (!ignacio.worlds.contains(world)) {
+            messages.error.physicsSpace.doesNotExist(
+                worldName = world.name,
+            ).sendTo(sender)
+            return
+        }
 
+        ignacio.worlds.destroy(world)
         messages.command.space.destroy(
-            worldName = world.name
+            worldName = world.name,
+        ).sendTo(sender)
+    }
+
+    private fun spaceTerrainEnable(ctx: Context) {
+        val sender = ctx.sender
+        val messages = ignacio.messages.forAudience(sender)
+        val world = ctx.get<World>(WORLD)
+
+        val physicsWorld = ignacio.worlds[world] ?: run {
+            messages.error.physicsSpace.doesNotExist(
+                worldName = world.name,
+            ).sendTo(sender)
+            return
+        }
+        physicsWorld.terrain.enable()
+        messages.command.space.terrain.enable(
+            worldName = world.name,
+        ).sendTo(sender)
+    }
+
+    private fun spaceTerrainDisable(ctx: Context) {
+        val sender = ctx.sender
+        val messages = ignacio.messages.forAudience(sender)
+        val world = ctx.get<World>(WORLD)
+
+        val physicsWorld = ignacio.worlds[world] ?: run {
+            messages.error.physicsSpace.doesNotExist(
+                worldName = world.name,
+            ).sendTo(sender)
+            return
+        }
+        physicsWorld.terrain.disable()
+        messages.command.space.terrain.disable(
+            worldName = world.name,
         ).sendTo(sender)
     }
 

@@ -4,11 +4,10 @@ import io.github.aecsocket.ignacio.core.PhysicsBody
 import io.github.aecsocket.ignacio.core.Destroyable
 import io.github.aecsocket.ignacio.core.IgnacioEngine
 import io.github.aecsocket.ignacio.core.PhysicsSpace
-import io.github.aecsocket.ignacio.paper.Ignacio
 import org.bukkit.World
 import org.bukkit.entity.Entity
 
-interface EntityStrategy : PhysicsUpdatable, Destroyable {
+interface EntityStrategy : PhysicsWorldHook, Destroyable {
     fun bodyOf(entity: Entity): PhysicsBody?
 
     fun entityOf(body: PhysicsBody): Entity?
@@ -24,6 +23,10 @@ fun interface EntityStrategyFactory {
 
 class NoOpEntityStrategy : EntityStrategy {
     override fun destroy() {}
+
+    override fun enable() {}
+
+    override fun disable() {}
 
     override fun tickUpdate() {}
 
@@ -48,6 +51,10 @@ class DefaultEntityStrategy(
     override fun destroy() {
 
     }
+
+    override fun enable() {}
+
+    override fun disable() {}
 
     override fun tickUpdate() {}
 

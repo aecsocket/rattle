@@ -1,5 +1,12 @@
 translations:
   en-US:
+    error:
+      physics_space:
+        already_exists:
+          <se>Physics space for <p1>{world_name}</p1> already exists
+        does_not_exist: >-
+          <se>Physics space for <p1>{world_name}</p1> does not exist
+
     command:
       primitives:
         create:
@@ -48,10 +55,13 @@ translations:
       space:
         create: |-
           <p2>Created physics space for <p1>{world_name}</p1>
-        already_created: |-
-          <p2>Physics space for <p1>{world_name}</p1> has already been created
         destroy: |-
           <p2>Destroyed physics space for <p1>{world_name}</p1>
+        terrain:
+          enable: |-
+            <p2>Enabled terrain strategy for <p1>{world_name}</p1>
+          disable: |-
+            <p2>Disabled terrain strategy for <p1>{world_name}</p1>
 
     bar_display:
       no_physics: >-

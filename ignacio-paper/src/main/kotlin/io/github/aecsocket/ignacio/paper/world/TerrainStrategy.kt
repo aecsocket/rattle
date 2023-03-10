@@ -7,7 +7,7 @@ import org.bukkit.World
 
 typealias BlockPos = Point3
 
-interface TerrainStrategy : PhysicsUpdatable, Destroyable {
+interface TerrainStrategy : PhysicsWorldHook, Destroyable {
     fun isTerrain(body: PhysicsBody): Boolean
 
     fun onChunksLoad(chunks: Collection<Chunk>)
@@ -23,6 +23,10 @@ fun interface TerrainStrategyFactory {
 
 class NoOpTerrainStrategy : TerrainStrategy {
     override fun destroy() {}
+
+    override fun enable() {}
+
+    override fun disable() {}
 
     override fun physicsUpdate(deltaTime: Float) {}
 

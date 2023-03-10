@@ -128,6 +128,8 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
     interface Worlds {
         operator fun get(world: World): PhysicsWorld?
 
+        operator fun contains(world: World): Boolean
+
         fun getOrCreate(world: World): PhysicsWorld
 
         fun destroy(world: World)
@@ -136,6 +138,8 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
     }
     val worlds = object : Worlds {
         override fun get(world: World) = worldPhysics[world]
+
+        override fun contains(world: World) = worldPhysics.contains(world)
 
         override fun getOrCreate(world: World) = worldPhysics.computeIfAbsent(world) {
             val physics = engine.createSpace(settings.worlds.spaceSettings)
