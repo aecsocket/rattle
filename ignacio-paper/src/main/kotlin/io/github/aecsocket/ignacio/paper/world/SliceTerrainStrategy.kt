@@ -140,11 +140,15 @@ class SliceTerrainStrategy(
             toSnapshot.clear()
 
             val bodiesToAdd = ArrayList<PhysicsBody>()
-            slices.forEach { data ->
-                sliceData[data.pos] = data
-                data.body?.let {
-                    bodyToSlice[it] = data
-                    bodiesToAdd += it
+            synchronized(sliceData) {
+                synchronized(bodyToSlice) {
+                    slices.forEach { data ->
+                        sliceData[data.pos] = data
+                        data.body?.let {
+                            bodyToSlice[it] = data
+                            bodiesToAdd += it
+                        }
+                    }
                 }
             }
             physics.bodies.addAll(bodiesToAdd, false)
@@ -152,7 +156,7 @@ class SliceTerrainStrategy(
     }
 
     override fun physicsUpdate(deltaTime: Float) {
-        val toRemove = HashSet(sliceData.keys)
+        val toRemove = synchronized(sliceData) { HashSet(sliceData.keys) }
         val toCreate = HashSet<SlicePos>()
         physics.bodies.active().forEach { body ->
             body.readUnlocked { access ->

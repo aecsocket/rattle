@@ -187,8 +187,11 @@ class JoltEngine(var settings: Settings, private val logger: Logger) : IgnacioEn
         executor.shutdown()
         logger.info("Waiting ${settings.threads.terminateTime}s for worker threads")
         try {
-            executor.awaitTermination((settings.threads.terminateTime * 1000).toLong(), TimeUnit.MILLISECONDS)
+            if (!executor.awaitTermination((settings.threads.terminateTime * 1000).toLong(), TimeUnit.MILLISECONDS)) {
+                executor.shutdownNow()
+            }
         } catch (ex: InterruptedException) {
+            executor.shutdownNow()
             logger.warning("Could not wait for worker threads")
         }
 

@@ -50,6 +50,11 @@ class JtPhysicsSpace(
         }
 
     private val bodyWrappers = ConcurrentHashMap<BodyId, JtPhysicsBody>()
+    // cache numBodies and numActiveBodies after each update
+    // otherwise, accessing them directly from the handle is *really slow* when many bodies are active
+    // (it uses the body mutex lock)
+    private var numBodies = 0
+    private var numActiveBodies = 0
 
     fun bodyOf(id: BodyId, name: String?, added: Boolean) = bodyWrappers.computeIfAbsent(id) {
         JtPhysicsBody(handle, id, name, added)
@@ -62,8 +67,8 @@ class JtPhysicsSpace(
     fun writeAccess(body: MutableBody) = bodyOf(BodyId(body.id)).writeAccess(body)
 
     override val bodies = object : PhysicsSpace.Bodies {
-        override val num get() = handle.numBodies
-        override val numActive get() = handle.numActiveBodies
+        override val num get() = numBodies
+        override val numActive get() = numActiveBodies
 
         context(MemorySession)
         private fun createBodySettings(settings: BodySettings, transform: Transform, motionType: MotionType): BodyCreationSettings {
@@ -377,5 +382,7 @@ class JtPhysicsSpace(
             tempAllocator,
             engine.jobSystem
         )
+        numBodies = handle.numBodies
+        numActiveBodies = handle.numActiveBodies
     }
 }
