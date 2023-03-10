@@ -26,6 +26,7 @@ import jolt.physics.collision.broadphase.CollideShapeBodyCollector
 import jolt.physics.collision.shape.SubShapeIdPair
 import java.lang.Exception
 import java.lang.foreign.MemorySession
+import java.util.concurrent.ConcurrentHashMap
 
 class JtPhysicsSpace(
     private val engine: JoltEngine,
@@ -48,7 +49,7 @@ class JtPhysicsSpace(
             updateSettings()
         }
 
-    private val bodyWrappers = HashMap<BodyId, JtPhysicsBody>()
+    private val bodyWrappers = ConcurrentHashMap<BodyId, JtPhysicsBody>()
 
     fun bodyOf(id: BodyId, name: String?, added: Boolean) = bodyWrappers.computeIfAbsent(id) {
         JtPhysicsBody(handle, id, name, added)

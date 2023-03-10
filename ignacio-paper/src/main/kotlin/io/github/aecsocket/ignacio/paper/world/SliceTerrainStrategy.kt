@@ -33,10 +33,10 @@ class SliceTerrainStrategy(
     private val numSlices = (world.maxHeight - startY) / 16
     private val negativeYSlices = -startY / 16
 
-    private val toRemove = HashSet<SlicePos>()
-    private val toCreate = HashSet<SlicePos>()
-    private val toSnapshot = HashMap<SlicePos, SliceSnapshot>()
     private val chunkSnapshots = HashMap<Long, ChunkSnapshot>()
+    private var toRemove: MutableSet<SlicePos> = HashSet()
+    private var toCreate: MutableSet<SlicePos> = HashSet()
+    private var toSnapshot: MutableMap<SlicePos, SliceSnapshot> = HashMap()
 
     private val sliceData = HashMap<SlicePos, SliceData>()
     private val bodyToSlice = HashMap<PhysicsBody, SliceData>()
@@ -71,7 +71,7 @@ class SliceTerrainStrategy(
         if (solidChildren.isNotEmpty()) {
             val shape = engine.createShape(StaticCompoundGeometry(solidChildren))
             val body = physics.bodies.createStatic(StaticBodySettings(
-                name = "$bodyKey $slice",
+                name = "$bodyKey-${slice.pos}",
                 shape = shape,
                 layer = engine.layers.ofObject.terrain,
             ), Transform(slice.pos.toVec3d() * 16.0))
@@ -88,59 +88,57 @@ class SliceTerrainStrategy(
 
     override fun tickUpdate() {
         // create snapshots for positions
-        synchronized(toCreate) {
-            synchronized(toSnapshot) {
-                toCreate.forEach { pos ->
-                    // chunk not loaded, don't load it
-                    if (!world.isChunkLoaded(pos.x, pos.z)) return@forEach
-                    // already created body, don't remake it
-                    if (sliceData.contains(pos)) return@forEach
-                    val sy = pos.y + negativeYSlices
-                    // out of range, we can't make a body
-                    if (sy < 0 || sy >= numSlices) return@forEach
+        val toSnapshot = HashMap<SlicePos, SliceSnapshot>()
+        toCreate.forEach { pos ->
+            // chunk not loaded, don't load it
+            if (!world.isChunkLoaded(pos.x, pos.z)) return@forEach
+            // already created body, don't remake it
+            if (sliceData.contains(pos)) return@forEach
+            val sy = pos.y + negativeYSlices
+            // out of range, we can't make a body
+            if (sy < 0 || sy >= numSlices) return@forEach
 
-                    val chunkKey = Chunk.getChunkKey(pos.x, pos.z)
-                    val snapshot = chunkSnapshots.computeIfAbsent(chunkKey) {
-                        world.getChunkAt(pos.x, pos.z).getChunkSnapshot(false, false, false)
-                    }
-                    // empty slices aren't even passed to toCreate
-                    if (snapshot.isSectionEmpty(sy)) return@forEach
-
-                    toSnapshot[pos] = SliceSnapshot(
-                        pos = pos,
-                        blocks = snapshot,
-                    )
-                }
-                toCreate.clear()
-                chunkSnapshots.clear()
+            val chunkKey = Chunk.getChunkKey(pos.x, pos.z)
+            val snapshot = chunkSnapshots.computeIfAbsent(chunkKey) {
+                world.getChunkAt(pos.x, pos.z).getChunkSnapshot(false, false, false)
             }
+            // empty slices aren't even passed to toCreate
+            if (snapshot.isSectionEmpty(sy)) return@forEach
+
+            toSnapshot[pos] = SliceSnapshot(
+                pos = pos,
+                blocks = snapshot,
+            )
         }
+        chunkSnapshots.clear()
+        // even though we're double buffering, we clear it afterwards anyway
+        // in case we go through a 2nd tick and the buffer hasn't updated yet
+        toCreate.clear()
+        this.toSnapshot = toSnapshot
 
         engine.launchTask {
             // clear all the bodies we've marked as unused last tick
-            synchronized(toRemove) {
-                val bodiesToRemove = synchronized(sliceData) {
-                    synchronized(bodyToSlice) {
-                        toRemove.mapNotNull { pos ->
-                            sliceData.remove(pos)?.body?.also {
-                                bodyToSlice -= it
-                            }
+            val bodiesToRemove = synchronized(sliceData) {
+                synchronized(bodyToSlice) {
+                    toRemove.mapNotNull { pos ->
+                        sliceData.remove(pos)?.body?.also {
+                            bodyToSlice -= it
                         }
                     }
                 }
-                physics.bodies {
-                    removeAll(bodiesToRemove)
-                    destroyAll(bodiesToRemove)
-                }
-                toRemove.clear()
+            }
+            toRemove.clear()
+            physics.bodies {
+                removeAll(bodiesToRemove)
+                destroyAll(bodiesToRemove)
             }
 
             // create all the bodies we've created snapshots for last tick
-            val slices = synchronized(toSnapshot) {
-                toSnapshot.map { (_, slice) ->
-                    async { createSliceData(slice) }
-                }
+            val slices = toSnapshot.map { (_, slice) ->
+                async { createSliceData(slice) }
             }.awaitAll()
+            toSnapshot.clear()
+
             val bodiesToAdd = ArrayList<PhysicsBody>()
             slices.forEach { data ->
                 sliceData[data.pos] = data
@@ -150,26 +148,24 @@ class SliceTerrainStrategy(
                 }
             }
             physics.bodies.addAll(bodiesToAdd, false)
-            toSnapshot.clear()
         }
     }
 
     override fun physicsUpdate(deltaTime: Float) {
-        synchronized(toCreate) {
-            // mark all the chunk slices we need to create collision for
-            // and any existing slices which we don't need for collision for, we mark toRemove
-            toRemove += synchronized(sliceData) { sliceData.keys }
-            physics.bodies.active().forEach { body ->
-                body.readUnlocked { access ->
-                    // only create for moving objects (TODO custom object layer support: expand this)
-                    if (access.objectLayer != engine.layers.ofObject.moving) return@readUnlocked
-                    // next tick, we will create snapshots of the chunk slices this body covers
-                    val overlappingSlices = (access.boundingBox / 16.0).points().toSet()
-                    toCreate += overlappingSlices
-                    toRemove -= overlappingSlices
-                }
+        val toRemove = HashSet(sliceData.keys)
+        val toCreate = HashSet<SlicePos>()
+        physics.bodies.active().forEach { body ->
+            body.readUnlocked { access ->
+                // only create for moving objects (TODO custom object layer support: expand this)
+                if (access.objectLayer != engine.layers.ofObject.moving) return@readUnlocked
+                // next tick, we will create snapshots of the chunk slices this body covers
+                val overlappingSlices = (access.boundingBox / 16.0).points().toSet()
+                toCreate += overlappingSlices
+                toRemove -= overlappingSlices
             }
         }
+        this.toRemove = toRemove
+        this.toCreate = toCreate
     }
 
     override fun isTerrain(body: PhysicsBody) = synchronized(bodyToSlice) { bodyToSlice.contains(body) }
