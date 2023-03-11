@@ -7,11 +7,27 @@ import io.github.aecsocket.ignacio.core.math.f
 
 sealed interface Geometry
 
-data class SphereGeometry(val radius: Float) : Geometry
+const val defaultDensity = 1000.0f
 
-data class BoxGeometry(val halfExtent: Vec3f) : Geometry
+sealed interface ConvexGeometry : Geometry {
+    val density: Float
+}
 
-data class CapsuleGeometry(val halfHeight: Float, val radius: Float) : Geometry
+data class SphereGeometry(
+    val radius: Float,
+    override val density: Float = defaultDensity,
+) : ConvexGeometry
+
+data class BoxGeometry(
+    val halfExtent: Vec3f,
+    override val density: Float = defaultDensity,
+) : ConvexGeometry
+
+data class CapsuleGeometry(
+    val halfHeight: Float,
+    val radius: Float,
+    override val density: Float = defaultDensity,
+) : ConvexGeometry
 
 data class CompoundChild(val shape: Shape, val position: Vec3f, val rotation: Quat) {
     constructor(shape: Shape, transform: Transform) : this(shape, transform.position.f(), transform.rotation)

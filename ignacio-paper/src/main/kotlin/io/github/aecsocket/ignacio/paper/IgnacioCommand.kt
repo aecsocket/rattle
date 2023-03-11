@@ -28,6 +28,7 @@ import kotlin.math.max
 import kotlin.random.Random
 
 private const val COUNT = "count"
+private const val DENSITY = "density"
 private const val HALF_EXTENT = "half-extent"
 private const val LOCATION = "location"
 private const val MASS = "mass"
@@ -36,6 +37,7 @@ private const val SHOW_TIMINGS = "show-timings"
 private const val SPREAD = "spread"
 private const val VIRTUAL = "virtual"
 private const val WORLD = "world"
+
 private const val DEFAULT_HALF_EXTENT = 0.5f
 private const val DEFAULT_RADIUS = 0.5f
 private val timeColors = mapOf(
@@ -92,6 +94,11 @@ internal class IgnacioCommand(
                         .flag(manager.flagBuilder(MASS)
                             .withAliases("m")
                             .withArgument(FloatArgument.builder<CommandSender>(MASS)
+                                .withMin(0).build())
+                        )
+                        .flag(manager.flagBuilder(DENSITY)
+                            .withAliases("d")
+                            .withArgument(FloatArgument.builder<CommandSender>(DENSITY)
                                 .withMin(0).build())
                         )
                         .let { dynamic ->
@@ -260,13 +267,14 @@ internal class IgnacioCommand(
         val halfExtent = ctx.getOr(HALF_EXTENT) ?: DEFAULT_HALF_EXTENT
         val count = ctx.flag(COUNT) ?: 1
         val mass = ctx.flag(MASS) ?: 1f
+        val density = ctx.flag(DENSITY) ?: defaultDensity
         val spread = ctx.flag(SPREAD) ?: 0.0
         val virtual = ctx.hasFlag(VIRTUAL)
 
         primitivesCreateDynamic(
             count, mass, spread, virtual, location,
             ignacio.settings.primitiveModels.box,
-            BoxGeometry(Vec3f(halfExtent))
+            BoxGeometry(Vec3f(halfExtent), density)
         )
 
         messages.command.primitives.create.dynamic.box(
@@ -283,13 +291,14 @@ internal class IgnacioCommand(
         val radius = ctx.getOr(RADIUS) ?: DEFAULT_RADIUS
         val count = ctx.flag(COUNT) ?: 1
         val mass = ctx.flag(MASS) ?: 1f
+        val density = ctx.flag(DENSITY) ?: defaultDensity
         val spread = ctx.flag(SPREAD) ?: 0.0
         val virtual = ctx.hasFlag(VIRTUAL)
 
         primitivesCreateDynamic(
             count, mass, spread, virtual, location,
             ignacio.settings.primitiveModels.sphere,
-            SphereGeometry(radius)
+            SphereGeometry(radius, density)
         )
 
         messages.command.primitives.create.dynamic.sphere(

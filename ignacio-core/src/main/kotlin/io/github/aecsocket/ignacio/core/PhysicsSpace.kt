@@ -8,9 +8,9 @@ fun interface StepListener {
 }
 
 interface ContactListener {
-    fun onAdded(body1: PhysicsBody.Read, body2: PhysicsBody.Read, manifold: ContactManifold)
+    fun onAdded(body1: PhysicsBody.Read, body2: PhysicsBody.Read, manifold: ContactManifold) {}
 
-    fun onRemoved(body1: PhysicsBody, body2: PhysicsBody)
+    fun onRemoved(body1: PhysicsBody, body2: PhysicsBody) {}
 }
 
 interface PhysicsSpace : Destroyable {

@@ -274,25 +274,33 @@ class JoltEngine(var settings: Settings, private val logger: Logger) : IgnacioEn
     }
 
     override fun createShape(geometry: Geometry): Shape {
-        val shape: JShape = when (geometry) {
-            is SphereGeometry -> SphereShape.of(geometry.radius)
-            is BoxGeometry -> useMemory {
-                BoxShape.of(geometry.halfExtent.toJolt())
-            }
-            is CapsuleGeometry -> CapsuleShape.of(geometry.halfHeight, geometry.radius)
-            is StaticCompoundGeometry -> useMemory {
-                StaticCompoundShapeSettings.of().use { compound ->
+        val shape: JShape = useMemory {
+            val result: ShapeResult = when (geometry) {
+                is SphereGeometry -> SphereShapeSettings.of(geometry.radius).use { settings ->
+                    settings.density = geometry.density
+                    settings.create(this)
+                }
+                is BoxGeometry -> BoxShapeSettings.of(geometry.halfExtent.toJolt()).use { settings ->
+                    settings.density = geometry.density
+                    settings.create(this)
+                }
+                is CapsuleGeometry -> CapsuleShapeSettings.of(geometry.halfHeight, geometry.radius).use { settings ->
+                    settings.density = geometry.density
+                    settings.create(this)
+                }
+                is StaticCompoundGeometry -> StaticCompoundShapeSettings.of().use { settings ->
                     geometry.children.forEach { child ->
-                        compound.addShape(
+                        settings.addShape(
                             child.position.toJolt(),
                             child.rotation.toJolt(),
                             (child.shape as JtShape).handle,
                             0
                         )
                     }
-                    compound.create(this).orThrow()
+                    settings.create(this)
                 }
             }
+            result.orThrow()
         }
         return JtShape(shape)
     }

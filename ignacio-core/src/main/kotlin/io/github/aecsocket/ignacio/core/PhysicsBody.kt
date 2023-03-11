@@ -3,7 +3,9 @@ package io.github.aecsocket.ignacio.core
 import io.github.aecsocket.ignacio.core.math.*
 import java.util.function.Consumer
 
-interface Shape : Destroyable
+interface Shape : Destroyable {
+    val density: Float?
+}
 
 sealed interface BodySettings {
     val name: String?

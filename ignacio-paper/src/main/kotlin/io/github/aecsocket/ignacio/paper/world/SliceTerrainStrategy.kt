@@ -7,10 +7,38 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import org.bukkit.Chunk
 import org.bukkit.ChunkSnapshot
+import org.bukkit.Material
 import org.bukkit.World
+import java.util.concurrent.ConcurrentHashMap
 
 // note: negative slice Y coordinates are possible
 typealias SlicePos = Point3
+
+sealed interface TerrainLayer {
+    val collidable: Boolean
+
+    fun name(): String
+
+    object Solid : TerrainLayer {
+        override val collidable get() = true
+
+        override fun name() = "solid"
+    }
+
+    data class Fluid(
+        val name: String,
+        val density: Float,
+        val settings: FluidSettings,
+    ) : TerrainLayer {
+        override val collidable get() = false
+
+        override fun name() = "fluid-$name"
+    }
+}
+
+val solidLayer = TerrainLayer.Solid
+val waterFluidLayer = TerrainLayer.Fluid("water", 997.0f, FluidSettings(0.5f, 0.01f))
+val lavaFluidLater = TerrainLayer.Fluid("lava", 3100.0f, FluidSettings(0.5f, 0.01f))
 
 class SliceTerrainStrategy(
     private val engine: IgnacioEngine,
@@ -22,9 +50,19 @@ class SliceTerrainStrategy(
         val blocks: ChunkSnapshot,
     )
 
-    data class SliceData(
-        val pos: SlicePos,
-        val body: PhysicsBody?,
+    data class SliceSettings(
+        val layers: Map<TerrainLayer, Geometry>,
+    )
+
+    data class SliceBodies(
+        val layers: Map<TerrainLayer, PhysicsBody>,
+    ) {
+        fun allBodies() = layers.map { (_, body) -> body }
+    }
+
+    data class FluidContact(
+        val fluidBody: PhysicsBody,
+        val fluid: TerrainLayer.Fluid,
     )
 
     private val bodyKey = ignacioBodyName("SliceTerrainStrategy-${world.name}")
@@ -38,14 +76,63 @@ class SliceTerrainStrategy(
     private var toCreate: MutableSet<SlicePos> = HashSet()
     private var toSnapshot: MutableMap<SlicePos, SliceSnapshot> = HashMap()
 
-    private val sliceData = HashMap<SlicePos, SliceData>()
-    private val bodyToSlice = HashMap<PhysicsBody, SliceData>()
+    private val sliceBodies = HashMap<SlicePos, SliceBodies>()
+    private val bodyToLayer = HashMap<PhysicsBody, TerrainLayer>()
+    private val inFluid = ConcurrentHashMap<PhysicsBody, FluidContact>()
+
+    private val onStep = StepListener { deltaTime ->
+        inFluid.forEach { (access, contact) ->
+            access.writeUnlockedOf<PhysicsBody.MovingWrite> { body ->
+                val bodyDensity = body.shape.density ?: return@writeUnlockedOf
+                val fluid = contact.fluid
+
+                body.applyBuoyancy(
+                    deltaTime = deltaTime,
+                    buoyancy = fluid.density / bodyDensity,
+                    fluidSurface = Vec3d(0.0, 63.0, 0.0), // todo
+                    fluidNormal = Vec3f.Up,
+                    fluidVelocity = Vec3f.Zero, // todo
+                    fluid = fluid.settings,
+                )
+            }
+        }
+    }
+    private val onContact = object : ContactListener {
+        override fun onAdded(body1: PhysicsBody.Read, body2: PhysicsBody.Read, manifold: ContactManifold) {
+            fun tryAdd(target: PhysicsBody, fluidBody: PhysicsBody) {
+                val fluid = bodyToLayer[fluidBody] as? TerrainLayer.Fluid ?: return
+                inFluid[target] = FluidContact(fluidBody, fluid)
+            }
+
+            tryAdd(body1.body, body2.body)
+            tryAdd(body2.body, body1.body)
+        }
+
+        override fun onRemoved(body1: PhysicsBody, body2: PhysicsBody) {
+            fun tryRemove(target: PhysicsBody, fluid: PhysicsBody) {
+                val contact = inFluid[target] ?: return
+                if (contact.fluidBody != fluid) return
+                inFluid.remove(target)
+            }
+
+            // TODO
+            //tryRemove(body1, body2)
+            //tryRemove(body2, body1)
+        }
+    }
 
     var enabled = true
         private set
 
+    init {
+        physics.onStep(onStep)
+        physics.onContact(onContact)
+    }
+
     override fun destroy() {
         cube.destroy()
+        physics.removeStepListener(onStep)
+        physics.removeContactListener(onContact)
     }
 
     override fun enable() {
@@ -56,18 +143,43 @@ class SliceTerrainStrategy(
         enabled = false
     }
 
-    private fun createSliceData(slice: SliceSnapshot): SliceData {
-        val solidChildren = ArrayList<CompoundChild>()
+    private fun createSliceSettings(slice: SliceSnapshot): SliceSettings {
+        val layers = HashMap<TerrainLayer, MutableList<CompoundChild>>()
+
+        fun add(layer: TerrainLayer, child: CompoundChild) {
+            layers.computeIfAbsent(layer) { ArrayList() } += child
+        }
 
         fun processBlock(lx: Int, ly: Int, lz: Int) {
             val gy = slice.pos.y * 16 + ly
             val block = slice.blocks.getBlockData(lx, gy, lz)
-            if (block.material.isCollidable) {
-                solidChildren += CompoundChild(
+            val material = block.material
+            when (material) {
+                Material.WATER -> {
+                    add(waterFluidLayer, CompoundChild(
+                        shape = cube, // todo lower fluid levels
+                        position = Vec3f(lx + 0.5f, ly + 0.5f, lz + 0.5f),
+                        rotation = Quat.Identity,
+                    ))
+                    return
+                }
+                Material.LAVA -> {
+                    add(lavaFluidLater, CompoundChild(
+                        shape = cube,
+                        position = Vec3f(lx + 0.5f, ly + 0.5f, lz + 0.5f),
+                        rotation = Quat.Identity,
+                    ))
+                    return
+                }
+                else -> {}
+            }
+
+            when {
+                material.isCollidable -> add(solidLayer, CompoundChild(
                     shape = cube,
                     position = Vec3f(lx + 0.5f, ly + 0.5f, lz + 0.5f),
                     rotation = Quat.Identity,
-                )
+                ))
             }
         }
 
@@ -79,21 +191,30 @@ class SliceTerrainStrategy(
             }
         }
 
-        if (solidChildren.isNotEmpty()) {
-            val shape = engine.createShape(StaticCompoundGeometry(solidChildren))
-            val body = physics.bodies.createStatic(StaticBodySettings(
-                name = "$bodyKey-${slice.pos}",
-                shape = shape,
-                layer = engine.layers.ofObject.terrain,
-            ), Transform(slice.pos.toVec3d() * 16.0))
-            return SliceData(
-                pos = slice.pos,
-                body = body.body,
-            )
-        }
-        return SliceData(
-            pos = slice.pos,
-            body = null,
+        return SliceSettings(
+            layers = layers
+                .map { (layer, children) -> layer to StaticCompoundGeometry(children) }
+                .associate { it },
+        )
+    }
+
+    private fun createSliceBodies(slice: SliceSnapshot): SliceBodies {
+        val settings = createSliceSettings(slice)
+        val sliceTransform = Transform(slice.pos.toVec3d() * 16.0)
+
+        val layers = settings.layers.map { (layer, geometry) ->
+            layer to physics.bodies.createStatic(
+                StaticBodySettings(
+                    name = "$bodyKey-${slice.pos}-${layer.name()}",
+                    shape = engine.createShape(geometry),
+                    layer = engine.layers.ofObject.terrain,
+                    isSensor = !layer.collidable,
+                ), sliceTransform
+            ).body
+        }.associate { it }
+
+        return SliceBodies(
+            layers = layers,
         )
     }
 
@@ -106,7 +227,7 @@ class SliceTerrainStrategy(
             // chunk not loaded, don't load it
             if (!world.isChunkLoaded(pos.x, pos.z)) return@forEach
             // already created body, don't remake it
-            if (sliceData.contains(pos)) return@forEach
+            if (sliceBodies.contains(pos)) return@forEach
             val sy = pos.y + negativeYSlices
             // out of range, we can't make a body
             if (sy < 0 || sy >= numSlices) return@forEach
@@ -131,35 +252,34 @@ class SliceTerrainStrategy(
 
         engine.launchTask {
             // clear all the bodies we've marked as unused last tick
-            val bodiesToRemove = synchronized(sliceData) {
-                synchronized(bodyToSlice) {
-                    toRemove.mapNotNull { pos ->
-                        sliceData.remove(pos)?.body?.also {
-                            bodyToSlice -= it
-                        }
-                    }
+            val bodiesToRemove = synchronized(sliceBodies) {
+                synchronized(bodyToLayer) {
+                    toRemove.flatMap { pos ->
+                        sliceBodies.remove(pos)?.allBodies() ?: emptyList()
+                    }.toSet()
                 }
             }
             toRemove.clear()
+            bodyToLayer -= bodiesToRemove
             physics.bodies {
                 removeAll(bodiesToRemove)
                 destroyAll(bodiesToRemove)
             }
 
             // create all the bodies we've created snapshots for last tick
-            val slices = toSnapshot.map { (_, slice) ->
-                async { createSliceData(slice) }
+            val slices = toSnapshot.map { (pos, slice) ->
+                async { pos to createSliceBodies(slice) }
             }.awaitAll()
             toSnapshot.clear()
 
             val bodiesToAdd = ArrayList<PhysicsBody>()
-            synchronized(sliceData) {
-                synchronized(bodyToSlice) {
-                    slices.forEach { data ->
-                        sliceData[data.pos] = data
-                        data.body?.let {
-                            bodyToSlice[it] = data
-                            bodiesToAdd += it
+            synchronized(sliceBodies) {
+                synchronized(bodyToLayer) {
+                    slices.forEach { (pos, bodies) ->
+                        sliceBodies[pos] = bodies
+                        bodies.layers.forEach { (layer, body) ->
+                            bodyToLayer[body] = layer
+                            bodiesToAdd += body
                         }
                     }
                 }
@@ -171,7 +291,7 @@ class SliceTerrainStrategy(
     override fun physicsUpdate(deltaTime: Float) {
         if (!enabled) return
 
-        val toRemove = synchronized(sliceData) { HashSet(sliceData.keys) }
+        val toRemove = synchronized(sliceBodies) { HashSet(sliceBodies.keys) }
         val toCreate = HashSet<SlicePos>()
         physics.bodies.active().forEach { body ->
             body.readUnlocked { access ->
@@ -187,7 +307,7 @@ class SliceTerrainStrategy(
         this.toCreate = toCreate
     }
 
-    override fun isTerrain(body: PhysicsBody) = synchronized(bodyToSlice) { bodyToSlice.contains(body) }
+    override fun isTerrain(body: PhysicsBody) = synchronized(bodyToLayer) { bodyToLayer.contains(body) }
 
     override fun onChunksLoad(chunks: Collection<Chunk>) {}
 

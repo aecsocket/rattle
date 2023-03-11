@@ -261,7 +261,7 @@ class JtPhysicsBody(
             block(writeAccess(body))
             true
         } ?: false
-        physics.bodyLockInterface.unlockWrite(bodyLock)
+        lockInterface.unlockWrite(bodyLock)
         result
     }
 
