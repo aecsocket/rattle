@@ -3,6 +3,10 @@ package io.github.aecsocket.ignacio.core
 import io.github.aecsocket.ignacio.core.math.*
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 
+fun interface PreStepListener {
+    fun onPreStep(deltaTime: Float)
+}
+
 fun interface StepListener {
     fun onStep(deltaTime: Float)
 }
@@ -21,6 +25,10 @@ interface PhysicsSpace : Destroyable {
 
     data class RayCast(
         val body: PhysicsBody,
+        val inFraction: Float,
+        val inDistance: Float,
+        val inPosition: Vec3d,
+        val normal: Vec3f,
     )
 
     var settings: Settings
@@ -70,6 +78,10 @@ interface PhysicsSpace : Destroyable {
 
         fun rayCastBodies(ray: Ray, distance: Float): Collection<PhysicsBody>
     }
+
+    fun onPreStep(listener: PreStepListener)
+
+    fun removePreStepListener(listener: PreStepListener)
 
     fun onStep(listener: StepListener)
 

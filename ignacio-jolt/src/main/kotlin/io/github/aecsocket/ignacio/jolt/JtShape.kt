@@ -9,11 +9,10 @@ class JtShape(val handle: JShape) : Shape {
     private val destroyed = DestroyFlag()
     private val convexHandle = if (handle.type == ShapeType.CONVEX) ConvexShape.at(handle.address()) else null
 
+    override val density by lazy { convexHandle?.density }
+
     override fun destroy() {
         destroyed.mark()
         handle.destroy()
     }
-
-    override val density: Float?
-        get() = convexHandle?.density
 }

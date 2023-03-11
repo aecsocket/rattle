@@ -5,9 +5,9 @@ import io.github.aecsocket.ignacio.core.math.Point3
 import org.bukkit.Chunk
 import org.bukkit.World
 
-typealias BlockPos = Point3
-
 interface TerrainStrategy : PhysicsWorldHook, Destroyable {
+    val numInFluid: Int
+
     fun isTerrain(body: PhysicsBody): Boolean
 
     fun onChunksLoad(chunks: Collection<Chunk>)
@@ -22,6 +22,8 @@ fun interface TerrainStrategyFactory {
 }
 
 class NoOpTerrainStrategy : TerrainStrategy {
+    override val numInFluid get() = 0
+
     override fun destroy() {}
 
     override fun enable() {}

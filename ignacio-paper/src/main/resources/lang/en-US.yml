@@ -63,10 +63,14 @@ translations:
           disable: |-
             <p2>Disabled terrain strategy for <p1>{world_name}</p1>
 
-    bar_display:
-      no_physics: >-
-        <p2><sk>{world_name}</sk>: <se>no physics</se>
-      for_physics: >-
-        <p2><sk>{world_name}</sk>: <p1>{num_active_bodies}</p1> active / <p1>{num_bodies}</p1> bodies <p3>|</p3> <p1><median> ms</p1> avg / <p1><best5> ms</p1> 5%ile / <p1><worst5> ms</p1> 95%ile
-      for_space_create: >-
-        <p2><sk>{world_name}</sk>: <p1>{chunks_processed}</p1> / <p1>{chunks_total}</p1> chunks
+    debug:
+      show_timings:
+        no_physics: >-
+          <p2><sk>{world_name}</sk>: <se>no physics</se>
+        for_physics: >-
+          <p2><sk>{world_name}</sk>: <p1>{num_active_bodies}</p1> active / <p1>{num_bodies}</p1> bodies <p3>|</p3> <p1><median> ms</p1> avg / <p1><best5> ms</p1> 5%ile / <p1><worst5> ms</p1> 95%ile
+      body_info:
+        no_body: >-
+          No body hovered
+        for_body: >-
+          {body_name} @ {in_distance, number, :: .00} m

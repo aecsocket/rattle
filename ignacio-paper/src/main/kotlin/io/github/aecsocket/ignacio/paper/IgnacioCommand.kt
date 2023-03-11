@@ -27,6 +27,7 @@ import org.bukkit.entity.Player
 import kotlin.math.max
 import kotlin.random.Random
 
+private const val BODY_INFO = "body-info"
 private const val COUNT = "count"
 private const val DENSITY = "density"
 private const val HALF_EXTENT = "half-extent"
@@ -157,6 +158,9 @@ internal class IgnacioCommand(
             .literal("debug")
             .flag(manager.flagBuilder(SHOW_TIMINGS)
                 .withAliases("t")
+            )
+            .flag(manager.flagBuilder(BODY_INFO)
+                .withAliases("b")
             )
             .alexandriaPermission("debug")
             .handler(::debug)
@@ -422,9 +426,11 @@ internal class IgnacioCommand(
     private fun debug(ctx: Context) {
         val sender = ctx.sender as Player
         val showTimings = ctx.hasFlag(SHOW_TIMINGS)
+        val bodyInfo = ctx.hasFlag(BODY_INFO)
 
-        ignacio.playerData(sender).updateDebugFlags(setOfNotNull(
-            if (showTimings) PlayerDebugFlag.SHOW_TIMINGS else null,
+        ignacio.playerData(sender).updateDebugFlags(PlayerDebugFlags(
+            showTimings,
+            bodyInfo
         ))
     }
 }

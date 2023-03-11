@@ -100,8 +100,8 @@ class SliceTerrainStrategy(
     private val onContact = object : ContactListener {
         override fun onAdded(body1: PhysicsBody.Read, body2: PhysicsBody.Read, manifold: ContactManifold) {
             fun tryAdd(target: PhysicsBody, fluidBody: PhysicsBody) {
-                val fluid = bodyToLayer[fluidBody] as? TerrainLayer.Fluid ?: return
-                inFluid[target] = FluidContact(fluidBody, fluid)
+                val fluidLayer = bodyToLayer[fluidBody] as? TerrainLayer.Fluid ?: return
+                inFluid[target] = FluidContact(fluidBody, fluidLayer)
             }
 
             tryAdd(body1.body, body2.body)
@@ -109,20 +109,22 @@ class SliceTerrainStrategy(
         }
 
         override fun onRemoved(body1: PhysicsBody, body2: PhysicsBody) {
-            fun tryRemove(target: PhysicsBody, fluid: PhysicsBody) {
+            fun tryRemove(target: PhysicsBody, fluidBody: PhysicsBody) {
                 val contact = inFluid[target] ?: return
-                if (contact.fluidBody != fluid) return
+                if (contact.fluidBody != fluidBody) return
                 inFluid.remove(target)
             }
 
-            // TODO
-            //tryRemove(body1, body2)
-            //tryRemove(body2, body1)
+            tryRemove(body1, body2)
+            tryRemove(body2, body1)
         }
     }
 
     var enabled = true
         private set
+
+    override val numInFluid: Int
+        get() = inFluid.size
 
     init {
         physics.onStep(onStep)

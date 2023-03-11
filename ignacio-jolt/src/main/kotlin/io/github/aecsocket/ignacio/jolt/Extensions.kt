@@ -5,7 +5,10 @@ import io.github.aecsocket.ignacio.core.math.Quat
 import jolt.Destroyable
 import jolt.geometry.AABox
 import jolt.math.*
+import jolt.physics.body.Body
 import jolt.physics.body.BodyIds
+import jolt.physics.body.BodyLockInterface
+import jolt.physics.body.BodyLockRead
 import jolt.physics.collision.DRayCast
 import java.lang.foreign.MemorySession
 import kotlin.contracts.ExperimentalContracts
@@ -83,3 +86,11 @@ fun DMat44.toTransform(): Transform {
 
 context(MemorySession)
 fun Ray.toJolt(distance: Float) = DRayCast.of(this@MemorySession, origin.toJolt(), (direction * distance).toJolt())
+
+context(MemorySession)
+fun BodyId.lockRead(iface: BodyLockInterface, block: (Body) -> Unit) {
+    val lock = BodyLockRead.of(this@MemorySession)
+    iface.lockRead(id, lock)
+    lock.body?.let(block)
+    iface.unlockRead(lock)
+}

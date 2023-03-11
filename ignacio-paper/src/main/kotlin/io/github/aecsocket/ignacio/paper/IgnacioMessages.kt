@@ -113,27 +113,32 @@ interface IgnacioMessages {
         }
     }
 
-    val barDisplay: BarDisplay
-    interface BarDisplay {
-        fun noPhysics(
-            worldName: String,
-        ): Message
+    val debug: Debug
+    interface Debug {
+        val showTimings: ShowTimings
+        interface ShowTimings {
+            fun noPhysics(
+                worldName: String,
+            ): Message
 
-        fun forPhysics(
-            worldName: String,
-            numBodies: Int,
-            numActiveBodies: Int,
-            median: Component,
-            best5: Component,
-            worst5: Component,
-        ): Message
+            fun forPhysics(
+                worldName: String,
+                numBodies: Int,
+                numActiveBodies: Int,
+                median: Component,
+                best5: Component,
+                worst5: Component,
+            ): Message
+        }
 
-        fun forSpaceCreate(
-            worldName: String,
-            chunksProcessed: Int,
-            chunksRemaining: Int,
-            chunksTotal: Int,
-            chunksProgress: Float,
-        ): Message
+        val bodyInfo: BodyInfo
+        interface BodyInfo {
+            fun noBody(): Message
+
+            fun forBody(
+                bodyName: String,
+                inDistance: Float,
+            ): Message
+        }
     }
 }

@@ -13,6 +13,7 @@ import jolt.physics.PhysicsStepListener
 import jolt.physics.PhysicsSystem
 import jolt.physics.body.Body
 import jolt.physics.body.BodyCreationSettings
+import jolt.physics.body.BodyLockRead
 import jolt.physics.body.MassProperties
 import jolt.physics.body.MotionType
 import jolt.physics.body.MutableBody
@@ -281,7 +282,28 @@ class JtPhysicsSpace(
                     ObjectLayerFilter.passthrough(),
                     BodyFilter.passthrough(),
                 )
-                if (result) PhysicsSpace.RayCast(bodyOf(BodyId(hit.bodyId))) else null
+
+                if (result) {
+                    val bodyId = BodyId(hit.bodyId)
+                    val inDistance = hit.fraction * distance
+                    val inPosition = ray.at(inDistance)
+                    var normal: Vec3f? = null
+                    useMemory {
+                        bodyId.lockRead(handle.bodyLockInterface) { bodyRead ->
+                            val out = FVec3()
+                            bodyRead.getWorldSpaceSurfaceNormal(hit.subShapeId, inPosition.toJolt(), out)
+                            normal = out.toIgnacio()
+                        }
+                    }
+
+                    normal?.let { normal2 -> PhysicsSpace.RayCast(
+                        body = bodyOf(bodyId),
+                        inFraction = hit.fraction,
+                        inDistance = inDistance,
+                        inPosition = inPosition,
+                        normal = normal2,
+                    ) }
+                } else null
             }
         }
 
@@ -305,16 +327,17 @@ class JtPhysicsSpace(
         }
     }
 
-    private data class StepListenerData(
-        val native: PhysicsStepListener,
-        val arena: MemorySession,
-    )
-
-    private val stepListeners = HashMap<StepListener, StepListenerData>()
-    private val contactListeners = ArrayList<ContactListener>()
+    private val preStepListeners = HashSet<PreStepListener>()
+    private val stepListeners = HashSet<StepListener>()
+    private val contactListeners = HashSet<ContactListener>()
 
     init {
         updateSettings()
+        handle.addStepListener(PhysicsStepListener.of(arena) { deltaTime, _ ->
+            stepListeners.forEach {
+                it.onStep(deltaTime)
+            }
+        })
         handle.contactListener = JContactListener.of(arena, object : JContactListenerFn {
             override fun onContactValidate(
                 body1: Body,
@@ -357,9 +380,6 @@ class JtPhysicsSpace(
 
     override fun destroy() {
         destroyed.mark()
-        stepListeners.forEach { (_, listener) ->
-            listener.arena.close()
-        }
         engine.spaces.remove(handle)
         // TODO delete bodies
         handle.destroy()
@@ -367,19 +387,20 @@ class JtPhysicsSpace(
         arena.close()
     }
 
+    override fun onPreStep(listener: PreStepListener) {
+        preStepListeners += listener
+    }
+
+    override fun removePreStepListener(listener: PreStepListener) {
+        preStepListeners -= listener
+    }
+
     override fun onStep(listener: StepListener) {
-        val arena = MemorySession.openConfined()
-        val native = PhysicsStepListener.of(arena) { deltaTime, _ ->
-            listener.onStep(deltaTime)
-        }
-        handle.addStepListener(native)
-        stepListeners[listener] = StepListenerData(native, arena)
+        stepListeners += listener
     }
 
     override fun removeStepListener(listener: StepListener) {
-        val data = stepListeners.remove(listener) ?: return
-        handle.removeStepListener(data.native)
-        data.arena.close()
+        stepListeners -= listener
     }
 
     override fun onContact(listener: ContactListener) {
@@ -391,6 +412,9 @@ class JtPhysicsSpace(
     }
 
     override fun update(deltaTime: Float) {
+        preStepListeners.forEach {
+            it.onPreStep(deltaTime)
+        }
         handle.update(
             deltaTime,
             engine.settings.spaces.collisionSteps,
