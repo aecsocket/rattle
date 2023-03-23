@@ -1,16 +1,15 @@
 package io.github.aecsocket.ignacio.jolt
 
+import io.github.aecsocket.alexandria.core.math.*
 import io.github.aecsocket.ignacio.core.*
-import io.github.aecsocket.ignacio.core.math.*
 import jolt.physics.Activation
 import jolt.physics.PhysicsSystem
-import jolt.physics.body.Body
-import jolt.physics.body.BodyLockInterface
-import jolt.physics.body.BodyLockRead
-import jolt.physics.body.BodyLockWrite
-import jolt.physics.body.MutableBody
-import java.util.Objects
+import jolt.physics.body.*
+import java.util.*
 import java.util.function.Consumer
+
+private const val INVALID_BODY_ID = -0x1 // 0xffffffff
+private const val BROAD_PHASE_BIT = 0x00800000
 
 class JtPhysicsBody(
     val physics: PhysicsSystem,
@@ -62,7 +61,7 @@ class JtPhysicsBody(
                 handle.shape.getWorldSpaceBounds(fComTransform, Vec3f.One.toJolt(), out)
                 val min = out.min.toIgnacio()
                 val max = out.max.toIgnacio()
-                AABB(min.d() + translation, max.d() + translation)
+                AABB(Vec3d(min) + translation, Vec3d(max) + translation)
             }
 
         override val shape: Shape
@@ -239,7 +238,16 @@ class JtPhysicsBody(
         else -> MovingWrite(body)
     }
 
-    private inline fun readWith(lockInterface: BodyLockInterface, crossinline block: (PhysicsBody.Read) -> Unit): Boolean = useMemory {
+    private fun assertCanLock() {
+        if (id.id and BROAD_PHASE_BIT != 0)
+            throw IllegalStateException("Body is in broad phase (already unlocked)")
+        if (id.id == INVALID_BODY_ID)
+            throw IllegalStateException("Body ID is invalid")
+    }
+
+    private inline fun readWith(locking: Boolean, lockInterface: BodyLockInterface, crossinline block: (PhysicsBody.Read) -> Unit): Boolean = useMemory {
+        if (locking)
+            assertCanLock()
         val bodyLock = BodyLockRead.of(this)
         lockInterface.lockRead(id.id, bodyLock)
         val result = bodyLock.body?.let { body ->
@@ -250,11 +258,13 @@ class JtPhysicsBody(
         result
     }
 
-    override fun read(block: Consumer<PhysicsBody.Read>) = readWith(physics.bodyLockInterface) { block.accept(it) }
+    override fun read(block: Consumer<PhysicsBody.Read>) = readWith(true, physics.bodyLockInterface) { block.accept(it) }
 
-    override fun readUnlocked(block: Consumer<PhysicsBody.Read>) = readWith(physics.bodyLockInterfaceNoLock) { block.accept(it) }
+    override fun readUnlocked(block: Consumer<PhysicsBody.Read>) = readWith(false, physics.bodyLockInterfaceNoLock) { block.accept(it) }
 
-    private inline fun writeWith(lockInterface: BodyLockInterface, crossinline block: (PhysicsBody.Write) -> Unit): Boolean = useMemory {
+    private inline fun writeWith(locking: Boolean, lockInterface: BodyLockInterface, crossinline block: (PhysicsBody.Write) -> Unit): Boolean = useMemory {
+        if (locking)
+            assertCanLock()
         val bodyLock = BodyLockWrite.of(this)
         lockInterface.lockWrite(id.id, bodyLock)
         val result = bodyLock.body?.let { body ->
@@ -265,9 +275,9 @@ class JtPhysicsBody(
         result
     }
 
-    override fun write(block: Consumer<PhysicsBody.Write>) = writeWith(physics.bodyLockInterface) { block.accept(it) }
+    override fun write(block: Consumer<PhysicsBody.Write>) = writeWith(true, physics.bodyLockInterface) { block.accept(it) }
 
-    override fun writeUnlocked(block: Consumer<PhysicsBody.Write>) = writeWith(physics.bodyLockInterfaceNoLock) { block.accept(it) }
+    override fun writeUnlocked(block: Consumer<PhysicsBody.Write>) = writeWith(false, physics.bodyLockInterfaceNoLock) { block.accept(it) }
 
     override fun toString(): String = name?.let { "$name ($id)" } ?: id.toString()
 

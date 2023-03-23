@@ -1,7 +1,7 @@
 package io.github.aecsocket.ignacio.jolt
 
-import io.github.aecsocket.ignacio.core.math.*
-import io.github.aecsocket.ignacio.core.math.Quat
+import io.github.aecsocket.alexandria.core.math.*
+import io.github.aecsocket.alexandria.core.math.Quat
 import jolt.Destroyable
 import jolt.geometry.AABox
 import jolt.math.*
@@ -67,7 +67,7 @@ fun JQuat.toIgnacio() = Quat(x, y, z, w)
 context(MemorySession)
 fun AABox() = AABox.of(this@MemorySession)
 context(MemorySession)
-fun AABB.toJoltF() = AABox.of(this@MemorySession, min.f().toJolt(), max.f().toJolt())
+fun AABB.toJoltF() = AABox.of(this@MemorySession, Vec3f(min).toJolt(), Vec3f(max).toJolt())
 
 context(MemorySession)
 fun FMat44() = FMat44.of(this@MemorySession)
@@ -80,7 +80,7 @@ fun DMat44.toTransform(): Transform {
         getRotation(0), getRotation(4), getRotation(8),
         getRotation(1), getRotation(5), getRotation(9),
         getRotation(2), getRotation(6), getRotation(10)
-    ).quat()
+    ).toQuat()
     return Transform(position, rotation)
 }
 

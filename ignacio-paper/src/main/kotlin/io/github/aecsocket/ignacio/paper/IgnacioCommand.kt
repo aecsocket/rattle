@@ -14,9 +14,9 @@ import io.github.aecsocket.alexandria.paper.ItemDescriptor
 import io.github.aecsocket.glossa.core.component
 import io.github.aecsocket.glossa.core.messageProxy
 import io.github.aecsocket.ignacio.core.*
-import io.github.aecsocket.ignacio.core.math.Transform
-import io.github.aecsocket.ignacio.core.math.Vec3f
-import io.github.aecsocket.ignacio.core.math.nextVec3d
+import io.github.aecsocket.alexandria.core.math.Transform
+import io.github.aecsocket.alexandria.core.math.Vec3f
+import io.github.aecsocket.alexandria.core.math.nextVec3d
 import io.github.aecsocket.ignacio.paper.util.position
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor

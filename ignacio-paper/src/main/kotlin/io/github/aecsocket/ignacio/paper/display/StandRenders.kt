@@ -16,9 +16,9 @@ import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerTe
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerTeams.ScoreBoardTeamInfo
 import io.github.aecsocket.alexandria.paper.extension.nextEntityId
 import io.github.retrooper.packetevents.util.SpigotConversionUtil
-import io.github.aecsocket.ignacio.core.math.EulerOrder
-import io.github.aecsocket.ignacio.core.math.Transform
-import io.github.aecsocket.ignacio.core.math.euler
+import io.github.aecsocket.alexandria.core.math.EulerOrder
+import io.github.aecsocket.alexandria.core.math.Transform
+import io.github.aecsocket.alexandria.core.math.toEuler
 import io.github.aecsocket.ignacio.paper.ColorTeams
 import io.github.aecsocket.ignacio.paper.sendPacket
 import net.kyori.adventure.text.Component
@@ -59,7 +59,7 @@ sealed class StandRender(
     private fun position(transform: Transform) = transform.position
         .run { Vector3d(x, y + yOffset, z) }
 
-    private fun headRotation(transform: Transform) = transform.rotation.euler(EulerOrder.ZYX).degrees()
+    private fun headRotation(transform: Transform) = transform.rotation.toEuler(EulerOrder.ZYX).degrees()
         .run { Vector3f(x, -y, -z) }
 
     override fun spawn(players: Iterable<Player>) {

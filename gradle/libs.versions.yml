@@ -9,7 +9,7 @@ plugins:
 
 versions:
   indra: 3.0.1
-  kotlin: 1.8.20-Beta
+  kotlin: 1.8.20-RC2
   kotlinxCoroutines: 1.6.4
   adventure: 4.12.0
   configurate: 4.1.2

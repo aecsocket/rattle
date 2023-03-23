@@ -1,7 +1,7 @@
 package io.github.aecsocket.ignacio.paper.world
 
 import io.github.aecsocket.ignacio.core.*
-import io.github.aecsocket.ignacio.core.math.*
+import io.github.aecsocket.alexandria.core.math.*
 import io.github.aecsocket.ignacio.paper.ignacioBodyName
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -97,8 +97,8 @@ class SliceTerrainStrategy(
             }
         }
     }
-    private val onContact = object : ContactListener {
-        override fun onAdded(body1: PhysicsBody.Read, body2: PhysicsBody.Read, manifold: ContactManifold) {
+    private val onContact = object : CollisionListener {
+        override fun onAdded(body1: PhysicsBody.Read, body2: PhysicsBody.Read, manifold: CollisionManifold) {
             fun tryAdd(target: PhysicsBody, fluidBody: PhysicsBody) {
                 val fluidLayer = bodyToLayer[fluidBody] as? TerrainLayer.Fluid ?: return
                 inFluid[target] = FluidContact(fluidBody, fluidLayer)
@@ -128,13 +128,13 @@ class SliceTerrainStrategy(
 
     init {
         physics.onStep(onStep)
-        physics.onContact(onContact)
+        physics.onCollision(onContact)
     }
 
     override fun destroy() {
         cube.destroy()
         physics.removeStepListener(onStep)
-        physics.removeContactListener(onContact)
+        physics.removeCollisionListener(onContact)
     }
 
     override fun enable() {
@@ -300,7 +300,7 @@ class SliceTerrainStrategy(
                 // only create for moving objects (TODO custom object layer support: expand this)
                 if (access.objectLayer != engine.layers.ofObject.moving) return@readUnlocked
                 // next tick, we will create snapshots of the chunk slices this body covers
-                val overlappingSlices = (access.boundingBox / 16.0).points().toSet()
+                val overlappingSlices = (access.boundingBox / 16.0).enclosingPoints().toSet()
                 toCreate += overlappingSlices
                 toRemove -= overlappingSlices
             }

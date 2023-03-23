@@ -1,7 +1,7 @@
 package io.github.aecsocket.ignacio.paper
 
 import com.destroystokyo.paper.event.server.ServerTickEndEvent
-import io.github.aecsocket.ignacio.core.math.Point3
+import io.github.aecsocket.alexandria.core.math.Point3
 import io.papermc.paper.event.player.PlayerTrackEntityEvent
 import io.papermc.paper.event.player.PlayerUntrackEntityEvent
 import org.bukkit.event.EventHandler

@@ -1,6 +1,6 @@
 package io.github.aecsocket.ignacio.paper.display
 
-import io.github.aecsocket.ignacio.core.math.Transform
+import io.github.aecsocket.alexandria.core.math.Transform
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import org.bukkit.entity.Entity

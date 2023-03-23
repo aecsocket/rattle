@@ -2,9 +2,9 @@ package io.github.aecsocket.ignacio.jolt
 
 import io.github.aecsocket.ignacio.core.*
 import io.github.aecsocket.ignacio.core.PhysicsBody
-import io.github.aecsocket.ignacio.core.ContactListener
-import io.github.aecsocket.ignacio.core.ContactManifold
-import io.github.aecsocket.ignacio.core.math.*
+import io.github.aecsocket.ignacio.core.CollisionListener
+import io.github.aecsocket.ignacio.core.CollisionManifold
+import io.github.aecsocket.alexandria.core.math.*
 import jolt.core.TempAllocator
 import jolt.math.DVec3
 import jolt.math.FMat44
@@ -13,7 +13,6 @@ import jolt.physics.PhysicsStepListener
 import jolt.physics.PhysicsSystem
 import jolt.physics.body.Body
 import jolt.physics.body.BodyCreationSettings
-import jolt.physics.body.BodyLockRead
 import jolt.physics.body.MassProperties
 import jolt.physics.body.MotionType
 import jolt.physics.body.MutableBody
@@ -235,7 +234,7 @@ class JtPhysicsSpace(
             val results = ArrayList<BodyId>()
             return useMemory {
                 handle.broadPhaseQuery.collideSphere(
-                    position.f().toJolt(), radius,
+                    Vec3f(position).toJolt(), radius,
                     CollideShapeBodyCollector.of(this) { result ->
                         results += BodyId(result)
                     },
@@ -329,7 +328,7 @@ class JtPhysicsSpace(
 
     private val preStepListeners = HashSet<PreStepListener>()
     private val stepListeners = HashSet<StepListener>()
-    private val contactListeners = HashSet<ContactListener>()
+    private val collisionListeners = HashSet<CollisionListener>()
 
     init {
         updateSettings()
@@ -351,12 +350,12 @@ class JtPhysicsSpace(
             override fun onContactAdded(body1: Body, body2: Body, manifold: JContactManifold, settings: ContactSettings) {
                 val access1 = readAccess(body1)
                 val access2 = readAccess(body2)
-                val igManifold = ContactManifold(
+                val igManifold = CollisionManifold(
                     position = manifold.baseOffsetD.toIgnacio(),
                     penetrationDepth = manifold.penetrationDepth,
                     normal = manifold.worldSpaceNormal.toIgnacio(),
                 )
-                contactListeners.forEach {
+                collisionListeners.forEach {
                     it.onAdded(access1, access2, igManifold)
                 }
             }
@@ -371,7 +370,7 @@ class JtPhysicsSpace(
             override fun onContactRemoved(subShapeIdPair: SubShapeIdPair) {
                 val access1 = bodyOf(BodyId(subShapeIdPair.bodyId1))
                 val access2 = bodyOf(BodyId(subShapeIdPair.bodyId2))
-                contactListeners.forEach {
+                collisionListeners.forEach {
                     it.onRemoved(access1, access2)
                 }
             }
@@ -403,12 +402,12 @@ class JtPhysicsSpace(
         stepListeners -= listener
     }
 
-    override fun onContact(listener: ContactListener) {
-        contactListeners += listener
+    override fun onCollision(listener: CollisionListener) {
+        collisionListeners += listener
     }
 
-    override fun removeContactListener(listener: ContactListener) {
-        contactListeners -= listener
+    override fun removeCollisionListener(listener: CollisionListener) {
+        collisionListeners -= listener
     }
 
     override fun update(deltaTime: Float) {

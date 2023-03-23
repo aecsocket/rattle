@@ -18,17 +18,20 @@ class PhysicsWorld(
     val physics: PhysicsSpace,
     val terrain: TerrainStrategy,
     val entities: EntityStrategy,
+    val players: PlayerStrategy,
 ) : Destroyable {
     private val destroyed = DestroyFlag()
 
     fun tickUpdate() {
         terrain.tickUpdate()
         entities.tickUpdate()
+        players.tickUpdate()
     }
 
     fun physicsUpdate(deltaTime: Float) {
         terrain.physicsUpdate(deltaTime)
         entities.physicsUpdate(deltaTime)
+        players.physicsUpdate(deltaTime)
         physics.update(deltaTime)
     }
 
@@ -36,6 +39,7 @@ class PhysicsWorld(
         destroyed.mark()
         terrain.destroy()
         entities.destroy()
+        players.destroy()
     }
 
     operator fun component1() = physics

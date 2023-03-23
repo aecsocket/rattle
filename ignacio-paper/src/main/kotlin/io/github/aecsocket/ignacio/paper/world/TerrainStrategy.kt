@@ -1,7 +1,7 @@
 package io.github.aecsocket.ignacio.paper.world
 
 import io.github.aecsocket.ignacio.core.*
-import io.github.aecsocket.ignacio.core.math.Point3
+import io.github.aecsocket.alexandria.core.math.Point3
 import org.bukkit.Chunk
 import org.bukkit.World
 

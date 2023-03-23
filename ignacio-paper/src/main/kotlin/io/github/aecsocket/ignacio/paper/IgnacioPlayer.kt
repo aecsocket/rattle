@@ -1,11 +1,11 @@
 package io.github.aecsocket.ignacio.paper
 
 import io.github.aecsocket.glossa.core.component
-import io.github.aecsocket.ignacio.core.math.Ray
-import io.github.aecsocket.ignacio.core.math.d
+import io.github.aecsocket.alexandria.core.math.Ray
+import io.github.aecsocket.alexandria.core.math.Vec3d
 import io.github.aecsocket.ignacio.paper.util.location
 import io.github.aecsocket.ignacio.paper.util.position
-import io.github.aecsocket.ignacio.paper.util.vec3f
+import io.github.aecsocket.ignacio.paper.util.toVec3f
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
 import org.bukkit.Particle
@@ -78,13 +78,13 @@ class IgnacioPlayer internal constructor(
         if (debugFlags.bodyInfo) {
             ignacio.engine.launchTask {
                 val (physics) = ignacio.worlds[world] ?: return@launchTask
-                val ray = Ray(player.eyeLocation.position(), player.location.direction.vec3f())
+                val ray = Ray(player.eyeLocation.position(), player.location.direction.toVec3f())
                 val text = physics.narrowQuery.rayCastBody(
                     ray,
                     32.0f, // todo
                 )?.let { rayCast ->
                     repeat(10) {
-                        val pos = rayCast.inPosition + (rayCast.normal * (0.1f * it)).d()
+                        val pos = rayCast.inPosition + Vec3d(rayCast.normal * (0.1f * it))
                         player.spawnParticle(Particle.FLAME, pos.location(world), 0)
                     }
 

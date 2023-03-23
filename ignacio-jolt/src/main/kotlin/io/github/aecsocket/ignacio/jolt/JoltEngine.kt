@@ -1,12 +1,15 @@
 package io.github.aecsocket.ignacio.jolt
 
+import io.github.aecsocket.alexandria.core.math.Vec3f
 import io.github.aecsocket.ignacio.core.*
 import io.github.aecsocket.ignacio.core.Shape
-import io.github.aecsocket.ignacio.core.math.clamp
-import io.github.aecsocket.ignacio.core.math.radians
-import io.github.aecsocket.ignacio.core.math.sqr
+import io.github.aecsocket.alexandria.core.math.clamp
+import io.github.aecsocket.alexandria.core.math.radians
+import io.github.aecsocket.alexandria.core.math.sqr
 import jolt.*
 import jolt.core.*
+import jolt.geometry.GJKClosestPoint
+import jolt.geometry.PointConvexSupport
 import jolt.physics.PhysicsSettings
 import jolt.physics.PhysicsSystem
 import jolt.physics.collision.ObjectLayerFilter
@@ -16,6 +19,8 @@ import jolt.physics.collision.broadphase.BroadPhaseLayerInterface
 import jolt.physics.collision.broadphase.BroadPhaseLayerInterfaceFn
 import jolt.physics.collision.broadphase.ObjectVsBroadPhaseLayerFilter
 import jolt.physics.collision.shape.*
+import jolt.physics.collision.shape.ConvexShape.Support
+import jolt.physics.collision.shape.ConvexShape.SupportBuffer
 import kotlinx.coroutines.*
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import java.lang.foreign.MemorySession
@@ -66,6 +71,26 @@ data class JtBroadFilter(
         arena.close()
     }
 }
+
+data class JtConvexSupportFunction(
+    val handle: Support,
+    val arena: MemorySession,
+) : SupportFunction {
+    private val destroyed = DestroyFlag()
+
+    fun destroyed() = destroyed.marked()
+
+    override fun destroy() {
+        destroyed.mark()
+        arena.close()
+    }
+}
+
+data class JtPointSupportFunction(val point: Vec3f) : SupportFunction {
+    override fun destroy() {}
+}
+
+private const val GJK_TOLERANCE = 1.0e-4f;
 
 class JoltEngine(var settings: Settings, private val logger: Logger) : IgnacioEngine {
     @ConfigSerializable
@@ -175,6 +200,102 @@ class JoltEngine(var settings: Settings, private val logger: Logger) : IgnacioEn
                 },
                 arena
             )
+        }
+    }
+
+    override val gjk = object : IgnacioEngine.GJK {
+        /*
+                fun supportOf(shape: Shape): SupportFunction?
+
+        fun supportOf(point: Vec3f): SupportFunction
+
+        fun collides(supportA: SupportFunction, supportB: SupportFunction): Boolean
+
+        data class ClosestPoints(
+            val a: Vec3f,
+            val b: Vec3f,
+            val distanceSq: Float,
+        )
+
+        fun closestPoints(supportA: SupportFunction, supportB: SupportFunction): ClosestPoints
+         */
+
+        override fun supportOf(shape: Shape): SupportFunction? {
+            shape as JtShape
+            return shape.convexHandle?.let { handle ->
+                MemorySession.openShared().run {
+                    val buffer = SupportBuffer.of(this)
+                    val support = handle.getSupportFunction(ConvexShape.SupportMode.EXCLUDE_CONVEX_RADIUS, buffer, Vec3f.One.toJolt())
+                    support?.let { JtConvexSupportFunction(it, this) }
+                }
+            }
+        }
+
+        override fun supportOf(point: Vec3f): SupportFunction {
+            return JtPointSupportFunction(point)
+        }
+
+        override fun collides(supportA: SupportFunction, supportB: SupportFunction): Boolean {
+            supportA as? JtConvexSupportFunction
+                ?: throw IllegalArgumentException("supportA must be a convex support function")
+            return useMemory {
+                val gjk = GJKClosestPoint.of(this)
+                val result = when (supportB) {
+                    is JtConvexSupportFunction -> gjk.intersects(
+                        supportA.handle,
+                        supportB.handle,
+                        GJK_TOLERANCE,
+                        Vec3f.Zero.toJolt()
+                    )
+                    is JtPointSupportFunction -> gjk.intersects(
+                        supportA.handle,
+                        PointConvexSupport.of(this, supportB.point.toJolt()),
+                        GJK_TOLERANCE,
+                        supportB.point.toJolt(),
+                    )
+                    else -> throw IllegalArgumentException("supportB must be a convex or point support function")
+                }
+                result
+            }
+        }
+
+        override fun closestPoints(
+            supportA: SupportFunction,
+            supportB: SupportFunction
+        ): IgnacioEngine.GJK.ClosestPoints {
+            supportA as? JtConvexSupportFunction
+                ?: throw IllegalArgumentException("supportA must be a convex support function")
+            return useMemory {
+                val gjk = GJKClosestPoint.of(this)
+                val outA = FVec3()
+                val outB = FVec3()
+                val distanceSq = when (supportB) {
+                    is JtConvexSupportFunction -> gjk.getClosestPoints(
+                        supportA.handle,
+                        supportB.handle,
+                        GJK_TOLERANCE,
+                        Float.MAX_VALUE,
+                        Vec3f.X.toJolt(),
+                        outA,
+                        outB,
+                    )
+                    is JtPointSupportFunction -> gjk.getClosestPoints(
+                        supportA.handle,
+                        PointConvexSupport.of(this, supportB.point.toJolt()),
+                        GJK_TOLERANCE,
+                        Float.MAX_VALUE,
+                        supportB.point.toJolt(),
+                        outA,
+                        outB,
+                    )
+                    else -> throw IllegalArgumentException("supportB must be a convex or point support function")
+                }
+                IgnacioEngine.GJK.ClosestPoints(
+                    outA.toIgnacio(),
+                    outB.toIgnacio(),
+                    distanceSq,
+                )
+            }
         }
     }
 

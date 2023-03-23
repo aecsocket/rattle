@@ -7,7 +7,7 @@ import jolt.physics.collision.shape.ShapeType
 
 class JtShape(val handle: JShape) : Shape {
     private val destroyed = DestroyFlag()
-    private val convexHandle = if (handle.type == ShapeType.CONVEX) ConvexShape.at(handle.address()) else null
+    val convexHandle = if (handle.type == ShapeType.CONVEX) ConvexShape.at(handle.address()) else null
 
     override val density by lazy { convexHandle?.density }
 

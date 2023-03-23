@@ -16,7 +16,6 @@ import io.github.aecsocket.glossa.core.messageProxy
 import io.github.aecsocket.ignacio.core.IgnacioEngine
 import io.github.aecsocket.ignacio.core.PhysicsSpace
 import io.github.aecsocket.ignacio.core.TimestampedList
-import io.github.aecsocket.ignacio.core.serializer.ignacioCoreSerializers
 import io.github.aecsocket.ignacio.core.timestampedList
 import io.github.aecsocket.ignacio.jolt.JoltEngine
 import io.github.aecsocket.ignacio.paper.display.StandRenders
@@ -44,7 +43,6 @@ private val configOptions: ConfigurationOptions = ConfigurationOptions.defaults(
     .serializers { it
         .registerAll(alexandriaCoreSerializers)
         .registerAll(alexandriaPaperSerializers)
-        .registerAll(ignacioCoreSerializers)
         .registerAnnotatedObjects(ObjectMapper.factoryBuilder()
             .addDiscoverer(dataClassFieldDiscoverer())
             .build()
@@ -65,6 +63,15 @@ enum class EntityStrategies(
 ) {
     NONE    ({ _, _, _ -> NoOpEntityStrategy() }),
     DEFAULT ({ engine, world, physics -> DefaultEntityStrategy(engine, physics) });
+
+    fun create(engine: IgnacioEngine, world: World, physics: PhysicsSpace) = factory.create(engine, world, physics)
+}
+
+enum class PlayerStrategies(
+    private val factory: PlayerStrategyFactory
+) {
+    NONE    ({ _, _, _ -> NoOpPlayerStrategy() }),
+    DEFAULT ({ engine, world, physics -> DefaultPlayerStrategy(engine, world, physics) });
 
     fun create(engine: IgnacioEngine, world: World, physics: PhysicsSpace) = factory.create(engine, world, physics)
 }
@@ -97,6 +104,7 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
         data class Worlds(
             val terrainStrategy: TerrainStrategies = TerrainStrategies.SLICE,
             val entityStrategy: EntityStrategies = EntityStrategies.DEFAULT,
+            val playerStrategy: PlayerStrategies = PlayerStrategies.DEFAULT,
             val spaceSettings: PhysicsSpace.Settings = PhysicsSpace.Settings(),
         )
 
@@ -148,6 +156,7 @@ class Ignacio : AlexandriaApiPlugin(Manifest("ignacio",
                 physics = physics,
                 terrain = settings.worlds.terrainStrategy.create(engine, world, physics),
                 entities = settings.worlds.entityStrategy.create(engine, world, physics),
+                players = settings.worlds.playerStrategy.create(engine, world, physics),
             ).also {
                 it.terrain.onChunksLoad(world.loadedChunks.asList())
             }

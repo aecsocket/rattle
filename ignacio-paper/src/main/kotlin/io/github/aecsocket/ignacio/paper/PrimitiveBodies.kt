@@ -3,7 +3,7 @@ package io.github.aecsocket.ignacio.paper
 import io.github.aecsocket.ignacio.core.PhysicsBody
 import io.github.aecsocket.ignacio.core.PhysicsSpace
 import io.github.aecsocket.ignacio.core.bodies
-import io.github.aecsocket.ignacio.core.math.Transform
+import io.github.aecsocket.alexandria.core.math.Transform
 import io.github.aecsocket.ignacio.paper.display.*
 import io.github.aecsocket.ignacio.paper.util.location
 import org.bukkit.Location
