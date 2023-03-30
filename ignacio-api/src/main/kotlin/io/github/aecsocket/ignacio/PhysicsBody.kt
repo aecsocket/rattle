@@ -5,7 +5,6 @@ import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import java.util.function.Consumer
 
 sealed interface BodyDescriptor {
-    val name: String?
     val shape: Shape
     val objectLayer: ObjectLayer
     val trigger: Boolean
@@ -13,7 +12,6 @@ sealed interface BodyDescriptor {
 
 @ConfigSerializable
 data class StaticBodyDescriptor(
-    override val name: String? = null,
     override val shape: Shape,
     override val objectLayer: ObjectLayer,
     override val trigger: Boolean = false,
@@ -21,7 +19,6 @@ data class StaticBodyDescriptor(
 
 @ConfigSerializable
 data class MovingBodyDescriptor(
-    override val name: String? = null,
     override val shape: Shape,
     override val objectLayer: ObjectLayer,
     override val trigger: Boolean = false,

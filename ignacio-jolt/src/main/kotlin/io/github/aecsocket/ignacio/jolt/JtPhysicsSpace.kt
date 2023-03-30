@@ -5,7 +5,6 @@ import jolt.core.TempAllocator
 import jolt.physics.Activation
 import jolt.physics.PhysicsStepListener
 import jolt.physics.PhysicsSystem
-import jolt.physics.body.Body
 import jolt.physics.body.BodyCreationSettings
 import jolt.physics.body.MotionType
 import java.lang.foreign.MemorySession
@@ -32,7 +31,11 @@ class JtPhysicsSpace internal constructor(
         }
 
     private val onStep = ArrayList<StepListener>()
-    private val bodies = HashMap<Body, JtPhysicsBody>()
+    // cache number of bodies after each update
+    // this isn't immediately updated, but accessing them directly from Jolt is *really slow* when many bodies are active
+    // since it locks the entire body mutex, and causes the calling thread (potentially main!) to block
+    private var numBodies = 0
+    private var numActiveBodies = 0
 
     init {
         updateSettings()
@@ -46,6 +49,8 @@ class JtPhysicsSpace internal constructor(
         handle.delete()
         arena.close()
     }
+
+    fun bodyOf(id: Int) = JtPhysicsBody(handle, id)
 
     private fun createBodySettings(
         mem: MemorySession,
@@ -64,11 +69,15 @@ class JtPhysicsSpace internal constructor(
         return bodySettings
     }
 
+    private fun createBody(settings: BodyCreationSettings, descriptor: BodyDescriptor): JtPhysicsBody {
+        val body = handle.bodyInterface.createBody(settings)
+        return bodyOf(body.id)
+    }
+
     override fun createStaticBody(descriptor: StaticBodyDescriptor, transform: Transform): PhysicsBody {
         return pushMemory { arena ->
             val bodySettings = createBodySettings(arena, descriptor, transform, MotionType.STATIC)
-            val body = handle.bodyInterface.createBody(bodySettings)
-            JtPhysicsBody(handle, descriptor.name, body.id)
+            createBody(bodySettings, descriptor)
         }
     }
 
@@ -80,7 +89,6 @@ class JtPhysicsSpace internal constructor(
                 transform,
                 if (descriptor.kinematic) MotionType.KINEMATIC else MotionType.DYNAMIC,
             )
-
             bodySettings.friction = descriptor.friction
             bodySettings.restitution = descriptor.restitution
             bodySettings.linearDamping = descriptor.linearDamping
@@ -90,8 +98,7 @@ class JtPhysicsSpace internal constructor(
             bodySettings.gravityFactor = descriptor.gravityFactor
             bodySettings.linearVelocity = arena.asJolt(descriptor.linearVelocity)
             bodySettings.angularVelocity = arena.asJolt(descriptor.angularVelocity)
-            val body = handle.bodyInterface.createBody(bodySettings)
-            JtPhysicsBody(handle, descriptor.name, body.id)
+            createBody(bodySettings, descriptor)
         }
     }
 
@@ -159,7 +166,7 @@ class JtPhysicsSpace internal constructor(
         bodies.forEachIndexed { idx, body ->
             if (body.destroyed.get())
                 throw IllegalStateException("Body $body [$idx] is destroyed")
-            if (body.added)
+            if (!body.added)
                 throw IllegalStateException("Body $body [$idx] is not added to physics space")
         }
 

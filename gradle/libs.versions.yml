@@ -14,10 +14,11 @@ versions:
   klam: 0.1.0-SNAPSHOT
   adventure: 4.13.0
   configurate: 4.1.2
-  cloud: 1.8.3
+  cpuFeaturesJava: 2.0.1
   joltJava: 0.1.0-SNAPSHOT
   minecraft: 1.19.4
-  glossa: 1.0.1
+  glossa: 1.0.2
+  cloud: 1.8.3
   alexandria: 0.1.0-SNAPSHOT
   packetEvents: 2.0.0-SNAPSHOT
 
@@ -37,11 +38,17 @@ dependencies:
   cloudCore: { group: cloud.commandframework, name: cloud-core, version: { ref: cloud } }
   cloudPaper: { group: cloud.commandframework, name: cloud-paper, version: { ref: cloud } }
   cloudMinecraftExtras: { group: cloud.commandframework, name: cloud-minecraft-extras, version: { ref: cloud } }
+  cpuFeaturesJava: { group: io.github.aecsocket, name: cpu-features-java, version: { ref: cpuFeaturesJava } }
+  cpuFeaturesJavaNativesLinuxX86: { group: io.github.aecsocket, name: cpu-features-java-natives-linux-x86, version: { ref: cpuFeaturesJava } }
+  cpuFeaturesJavaNativesWindowsX86: { group: io.github.aecsocket, name: cpu-features-java-natives-windows-x86, version: { ref: cpuFeaturesJava } }
+  cpuFeaturesJavaNativesMacosX86: { group: io.github.aecsocket, name: cpu-features-java-natives-macos-x86, version: { ref: cpuFeaturesJava } }
   joltJava: { group: io.github.aecsocket, name: jolt-java, version: { ref: joltJava } }
   joltJavaNativesLinuxX86: { group: io.github.aecsocket, name: jolt-java-natives-linux-x86, version: { ref: joltJava } }
   joltJavaNativesWindowsX86: { group: io.github.aecsocket, name: jolt-java-natives-linux-x86, version: { ref: joltJava } }
   joltJavaNativesMacosX86: { group: io.github.aecsocket, name: jolt-java-natives-macos-x86, version: { ref: joltJava } }
-  glossaCore: { group: io.github.aecsocket, name: glossa-core, version: { ref: glossa } }
+  glossaApi: { group: io.github.aecsocket, name: glossa-api, version: { ref: glossa } }
   glossaConfigurate: { group: io.github.aecsocket, name: glossa-configurate, version: { ref: glossa } }
+  alexandriaApi: { group: io.github.aecsocket, name: alexandria-api, version: { ref: alexandria } }
+  alexandriaApiPaper: { group: io.github.aecsocket, name: alexandria-api-paper, version: { ref: alexandria } }
   packetEventsApi: { group: com.github.retrooper.packetevents, name: api, version: { ref: packetEvents } }
   packetEventsSpigot: { group: com.github.retrooper.packetevents, name: spigot, version: { ref: packetEvents } }

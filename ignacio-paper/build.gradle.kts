@@ -15,9 +15,12 @@ repositories {
 
 dependencies {
     implementation(projects.ignacioApi)
-    //implementation(projects.ignacioJolt)
+    implementation(projects.ignacioJolt)
+    testRuntimeOnly(libs.joltJavaNativesLinuxX86)
+    testRuntimeOnly(libs.cpuFeaturesJavaNativesLinuxX86)
     paperweight.paperDevBundle("$minecraft-R0.1-SNAPSHOT")
     implementation(libs.kotlinxCoroutinesCore)
+    implementation(libs.klam)
     implementation(libs.adventureSerializerConfigurate)
     implementation(libs.cloudCore)
     implementation(libs.cloudPaper)
@@ -25,10 +28,10 @@ dependencies {
     implementation(libs.configurateCore)
     implementation(libs.configurateExtraKotlin)
     implementation(libs.configurateYaml)
-    //implementation(libs.alexandriaCore)
-    //implementation(libs.alexandriaPaper)
-    implementation(libs.glossaCore)
+    implementation(libs.glossaApi)
     implementation(libs.glossaConfigurate)
+    implementation(libs.alexandriaApi)
+    implementation(libs.alexandriaApiPaper)
     implementation(libs.packetEventsSpigot)
 }
 

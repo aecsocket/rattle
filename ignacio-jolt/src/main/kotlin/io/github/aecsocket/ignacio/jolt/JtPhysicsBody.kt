@@ -16,7 +16,6 @@ private fun assertAdded(body: Body) {
 
 data class JtPhysicsBody internal constructor(
     val physics: PhysicsSystem,
-    val name: String?,
     val id: Int,
 ) : PhysicsBody {
     val destroyed = AtomicBoolean(false)
@@ -90,7 +89,6 @@ data class JtPhysicsBody internal constructor(
 
     private interface StaticAccess : Access, PhysicsBody.StaticAccess {
         override fun asDescriptor() = StaticBodyDescriptor(
-            name = key.name,
             shape = shape,
             objectLayer = objectLayer,
             trigger = trigger,
@@ -117,7 +115,6 @@ data class JtPhysicsBody internal constructor(
             get() = body.motionProperties.gravityFactor
 
         override fun asDescriptor() = MovingBodyDescriptor(
-            name = key.name,
             shape = shape,
             objectLayer = objectLayer,
             trigger = trigger,
@@ -254,9 +251,7 @@ data class JtPhysicsBody internal constructor(
 
     override fun writeUnlocked(block: Consumer<PhysicsBody.Write>) = writeWith(physics.bodyLockInterfaceNoLock, block::accept)
 
-    override fun toString(): String = name?.let { name ->
-        "$name (${BodyIds.asString(id)})"
-    } ?: BodyIds.asString(id)
+    override fun toString(): String = BodyIds.asString(id)
 
     override fun equals(other: Any?) = other is JtPhysicsBody
             && physics == other.physics

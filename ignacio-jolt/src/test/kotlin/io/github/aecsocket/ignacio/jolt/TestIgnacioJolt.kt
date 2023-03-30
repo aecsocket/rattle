@@ -11,14 +11,12 @@ class TestIgnacioJolt {
 
         val floorShape = engine.createShape(BoxGeometry(Vec3(100.0f, 0.5f, 100.0f)))
         val floorBody = physics.addStaticBody(StaticBodyDescriptor(
-            name = "Floor",
             shape = floorShape,
             objectLayer = engine.objectLayers.static,
         ), Transform())
 
         val ballShape = engine.createShape(SphereGeometry(1.0f))
         val ballBody = physics.addMovingBody(MovingBodyDescriptor(
-            name = "Ball",
             shape = ballShape,
             objectLayer = engine.objectLayers.moving,
             linearVelocity = Vec3(0.0f, 2.0f, 0.0f),
@@ -36,5 +34,11 @@ class TestIgnacioJolt {
                 println("[$step] $ballBody @ ${ball.position}")
             }
         }
+
+        physics.removeBodies(setOf(ballBody, floorBody))
+        ballShape.destroy()
+        floorShape.destroy()
+        physics.destroy()
+        engine.destroy()
     }
 }

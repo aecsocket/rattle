@@ -1,8 +1,11 @@
 package io.github.aecsocket.ignacio.paper
 
+import io.github.aecsocket.alexandria.paper.BaseCommand
+import io.github.aecsocket.glossa.messageProxy
+
 internal class IgnacioCommand(
     private val ignacio: Ignacio
-) : AlexandriaApiCommand(ignacio, ignacio.glossa.messageProxy()) {
+) : BaseCommand(ignacio, ignacio.glossa.messageProxy()) {
     init {
 
     }
