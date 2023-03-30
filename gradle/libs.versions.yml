@@ -3,21 +3,22 @@ metadata:
   polyglot-extensions: [ "plugins" ]
 
 plugins:
-  com.github.johnrengelman.shadow: 7.1.2
-  io.papermc.paperweight.userdev: 1.5.1
+  com.github.johnrengelman.shadow: 8.1.1
+  io.papermc.paperweight.userdev: 1.5.3
   xyz.jpenilla.run-paper: 2.0.1
 
 versions:
   indra: 3.0.1
   kotlin: 1.8.20-RC2
   kotlinxCoroutines: 1.6.4
-  adventure: 4.12.0
+  klam: 0.1.0-SNAPSHOT
+  adventure: 4.13.0
   configurate: 4.1.2
-  cloud: 1.8.0
-  alexandria: 0.1.0-SNAPSHOT
+  cloud: 1.8.3
   joltJava: 0.1.0-SNAPSHOT
-  minecraft: 1.19.3
-  glossa: 0.1.0-SNAPSHOT
+  minecraft: 1.19.4
+  glossa: 1.0.1
+  alexandria: 0.1.0-SNAPSHOT
   packetEvents: 2.0.0-SNAPSHOT
 
 dependencies:
@@ -26,6 +27,9 @@ dependencies:
   kotlin: { group: org.jetbrains.kotlin, name: kotlin-gradle-plugin, version: { ref: kotlin } }
   kotlinxCoroutinesCore: { group: org.jetbrains.kotlinx, name: kotlinx-coroutines-core, version: { ref: kotlinxCoroutines } }
   kotlinxCoroutinesJdk8: { group: org.jetbrains.kotlinx, name: kotlinx-coroutines-jdk8, version: { ref: kotlinxCoroutines } }
+  klam: { group: io.github.aecsocket, name: klam, version: { ref: klam } }
+  klamConfigurate: { group: io.github.aecsocket, name: klam-configurate, version: { ref: klam } }
+  adventureApi: { group: net.kyori, name: adventure-api, version: { ref: adventure } }
   adventureSerializerConfigurate: { group: net.kyori, name: adventure-serializer-configurate4, version: { ref: adventure } }
   configurateCore: { group: org.spongepowered, name: configurate-core, version: { ref: configurate } }
   configurateExtraKotlin: { group: org.spongepowered, name: configurate-extra-kotlin, version: { ref: configurate } }
@@ -33,8 +37,6 @@ dependencies:
   cloudCore: { group: cloud.commandframework, name: cloud-core, version: { ref: cloud } }
   cloudPaper: { group: cloud.commandframework, name: cloud-paper, version: { ref: cloud } }
   cloudMinecraftExtras: { group: cloud.commandframework, name: cloud-minecraft-extras, version: { ref: cloud } }
-  alexandriaCore: { group: io.github.aecsocket, name: alexandria-core, version: { ref: alexandria } }
-  alexandriaPaper: { group: io.github.aecsocket, name: alexandria-paper, version: { ref: alexandria } }
   joltJava: { group: io.github.aecsocket, name: jolt-java, version: { ref: joltJava } }
   joltJavaNativesLinuxX86: { group: io.github.aecsocket, name: jolt-java-natives-linux-x86, version: { ref: joltJava } }
   joltJavaNativesWindowsX86: { group: io.github.aecsocket, name: jolt-java-natives-linux-x86, version: { ref: joltJava } }

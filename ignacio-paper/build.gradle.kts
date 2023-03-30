@@ -14,8 +14,8 @@ repositories {
 }
 
 dependencies {
-    implementation(projects.ignacioCore)
-    implementation(projects.ignacioJolt)
+    implementation(projects.ignacioApi)
+    //implementation(projects.ignacioJolt)
     paperweight.paperDevBundle("$minecraft-R0.1-SNAPSHOT")
     implementation(libs.kotlinxCoroutinesCore)
     implementation(libs.adventureSerializerConfigurate)
@@ -25,8 +25,8 @@ dependencies {
     implementation(libs.configurateCore)
     implementation(libs.configurateExtraKotlin)
     implementation(libs.configurateYaml)
-    implementation(libs.alexandriaCore)
-    implementation(libs.alexandriaPaper)
+    //implementation(libs.alexandriaCore)
+    //implementation(libs.alexandriaPaper)
     implementation(libs.glossaCore)
     implementation(libs.glossaConfigurate)
     implementation(libs.packetEventsSpigot)

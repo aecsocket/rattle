@@ -1,291 +1,266 @@
 package io.github.aecsocket.ignacio.jolt
 
-import io.github.aecsocket.alexandria.core.math.*
-import io.github.aecsocket.ignacio.core.*
+import io.github.aecsocket.ignacio.*
+import io.github.aecsocket.klam.DVec3
 import jolt.physics.Activation
 import jolt.physics.PhysicsSystem
 import jolt.physics.body.*
-import java.util.*
+import java.util.Objects
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.function.Consumer
 
-private const val INVALID_BODY_ID = -0x1 // 0xffffffff
-private const val BROAD_PHASE_BIT = 0x00800000
+private fun assertAdded(body: Body) {
+    if (!body.isInBroadPhase)
+        throw IllegalStateException("Body is not added to physics space")
+}
 
-class JtPhysicsBody(
+data class JtPhysicsBody internal constructor(
     val physics: PhysicsSystem,
-    val id: BodyId,
-    override val name: String?,
-    override var added: Boolean,
+    val name: String?,
+    val id: Int,
 ) : PhysicsBody {
-    // base classes
+    val destroyed = AtomicBoolean(false)
+    override val added get() = physics.bodyInterface.isAdded(id)
+
     private interface Access : PhysicsBody.Access {
-        val handle: Body
+        override val key: JtPhysicsBody
+        val body: Body
 
-        override val isActive: Boolean
-            get() = handle.isActive
+        override val active get() = body.isActive
 
-        override val objectLayer: ObjectLayer
-            get() = JtObjectLayer(JObjectLayer(handle.objectLayer))
+        override val objectLayer get() = JtObjectLayer(body.objectLayer)
 
-        override val position: Vec3d
-            get() = useMemory {
-                DVec3().also { handle.getPosition(it) }.toIgnacio()
-            }
+        override val position get() = pushMemory { arena ->
+            arena.JtDVec3().also { body.getPosition(it) }.asIgnacio()
+        }
 
-        override val rotation: Quat
-            get() = useMemory {
-                JQuat().also { handle.getRotation(it) }.toIgnacio()
-            }
+        override val rotation get() = pushMemory { arena ->
+            arena.JtQuat().also { body.getRotation(it) }.asIgnacio()
+        }
 
-        override val transform: Transform
-            get() = useMemory {
-                val position = DVec3()
-                val rotation = JQuat()
-                handle.getPosition(position)
-                handle.getRotation(rotation)
-                Transform(position.toIgnacio(), rotation.toIgnacio())
-            }
+        override val transform get() = pushMemory { arena ->
+            val position = arena.JtDVec3().also { body.getPosition(it) }.asIgnacio()
+            val rotation = arena.JtQuat().also { body.getRotation(it) }.asIgnacio()
+            Transform(position, rotation)
+        }
 
-        override val boundingBox: AABB
-            get() = useMemory {
-                val comTransform = DMat44()
-                handle.getCenterOfMassTransform(comTransform)
-                val translation = Vec3d(
-                    comTransform.getTranslation(0),
-                    comTransform.getTranslation(1),
-                    comTransform.getTranslation(2)
-                )
-                val fComTransform = FMat44()
-                fComTransform.read(comTransform.rotationComponents(), floatArrayOf(0.0f, 0.0f, 0.0f))
-                val out = AABox()
-                handle.shape.getWorldSpaceBounds(fComTransform, Vec3f.One.toJolt(), out)
-                val min = out.min.toIgnacio()
-                val max = out.max.toIgnacio()
-                AABB(Vec3d(min) + translation, Vec3d(max) + translation)
-            }
+        override val shape get(): Shape = JtShape(body.shape)
 
-        override val shape: Shape
-            get() = JtShape(handle.shape)
-    }
-
-    private interface MovingAccess : Access, PhysicsBody.MovingAccess {
-        override val linearVelocity: Vec3f
-            get() = useMemory {
-                FVec3().also { handle.getLinearVelocity(it) }.toIgnacio()
-            }
-
-        override val angularVelocity: Vec3f
-            get() = useMemory {
-                FVec3().also { handle.getAngularVelocity(it) }.toIgnacio()
-            }
+        override val trigger get() = body.isSensor
     }
 
     private interface Write : Access, PhysicsBody.Write {
-        override val handle: MutableBody
+        override val body: MutableBody
 
-        val bodyId: Int
-
-        val physics: PhysicsSystem
-
-        override val isActive: Boolean
-            get() = super.isActive
-
-        override var position: Vec3d
+        override var position: DVec3
             get() = super.position
-            set(value) = useMemory {
-                physics.bodyInterfaceNoLock.setPosition(bodyId, value.toJolt(), Activation.DONT_ACTIVATE)
+            set(value) = pushMemory { arena ->
+                key.physics.bodyInterfaceNoLock.setPosition(key.id, arena.asJolt(value), Activation.DONT_ACTIVATE)
             }
 
         override var rotation: Quat
             get() = super.rotation
-            set(value) = useMemory {
-                physics.bodyInterfaceNoLock.setRotation(bodyId, value.toJolt(), Activation.DONT_ACTIVATE)
+            set(value) = pushMemory { arena ->
+                key.physics.bodyInterfaceNoLock.setRotation(key.id, arena.asJolt(value), Activation.DONT_ACTIVATE)
             }
 
         override var transform: Transform
             get() = super.transform
-            set(value) = useMemory {
-                physics.bodyInterfaceNoLock.setPositionAndRotation(bodyId, value.position.toJolt(), value.rotation.toJolt(), Activation.DONT_ACTIVATE)
+            set(value) = pushMemory { arena ->
+                key.physics.bodyInterfaceNoLock.setPositionAndRotation(
+                    key.id,
+                    arena.asJolt(value.position),
+                    arena.asJolt(value.rotation),
+                    Activation.DONT_ACTIVATE
+                )
             }
 
         override var shape: Shape
             get() = super.shape
             set(value) {
                 value as JtShape
-                // TODO update mass props?
-                physics.bodyInterfaceNoLock.setShape(bodyId, value.handle, false, Activation.DONT_ACTIVATE)
+                // TODO update mass properties?
+                key.physics.bodyInterfaceNoLock.setShape(key.id, value.handle, false, Activation.DONT_ACTIVATE)
             }
+
+        override var trigger: Boolean
+            get() = super.trigger
+            set(value) { body.setIsSensor(value) }
     }
 
-    // impls
-    private open inner class BaseAccess(override val handle: Body) : Access {
-        override val body: PhysicsBody
-            get() = this@JtPhysicsBody
+    private interface StaticAccess : Access, PhysicsBody.StaticAccess {
+        override fun asDescriptor() = StaticBodyDescriptor(
+            name = key.name,
+            shape = shape,
+            objectLayer = objectLayer,
+            trigger = trigger,
+        )
     }
 
-    private inner class StaticRead(body: Body) : BaseAccess(body), PhysicsBody.StaticRead
+    private interface StaticWrite : StaticAccess, Write, PhysicsBody.StaticWrite
 
-    private inner class MovingRead(body: Body) : BaseAccess(body), MovingAccess, PhysicsBody.MovingRead
+    private interface MovingAccess : Access, PhysicsBody.MovingAccess {
+        override val kinematic: Boolean
+            get() = body.isKinematic
 
-    private open inner class BaseWrite(override val handle: MutableBody) : BaseAccess(handle), Write {
-        override val bodyId: Int
-            get() = this@JtPhysicsBody.id.id
+        override val linearVelocity: Vec3
+            get() = pushMemory { arena ->
+                arena.JtFVec3().also { key.physics.bodyInterfaceNoLock.getLinearVelocity(key.id, it) }.asIgnacio()
+            }
 
-        override val physics: PhysicsSystem
-            get() = this@JtPhysicsBody.physics
+        override val angularVelocity: Vec3
+            get() = pushMemory { arena ->
+                arena.JtFVec3().also { key.physics.bodyInterfaceNoLock.getAngularVelocity(key.id, it) }.asIgnacio()
+            }
+
+        override val gravityFactor: Float
+            get() = body.motionProperties.gravityFactor
+
+        override fun asDescriptor() = MovingBodyDescriptor(
+            name = key.name,
+            shape = shape,
+            objectLayer = objectLayer,
+            trigger = trigger,
+            kinematic = kinematic,
+            linearVelocity = linearVelocity,
+            angularVelocity = angularVelocity,
+            gravityFactor = gravityFactor,
+        )
     }
 
-    private inner class StaticWrite(override val handle: MutableBody) : BaseWrite(handle), PhysicsBody.StaticWrite
+    private interface MovingWrite : MovingAccess, Write, PhysicsBody.MovingWrite {
+        override var kinematic: Boolean
+            get() = super.kinematic
+            set(value) { body.motionType = if (value) MotionType.KINEMATIC else MotionType.DYNAMIC }
 
-    private inner class MovingWrite(body: MutableBody) : BaseWrite(body), MovingAccess, PhysicsBody.MovingWrite {
-        override var linearVelocity: Vec3f
+        override var linearVelocity: Vec3
             get() = super.linearVelocity
-            set(value) = useMemory {
-                handle.setLinearVelocityClamped(value.toJolt())
+            set(value) = pushMemory { arena ->
+                body.setLinearVelocityClamped(arena.asJolt(value))
             }
 
-        override var angularVelocity: Vec3f
+        override var angularVelocity: Vec3
             get() = super.angularVelocity
-            set(value) = useMemory {
-                handle.setAngularVelocityClamped(value.toJolt())
+            set(value) = pushMemory { arena ->
+                body.setAngularVelocityClamped(arena.asJolt(value))
             }
+
+        override var gravityFactor: Float
+            get() = super.gravityFactor
+            set(value) { body.motionProperties.gravityFactor = value }
 
         override fun activate() {
-            physics.bodyInterfaceNoLock.activateBody(bodyId)
+            assertAdded(body)
+            key.physics.bodyInterfaceNoLock.activateBody(key.id)
         }
 
         override fun deactivate() {
-            physics.bodyInterfaceNoLock.deactivateBody(bodyId)
+            assertAdded(body)
+            key.physics.bodyInterfaceNoLock.deactivateBody(key.id)
         }
 
-        override fun applyForce(force: Vec3f): Unit = useMemory {
-            handle.addForce(force.toJolt())
+        override fun applyForce(force: Vec3) = pushMemory { arena ->
+            body.addForce(arena.asJolt(force))
         }
 
-        override fun applyForceAt(force: Vec3f, at: Vec3d): Unit = useMemory {
-            handle.addForce(force.toJolt(), at.toJolt())
+        override fun applyForceAt(force: Vec3, at: RVec3) = pushMemory { arena ->
+            body.addForce(arena.asJolt(force), arena.asJolt(at))
         }
 
-        override fun applyImpulse(impulse: Vec3f): Unit = useMemory {
-            handle.addImpulse(impulse.toJolt())
+        override fun applyImpulse(impulse: Vec3) = pushMemory { arena ->
+            body.addImpulse(arena.asJolt(impulse))
         }
 
-        override fun applyImpulseAt(impulse: Vec3f, at: Vec3d): Unit = useMemory {
-            handle.addImpulse(impulse.toJolt(), at.toJolt())
+        override fun applyImpulseAt(impulse: Vec3, at: RVec3) = pushMemory { arena ->
+            body.addImpulse(arena.asJolt(impulse), arena.asJolt(at))
         }
 
-        override fun applyTorque(torque: Vec3f): Unit = useMemory {
-            handle.addTorque(torque.toJolt())
+        override fun applyTorque(torque: Vec3) = pushMemory { arena ->
+            body.addTorque(arena.asJolt(torque))
         }
 
-        override fun applyAngularImpulse(impulse: Vec3f): Unit = useMemory {
-            handle.addAngularImpulse(impulse.toJolt())
-        }
-
-        override fun applyBuoyancy(
-            deltaTime: Float,
-            buoyancy: Float,
-            fluidSurface: Vec3d,
-            fluidNormal: Vec3f,
-            fluidVelocity: Vec3f,
-            fluid: FluidSettings
-        ): Unit = useMemory {
-            val gravity = FVec3().also { physics.getGravity(it) }
-            handle.applyBuoyancyImpulse(
-                fluidSurface.toJolt(),
-                fluidNormal.toJolt(),
-                buoyancy,
-                fluid.linearDrag,
-                fluid.angularDrag,
-                fluidVelocity.toJolt(),
-                gravity,
-                deltaTime,
-            )
+        override fun applyAngularImpulse(impulse: Vec3) = pushMemory { arena ->
+            body.addAngularImpulse(arena.asJolt(impulse))
         }
     }
 
-    internal var isDestroyed = false
-
-    override val valid: Boolean
-        get() = !physics.isDestroyed && !isDestroyed
-
-    fun assertCanBeDestroyed() {
-        if (isDestroyed)
-            throw IllegalStateException("Already destroyed")
+    private inner class StaticReadImpl(override val body: Body) : StaticAccess, PhysicsBody.StaticRead {
+        override val key get() = this@JtPhysicsBody
     }
 
-    fun assertCanBeAdded() {
-        if (added)
-            throw IllegalStateException("Already added")
-        if (isDestroyed)
-            throw IllegalStateException("Already destroyed")
+    private inner class StaticWriteImpl(override val body: MutableBody) : StaticWrite {
+        override val key get() = this@JtPhysicsBody
     }
 
-    fun assertCanBeRemoved() {
-        if (!added)
-            throw IllegalStateException("Already removed")
-        if (isDestroyed)
-            throw IllegalStateException("Already destroyed")
+    private inner class MovingReadImpl(override val body: Body) : MovingAccess, PhysicsBody.MovingRead {
+        override val key get() = this@JtPhysicsBody
+    }
+
+    private inner class MovingWriteImpl(override val body: MutableBody) : MovingWrite {
+        override val key get() = this@JtPhysicsBody
     }
 
     fun readAccess(body: Body): PhysicsBody.Read = when {
-        body.isStatic -> StaticRead(body)
-        else -> MovingRead(body)
+        body.isStatic -> StaticReadImpl(body)
+        else -> MovingReadImpl(body)
     }
 
     fun writeAccess(body: MutableBody): PhysicsBody.Write = when {
-        body.isStatic -> StaticWrite(body)
-        else -> MovingWrite(body)
+        body.isStatic -> StaticWriteImpl(body)
+        else -> MovingWriteImpl(body)
     }
 
-    private fun assertCanLock() {
-        if (id.id and BROAD_PHASE_BIT != 0)
-            throw IllegalStateException("Body is in broad phase (already unlocked)")
-        if (id.id == INVALID_BODY_ID)
-            throw IllegalStateException("Body ID is invalid")
+    private inline fun readWith(
+        locker: BodyLockInterface,
+        crossinline block: (PhysicsBody.Read) -> Unit
+    ): Boolean = pushMemory { arena ->
+        val lock = BodyLockRead.of(arena)
+        locker.lockRead(id, lock)
+        var success = false
+        try {
+            lock.body?.let { body ->
+                block(readAccess(body))
+                success = true
+            }
+        } finally {
+            locker.unlockRead(lock)
+        }
+        success
     }
 
-    private inline fun readWith(locking: Boolean, lockInterface: BodyLockInterface, crossinline block: (PhysicsBody.Read) -> Unit): Boolean = useMemory {
-        if (locking)
-            assertCanLock()
-        val bodyLock = BodyLockRead.of(this)
-        lockInterface.lockRead(id.id, bodyLock)
-        val result = bodyLock.body?.let { body ->
-            block(readAccess(body))
-            true
-        } ?: false
-        lockInterface.unlockRead(bodyLock)
-        result
+    private inline fun writeWith(
+        locker: BodyLockInterface,
+        crossinline block: (PhysicsBody.Write) -> Unit
+    ): Boolean = pushMemory { arena ->
+        val lock = BodyLockWrite.of(arena)
+        locker.lockWrite(id, lock)
+        var success = false
+        try {
+            lock.body?.let { body ->
+                block(writeAccess(body))
+                success = true
+            }
+        } finally {
+            locker.unlockWrite(lock)
+        }
+        success
     }
 
-    override fun read(block: Consumer<PhysicsBody.Read>) = readWith(true, physics.bodyLockInterface) { block.accept(it) }
+    override fun read(block: Consumer<PhysicsBody.Read>) = readWith(physics.bodyLockInterface, block::accept)
 
-    override fun readUnlocked(block: Consumer<PhysicsBody.Read>) = readWith(false, physics.bodyLockInterfaceNoLock) { block.accept(it) }
+    override fun readUnlocked(block: Consumer<PhysicsBody.Read>) = readWith(physics.bodyLockInterfaceNoLock, block::accept)
 
-    private inline fun writeWith(locking: Boolean, lockInterface: BodyLockInterface, crossinline block: (PhysicsBody.Write) -> Unit): Boolean = useMemory {
-        if (locking)
-            assertCanLock()
-        val bodyLock = BodyLockWrite.of(this)
-        lockInterface.lockWrite(id.id, bodyLock)
-        val result = bodyLock.body?.let { body ->
-            block(writeAccess(body))
-            true
-        } ?: false
-        lockInterface.unlockWrite(bodyLock)
-        result
-    }
+    override fun write(block: Consumer<PhysicsBody.Write>) = writeWith(physics.bodyLockInterface, block::accept)
 
-    override fun write(block: Consumer<PhysicsBody.Write>) = writeWith(true, physics.bodyLockInterface) { block.accept(it) }
+    override fun writeUnlocked(block: Consumer<PhysicsBody.Write>) = writeWith(physics.bodyLockInterfaceNoLock, block::accept)
 
-    override fun writeUnlocked(block: Consumer<PhysicsBody.Write>) = writeWith(false, physics.bodyLockInterfaceNoLock) { block.accept(it) }
-
-    override fun toString(): String = name?.let { "$name ($id)" } ?: id.toString()
+    override fun toString(): String = name?.let { name ->
+        "$name (${BodyIds.asString(id)})"
+    } ?: BodyIds.asString(id)
 
     override fun equals(other: Any?) = other is JtPhysicsBody
             && physics == other.physics
             && id == other.id
 
-    override fun hashCode(): Int {
-        return Objects.hash(physics, id)
-    }
+    override fun hashCode() = Objects.hash(physics, id)
 }

@@ -14,6 +14,6 @@ plugins {
 
 rootProject.name = "ignacio"
 
-include("ignacio-core")
+include("ignacio-api")
 include("ignacio-jolt")
 include("ignacio-paper")
