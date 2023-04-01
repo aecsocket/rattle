@@ -1,12 +1,18 @@
 package io.github.aecsocket.ignacio.jolt
 
 import io.github.aecsocket.ignacio.*
+import io.github.aecsocket.klam.FVec3
 import jolt.core.TempAllocator
 import jolt.physics.Activation
 import jolt.physics.PhysicsStepListener
 import jolt.physics.PhysicsSystem
 import jolt.physics.body.BodyCreationSettings
 import jolt.physics.body.MotionType
+import jolt.physics.collision.CastRayCollector
+import jolt.physics.collision.RayCastResult
+import jolt.physics.collision.RayCastSettings
+import jolt.physics.collision.broadphase.CollideShapeBodyCollector
+import jolt.physics.collision.broadphase.RayCastBodyCollector
 import java.lang.foreign.MemorySession
 
 class JtPhysicsSpace internal constructor(
@@ -19,7 +25,7 @@ class JtPhysicsSpace internal constructor(
     private val arena = MemorySession.openShared()
 
     private fun updateSettings() {
-        pushMemory { arena ->
+        pushArena { arena ->
             handle.setGravity(arena.asJolt(settings.gravity))
         }
     }
@@ -52,125 +58,219 @@ class JtPhysicsSpace internal constructor(
 
     fun bodyOf(id: Int) = JtPhysicsBody(handle, id)
 
-    private fun createBodySettings(
-        mem: MemorySession,
-        descriptor: BodyDescriptor,
-        transform: Transform,
-        motionType: MotionType
-    ): BodyCreationSettings {
-        val bodySettings = BodyCreationSettings.of(mem,
-            (descriptor.shape as JtShape).handle,
-            mem.asJolt(transform.position),
-            mem.asJolt(transform.rotation),
-            motionType,
-            (descriptor.objectLayer as JtObjectLayer).id,
-        )
-        bodySettings.isSensor = descriptor.trigger
-        return bodySettings
-    }
-
-    private fun createBody(settings: BodyCreationSettings, descriptor: BodyDescriptor): JtPhysicsBody {
-        val body = handle.bodyInterface.createBody(settings)
-        return bodyOf(body.id)
-    }
-
-    override fun createStaticBody(descriptor: StaticBodyDescriptor, transform: Transform): PhysicsBody {
-        return pushMemory { arena ->
-            val bodySettings = createBodySettings(arena, descriptor, transform, MotionType.STATIC)
-            createBody(bodySettings, descriptor)
-        }
-    }
-
-    override fun createMovingBody(descriptor: MovingBodyDescriptor, transform: Transform): PhysicsBody {
-        return pushMemory { arena ->
-            val bodySettings = createBodySettings(
-                arena,
-                descriptor,
-                transform,
-                if (descriptor.kinematic) MotionType.KINEMATIC else MotionType.DYNAMIC,
+    override val bodies = object : PhysicsSpace.Bodies {
+        private fun createBodySettings(
+            mem: MemorySession,
+            descriptor: BodyDescriptor,
+            transform: Transform,
+            motionType: MotionType
+        ): BodyCreationSettings {
+            val bodySettings = BodyCreationSettings.of(mem,
+                (descriptor.shape as JtShape).handle,
+                mem.asJolt(transform.position),
+                mem.asJolt(transform.rotation),
+                motionType,
+                (descriptor.contactFilter as JtBodyContactFilter).id,
             )
-            bodySettings.friction = descriptor.friction
-            bodySettings.restitution = descriptor.restitution
-            bodySettings.linearDamping = descriptor.linearDamping
-            bodySettings.angularDamping = descriptor.angularDamping
-            bodySettings.maxLinearVelocity = descriptor.maxLinearVelocity
-            bodySettings.maxAngularVelocity = descriptor.maxAngularVelocity
-            bodySettings.gravityFactor = descriptor.gravityFactor
-            bodySettings.linearVelocity = arena.asJolt(descriptor.linearVelocity)
-            bodySettings.angularVelocity = arena.asJolt(descriptor.angularVelocity)
-            createBody(bodySettings, descriptor)
+            bodySettings.isSensor = descriptor.trigger
+            return bodySettings
         }
-    }
 
-    override fun destroyBody(body: PhysicsBody) {
-        body as JtPhysicsBody
-        if (body.added)
-            throw IllegalStateException("Body $body is still added to physics space")
-        if (body.destroyed.getAndSet(true))
-            throw IllegalStateException("Body $body is already destroyed")
+        private fun createBody(settings: BodyCreationSettings, descriptor: BodyDescriptor): JtPhysicsBody {
+            val body = handle.bodyInterface.createBody(settings)
+            return bodyOf(body.id)
+        }
 
-        handle.bodyInterface.destroyBody(body.id)
-    }
+        override fun createStatic(descriptor: StaticBodyDescriptor, transform: Transform): PhysicsBody {
+            return pushArena { arena ->
+                val bodySettings = createBodySettings(arena, descriptor, transform, MotionType.STATIC)
+                createBody(bodySettings, descriptor)
+            }
+        }
 
-    override fun destroyBodies(bodies: Collection<PhysicsBody>) {
-        @Suppress("UNCHECKED_CAST")
-        bodies as Collection<JtPhysicsBody>
-        bodies.forEachIndexed { idx, body ->
+        override fun createMoving(descriptor: MovingBodyDescriptor, transform: Transform): PhysicsBody {
+            return pushArena { arena ->
+                val bodySettings = createBodySettings(
+                    arena,
+                    descriptor,
+                    transform,
+                    if (descriptor.kinematic) MotionType.KINEMATIC else MotionType.DYNAMIC,
+                )
+                bodySettings.friction = descriptor.friction
+                bodySettings.restitution = descriptor.restitution
+                bodySettings.linearDamping = descriptor.linearDamping
+                bodySettings.angularDamping = descriptor.angularDamping
+                bodySettings.maxLinearVelocity = descriptor.maxLinearVelocity
+                bodySettings.maxAngularVelocity = descriptor.maxAngularVelocity
+                bodySettings.gravityFactor = descriptor.gravityFactor
+                bodySettings.linearVelocity = arena.asJolt(descriptor.linearVelocity)
+                bodySettings.angularVelocity = arena.asJolt(descriptor.angularVelocity)
+                createBody(bodySettings, descriptor)
+            }
+        }
+
+        override fun destroy(body: PhysicsBody) {
+            body as JtPhysicsBody
             if (body.added)
-                throw IllegalStateException("Body $body [$idx] is still added to physics space")
+                throw IllegalStateException("Body $body is still added to physics space")
             if (body.destroyed.getAndSet(true))
-                throw IllegalStateException("Body $body [$idx] is already destroyed")
+                throw IllegalStateException("Body $body is already destroyed")
+
+            handle.bodyInterface.destroyBody(body.id)
         }
 
-        handle.bodyInterface.destroyBodies(bodies.map { it.id })
-    }
+        override fun destroyAll(bodies: Collection<PhysicsBody>) {
+            @Suppress("UNCHECKED_CAST")
+            bodies as Collection<JtPhysicsBody>
+            bodies.forEachIndexed { idx, body ->
+                if (body.added)
+                    throw IllegalStateException("Body $body [$idx] is still added to physics space")
+                if (body.destroyed.getAndSet(true))
+                    throw IllegalStateException("Body $body [$idx] is already destroyed")
+            }
 
-    override fun addBody(body: PhysicsBody) {
-        body as JtPhysicsBody
-        if (body.destroyed.get())
-            throw IllegalStateException("Body $body is destroyed")
-        if (body.added)
-            throw IllegalStateException("Body $body is already added to physics space")
+            handle.bodyInterface.destroyBodies(bodies.map { it.id })
+        }
 
-        handle.bodyInterface.addBody(body.id, Activation.DONT_ACTIVATE)
-    }
-
-    override fun addBodies(bodies: Collection<PhysicsBody>) {
-        @Suppress("UNCHECKED_CAST")
-        bodies as Collection<JtPhysicsBody>
-        bodies.forEachIndexed { idx, body ->
+        override fun add(body: PhysicsBody) {
+            body as JtPhysicsBody
             if (body.destroyed.get())
-                throw IllegalStateException("Body $body [$idx] is destroyed")
+                throw IllegalStateException("Body $body is destroyed")
             if (body.added)
-                throw IllegalStateException("Body $body [$idx] is already added to physics space")
+                throw IllegalStateException("Body $body is already added to physics space")
+
+            handle.bodyInterface.addBody(body.id, Activation.DONT_ACTIVATE)
         }
 
-        val bulk = handle.bodyInterface.bodyBulk(bodies.map { it.id })
-        handle.bodyInterface.addBodiesPrepare(bulk)
-        handle.bodyInterface.addBodiesFinalize(bulk, Activation.DONT_ACTIVATE)
-    }
+        override fun addAll(bodies: Collection<PhysicsBody>) {
+            @Suppress("UNCHECKED_CAST")
+            bodies as Collection<JtPhysicsBody>
+            bodies.forEachIndexed { idx, body ->
+                if (body.destroyed.get())
+                    throw IllegalStateException("Body $body [$idx] is destroyed")
+                if (body.added)
+                    throw IllegalStateException("Body $body [$idx] is already added to physics space")
+            }
 
-    override fun removeBody(body: PhysicsBody) {
-        body as JtPhysicsBody
-        if (body.destroyed.get())
-            throw IllegalStateException("Body $body is destroyed")
-        if (!body.added)
-            throw IllegalStateException("Body $body is not added to physics space")
+            val bulk = handle.bodyInterface.bodyBulk(bodies.map { it.id })
+            handle.bodyInterface.addBodiesPrepare(bulk)
+            handle.bodyInterface.addBodiesFinalize(bulk, Activation.DONT_ACTIVATE)
+        }
 
-        handle.bodyInterface.removeBody(body.id)
-    }
-
-    override fun removeBodies(bodies: Collection<PhysicsBody>) {
-        @Suppress("UNCHECKED_CAST")
-        bodies as Collection<JtPhysicsBody>
-        bodies.forEachIndexed { idx, body ->
+        override fun remove(body: PhysicsBody) {
+            body as JtPhysicsBody
             if (body.destroyed.get())
-                throw IllegalStateException("Body $body [$idx] is destroyed")
+                throw IllegalStateException("Body $body is destroyed")
             if (!body.added)
-                throw IllegalStateException("Body $body [$idx] is not added to physics space")
+                throw IllegalStateException("Body $body is not added to physics space")
+
+            handle.bodyInterface.removeBody(body.id)
         }
 
-        handle.bodyInterface.removeBodies(bodies.map { it.id })
+        override fun removeAll(bodies: Collection<PhysicsBody>) {
+            @Suppress("UNCHECKED_CAST")
+            bodies as Collection<JtPhysicsBody>
+            bodies.forEachIndexed { idx, body ->
+                if (body.destroyed.get())
+                    throw IllegalStateException("Body $body [$idx] is destroyed")
+                if (!body.added)
+                    throw IllegalStateException("Body $body [$idx] is not added to physics space")
+            }
+
+            handle.bodyInterface.removeBodies(bodies.map { it.id })
+        }
+    }
+
+    override val broadQuery = object : PhysicsSpace.BroadQuery {
+        override fun rayCastBodies(ray: RRay, distance: Float, layerFilter: LayerFilter): Collection<PhysicsSpace.RayCast> {
+            layerFilter as JtLayerFilter
+            val result = ArrayList<PhysicsSpace.RayCast>()
+            pushArena { arena ->
+                handle.broadPhaseQuery.castRay(
+                    arena.asJoltF(ray),
+                    RayCastBodyCollector.of(arena) { hit ->
+                        result += PhysicsSpace.RayCast(
+                            body = bodyOf(hit.bodyId),
+                            hitFraction = hit.fraction,
+                        )
+                    },
+                    layerFilter.broad,
+                    layerFilter.objects,
+                )
+            }
+            return result
+        }
+
+        override fun rayCastBody(ray: RRay, distance: Float, layerFilter: LayerFilter): PhysicsSpace.RayCast? {
+            return rayCastBodies(ray, distance, layerFilter).firstOrNull()
+        }
+
+        override fun contactSphere(
+            position: RVec3,
+            radius: Float,
+            layerFilter: LayerFilter
+        ): Collection<PhysicsBody> {
+            layerFilter as JtLayerFilter
+            val result = ArrayList<PhysicsBody>()
+            pushArena { arena ->
+                handle.broadPhaseQuery.collideSphere(
+                    arena.asJolt(FVec3(position)),
+                    radius,
+                    CollideShapeBodyCollector.of(arena) { hit ->
+                        result += bodyOf(hit)
+                    },
+                    layerFilter.broad,
+                    layerFilter.objects,
+                )
+            }
+            return result
+        }
+    }
+
+    override val narrowQuery = object : PhysicsSpace.NarrowQuery {
+        override fun rayCastBody(ray: RRay, distance: Float, layerFilter: LayerFilter, bodyFilter: BodyFilter): PhysicsSpace.RayCast? {
+            layerFilter as JtLayerFilter
+            bodyFilter as JtBodyFilter
+            return pushArena { arena ->
+                val hit = RayCastResult.of(arena)
+                val result = handle.narrowPhaseQuery.castRay(
+                    arena.asJolt(ray),
+                    hit,
+                    layerFilter.broad,
+                    layerFilter.objects,
+                    bodyFilter.body,
+                )
+                if (result) PhysicsSpace.RayCast(
+                    body = bodyOf(hit.bodyId),
+                    hitFraction = hit.fraction,
+                ) else null
+            }
+        }
+
+        override fun rayCastBodies(ray: RRay, distance: Float, layerFilter: LayerFilter, bodyFilter: BodyFilter, shapeFilter: ShapeFilter): Collection<PhysicsSpace.RayCast> {
+            layerFilter as JtLayerFilter
+            bodyFilter as JtBodyFilter
+            shapeFilter as JtShapeFilter
+            val result = ArrayList<PhysicsSpace.RayCast>()
+            pushArena { arena ->
+                val castSettings = RayCastSettings.of(arena)
+                handle.narrowPhaseQuery.castRay(
+                    arena.asJolt(ray),
+                    castSettings,
+                    CastRayCollector.of(arena) { hit ->
+                        result += PhysicsSpace.RayCast(
+                            body = bodyOf(hit.bodyId),
+                            hitFraction = hit.fraction,
+                        )
+                    },
+                    layerFilter.broad,
+                    layerFilter.objects,
+                    bodyFilter.body,
+                    shapeFilter.shape,
+                )
+            }
+            return result
+        }
     }
 
     override fun onStep(listener: StepListener) {

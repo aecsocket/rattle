@@ -6,21 +6,21 @@ import java.util.function.Consumer
 
 sealed interface BodyDescriptor {
     val shape: Shape
-    val objectLayer: ObjectLayer
+    val contactFilter: BodyContactFilter
     val trigger: Boolean
 }
 
 @ConfigSerializable
 data class StaticBodyDescriptor(
     override val shape: Shape,
-    override val objectLayer: ObjectLayer,
+    override val contactFilter: BodyContactFilter,
     override val trigger: Boolean = false,
 ) : BodyDescriptor
 
 @ConfigSerializable
 data class MovingBodyDescriptor(
     override val shape: Shape,
-    override val objectLayer: ObjectLayer,
+    override val contactFilter: BodyContactFilter,
     override val trigger: Boolean = false,
     val kinematic: Boolean = false,
     val friction: Float = 0.2f,
@@ -50,7 +50,7 @@ interface PhysicsBody {
 
         val active: Boolean
 
-        val objectLayer: ObjectLayer
+        val contactFilter: BodyContactFilter
 
         val position: RVec3
 

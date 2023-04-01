@@ -9,7 +9,9 @@ import jolt.core.JobSystem
 import jolt.core.TempAllocator
 import jolt.physics.PhysicsSettings
 import jolt.physics.PhysicsSystem
+import jolt.physics.collision.ObjectLayerFilter
 import jolt.physics.collision.ObjectLayerPairFilter
+import jolt.physics.collision.broadphase.BroadPhaseLayerFilter
 import jolt.physics.collision.broadphase.BroadPhaseLayerInterface
 import jolt.physics.collision.broadphase.BroadPhaseLayerInterfaceFn
 import jolt.physics.collision.broadphase.ObjectVsBroadPhaseLayerFilter
@@ -35,7 +37,8 @@ private const val OBJ_LAYER_MOVING: Short = 1
 private const val OBJ_LAYER_TERRAIN: Short = 2
 private const val OBJ_LAYER_ENTITY: Short = 3
 
-data class JtObjectLayer(val id: Short) : ObjectLayer
+private const val BODY_LAYER_MAX_VALUE = Short.MAX_VALUE
+private const val BODY_LAYER_NUM_BITS = 16
 
 private fun numThreads(num: Int) =
     if (num > 0) num
@@ -47,7 +50,49 @@ fun <T : Deletable, R> T.use(block: (T) -> R): R {
     return result
 }
 
-class JoltEngine(var settings: Settings) : IgnacioEngine {
+data class JtBodyLayer(val id: Short) : BodyLayer
+
+data class JtBodyFlag(val id: Short) : BodyFlag
+
+data class JtBodyContactFilter(val id: Short) : BodyContactFilter
+
+data class JtLayerFilter(
+    val broad: BroadPhaseLayerFilter,
+    val objects: ObjectLayerFilter,
+    val arena: MemorySession,
+) : LayerFilter {
+    override fun destroy() {
+        arena.close()
+    }
+}
+
+data class JtBodyFilter(
+    val body: jolt.physics.collision.BodyFilter,
+    val arena: MemorySession,
+) : BodyFilter {
+    override fun destroy() {
+        arena.close()
+    }
+}
+
+data class JtShapeFilter(
+    val shape: jolt.physics.collision.ShapeFilter,
+    val arena: MemorySession,
+) : ShapeFilter {
+    override fun destroy() {
+        arena.close()
+    }
+}
+
+internal data class ObjectLayerData(
+    val bpLayer: Byte,
+    val bpLayerMask: Byte, // byte = 8 bits; 1 bit per broad-phase layer (bitfield)
+)
+
+class JoltEngine internal constructor(
+    var settings: Settings,
+    private val objectLayers: Array<ObjectLayerData>,
+) : IgnacioEngine {
     @ConfigSerializable
     data class Settings(
         val jobs: Jobs = Jobs(),
@@ -123,27 +168,19 @@ class JoltEngine(var settings: Settings) : IgnacioEngine {
         jobSystem = JobSystem.of(settings.jobs.maxJobs, settings.jobs.maxBarriers, numThreads(settings.jobs.numThreads))
 
         bpLayerInterface = BroadPhaseLayerInterface.of(arena, object : BroadPhaseLayerInterfaceFn {
-            override fun getNumBroadPhaseLayers() = 3
-            override fun getBroadPhaseLayer(layer: Short) = when (layer) {
-                OBJ_LAYER_STATIC -> BP_LAYER_STATIC
-                OBJ_LAYER_MOVING -> BP_LAYER_MOVING
-                OBJ_LAYER_TERRAIN -> BP_LAYER_TERRAIN
-                OBJ_LAYER_ENTITY -> BP_LAYER_MOVING
-                else -> throw IllegalArgumentException("Invalid object layer $layer")
-            }
+            override fun getNumBroadPhaseLayers() = objectLayers.size
+            override fun getBroadPhaseLayer(layer: Short) = objectLayers[layer.toInt()].bpLayer
         })
 
         objBpLayerFilter = ObjectVsBroadPhaseLayerFilter.of(arena) { layer1, layer2 ->
-            when (layer1) {
-                OBJ_LAYER_STATIC -> layer2 == BP_LAYER_MOVING
-                OBJ_LAYER_MOVING -> true
-                OBJ_LAYER_TERRAIN -> layer2 == BP_LAYER_MOVING
-                OBJ_LAYER_ENTITY -> layer2 == BP_LAYER_MOVING
-                else -> throw IllegalArgumentException("Invalid object layer $layer1")
-            }
+            // check if the `layer2`th bit is set in `layer1`'s broad-phase layer mask
+            val bpMask = 1 shl layer2.toInt()
+            objectLayers[layer1.toInt()].bpLayerMask.toInt() and bpMask != 0
         }
 
         objLayerPairFilter = ObjectLayerPairFilter.of(arena) { layer1, layer2 ->
+            // TODO
+
             when (layer1) {
                 OBJ_LAYER_STATIC -> layer2 == OBJ_LAYER_MOVING
                 OBJ_LAYER_MOVING -> true
@@ -165,14 +202,30 @@ class JoltEngine(var settings: Settings) : IgnacioEngine {
         arena.close()
     }
 
-    override val objectLayers = object : IgnacioEngine.ObjectLayers {
-        override val static = JtObjectLayer(OBJ_LAYER_STATIC)
-        override val moving = JtObjectLayer(OBJ_LAYER_MOVING)
-        override val terrain = JtObjectLayer(OBJ_LAYER_TERRAIN)
-        override val entity = JtObjectLayer(OBJ_LAYER_ENTITY)
+    override val layers = object : IgnacioEngine.Layers {
+        override val static = JtBodyLayer(OBJ_LAYER_STATIC)
+        override val moving = JtBodyLayer(OBJ_LAYER_MOVING)
+        override val terrain = JtBodyLayer(OBJ_LAYER_TERRAIN)
+        override val entity = JtBodyLayer(OBJ_LAYER_ENTITY)
     }
 
-    override fun createShape(geom: Geometry) = JtShape(pushMemory { arena ->
+    override val filters = object : IgnacioEngine.Filters {
+        override val anyLayer = JtLayerFilter(BroadPhaseLayerFilter.passthrough(), ObjectLayerFilter.passthrough(), openArena())
+
+        override val anyBody = JtBodyFilter(jolt.physics.collision.BodyFilter.passthrough(), openArena())
+
+        override val anyShape = JtShapeFilter(jolt.physics.collision.ShapeFilter.passthrough(), openArena())
+    }
+
+    override fun contactFilter(layer: BodyLayer, flags: Set<BodyFlag>): BodyContactFilter {
+        layer as JtBodyLayer
+        @Suppress("UNCHECKED_CAST")
+        flags as Set<JtBodyFlag>
+        // TODO add flags
+        return JtBodyContactFilter(layer.id)
+    }
+
+    override fun shape(geom: Geometry) = JtShape(pushArena { arena ->
         fun CompoundShapeSettings.addChild(child: CompoundChild) {
             addShape(
                 arena.asJolt(child.position),
@@ -206,7 +259,7 @@ class JoltEngine(var settings: Settings) : IgnacioEngine {
         handle
     })
 
-    override fun createSpace(settings: PhysicsSpace.Settings): PhysicsSpace {
+    override fun space(settings: PhysicsSpace.Settings): PhysicsSpace {
         val engineSettings = this.settings
         val physics = PhysicsSystem.of(
             engineSettings.space.maxBodies,
@@ -218,7 +271,7 @@ class JoltEngine(var settings: Settings) : IgnacioEngine {
             objLayerPairFilter,
         )
         val tempAllocator = TempAllocator.of(engineSettings.space.tempAllocatorSize)
-        pushMemory { arena ->
+        pushArena { arena ->
             val physicsSettings = PhysicsSettings.of(arena)
             physics.getPhysicsSettings(physicsSettings)
             physicsSettings.maxInFlightBodyPairs = engineSettings.physics.maxInFlightBodyPairs
@@ -248,5 +301,45 @@ class JoltEngine(var settings: Settings) : IgnacioEngine {
             physics.setPhysicsSettings(physicsSettings)
         }
         return JtPhysicsSpace(this, physics, tempAllocator, settings)
+    }
+
+    class Builder(
+        private val settings: Settings,
+    ) : IgnacioEngine.Builder {
+        private val layers = mutableListOf(
+            ObjectLayerData(BP_LAYER_STATIC,  0b010), // static
+            ObjectLayerData(BP_LAYER_MOVING,  0b111), // moving
+            ObjectLayerData(BP_LAYER_TERRAIN, 0b100), // terrain
+            ObjectLayerData(BP_LAYER_MOVING,  0b111), // entity
+        )
+        private var flags = 0
+
+//        override fun defineBodyLayer(type: BodyLayerType, collidesWith: Set<BodyLayerType>): BodyLayer {
+//            if (layers.size >= BODY_LAYER_MAX_VALUE)
+//                throw IllegalStateException("More than $BODY_LAYER_MAX_VALUE body layers defined")
+//            val result = JtBodyLayer(layers.size.toShort())
+//            var bpLayerMask = 0
+//            collidesWith.forEach { collideWith ->
+//                bpLayerMask = bpLayerMask or (1 shl collideWith.ordinal)
+//            }
+//            layers += ObjectLayerData(type.ordinal.toByte(), bpLayerMask.toByte())
+//            return result
+//        }
+
+//        override fun defineBodyFlag(): BodyFlag {
+//            if (flags >= BODY_LAYER_MAX_VALUE)
+//                throw IllegalStateException("More than $BODY_LAYER_MAX_VALUE body flags defined")
+//            val result = JtBodyFlag(flags.toShort())
+//            flags += 1
+//            return result
+//        }
+
+        override fun build(): JoltEngine {
+            val layerBits = 32 - layers.size.countLeadingZeroBits()
+            val flagBits = flags
+            if (layerBits + flagBits > BODY_LAYER_NUM_BITS)
+                throw IllegalStateException("${layers.size} body layers defined ($layerBits bits), $flags body flags defined ($flagBits bits); must use maximum of $BODY_LAYER_NUM_BITS bits")
+            return JoltEngine(settings, layers.toTypedArray())
+        }
     }
 }

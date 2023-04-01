@@ -62,6 +62,7 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
     private var globalDeltaTime = 0f
     private val players = ConcurrentHashMap<Player, IgnacioPlayer>()
 
+
     init {
         instance = this
     }
@@ -76,7 +77,7 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
         super.onLoad()
 
         engine = JoltEngine(settings.jolt)
-        logger.info("${ProcessHandle.current().pid()}: Loaded ${engine::class.simpleName} (${engine.build})")
+        logger.info("${ProcessHandle.current().pid()}: Loaded ${engine::class.simpleName} ${engine.build}")
     }
 
     override fun onEnable() {

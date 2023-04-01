@@ -14,38 +14,62 @@ interface PhysicsSpace : Destroyable {
 
     var settings: Settings
 
-    fun createStaticBody(descriptor: StaticBodyDescriptor, transform: Transform): PhysicsBody
+    val bodies: Bodies
+    interface Bodies {
+        fun createStatic(descriptor: StaticBodyDescriptor, transform: Transform): PhysicsBody
 
-    fun createMovingBody(descriptor: MovingBodyDescriptor, transform: Transform): PhysicsBody
+        fun createMoving(descriptor: MovingBodyDescriptor, transform: Transform): PhysicsBody
 
-    fun createBody(descriptor: BodyDescriptor, transform: Transform) = when (descriptor) {
-        is StaticBodyDescriptor -> createStaticBody(descriptor, transform)
-        is MovingBodyDescriptor -> createMovingBody(descriptor, transform)
-    }
-
-    fun destroyBody(body: PhysicsBody)
-
-    fun destroyBodies(bodies: Collection<PhysicsBody>)
-
-    fun addBody(body: PhysicsBody)
-
-    fun addStaticBody(descriptor: StaticBodyDescriptor, transform: Transform): PhysicsBody {
-        return createStaticBody(descriptor, transform).also {
-            addBody(it)
+        fun create(descriptor: BodyDescriptor, transform: Transform) = when (descriptor) {
+            is StaticBodyDescriptor -> createStatic(descriptor, transform)
+            is MovingBodyDescriptor -> createMoving(descriptor, transform)
         }
-    }
 
-    fun addMovingBody(descriptor: MovingBodyDescriptor, transform: Transform): PhysicsBody {
-        return createMovingBody(descriptor, transform).also {
-            addBody(it)
+        fun destroy(body: PhysicsBody)
+
+        fun destroyAll(bodies: Collection<PhysicsBody>)
+
+        fun add(body: PhysicsBody)
+
+        fun addStatic(descriptor: StaticBodyDescriptor, transform: Transform): PhysicsBody {
+            return createStatic(descriptor, transform).also {
+                add(it)
+            }
         }
+
+        fun addMovingBody(descriptor: MovingBodyDescriptor, transform: Transform): PhysicsBody {
+            return createMoving(descriptor, transform).also {
+                add(it)
+            }
+        }
+
+        fun addAll(bodies: Collection<PhysicsBody>)
+
+        fun remove(body: PhysicsBody)
+
+        fun removeAll(bodies: Collection<PhysicsBody>)
     }
 
-    fun addBodies(bodies: Collection<PhysicsBody>)
+    data class RayCast(
+        val body: PhysicsBody,
+        val hitFraction: Float,
+    )
 
-    fun removeBody(body: PhysicsBody)
+    val broadQuery: BroadQuery
+    interface BroadQuery {
+        fun rayCastBody(ray: RRay, distance: Float, layerFilter: LayerFilter): RayCast?
 
-    fun removeBodies(bodies: Collection<PhysicsBody>)
+        fun rayCastBodies(ray: RRay, distance: Float, layerFilter: LayerFilter): Collection<RayCast>
+
+        fun contactSphere(position: RVec3, radius: Float, layerFilter: LayerFilter): Collection<PhysicsBody>
+    }
+
+    val narrowQuery: NarrowQuery
+    interface NarrowQuery {
+        fun rayCastBody(ray: RRay, distance: Float, layerFilter: LayerFilter, bodyFilter: BodyFilter): RayCast?
+
+        fun rayCastBodies(ray: RRay, distance: Float, layerFilter: LayerFilter, bodyFilter: BodyFilter, shapeFilter: ShapeFilter): Collection<RayCast>
+    }
 
     fun onStep(listener: StepListener)
 

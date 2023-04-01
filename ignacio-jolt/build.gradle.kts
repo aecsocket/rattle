@@ -9,6 +9,13 @@ dependencies {
     implementation(libs.klam)
     implementation(libs.configurateCore)
     implementation(libs.joltJava)
+
+    testRuntimeOnly(libs.cpuFeaturesJavaNativesLinuxX86)
+    testRuntimeOnly(libs.cpuFeaturesJavaNativesWindowsX86)
+    testRuntimeOnly(libs.cpuFeaturesJavaNativesMacosX86)
+    testRuntimeOnly(libs.joltJavaNativesLinuxX86)
+    //testRuntimeOnly(libs.joltJavaNativesWindowsX86)
+    //testRuntimeOnly(libs.joltJavaNativesMacosX86)
 }
 
 tasks {

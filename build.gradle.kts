@@ -4,4 +4,4 @@ plugins {
 
 group = "io.github.aecsocket"
 version = "0.1.0-SNAPSHOT"
-description = "API abstraction layer for implementing physics engines"
+description = "API layer for implementing physics engines into Minecraft"

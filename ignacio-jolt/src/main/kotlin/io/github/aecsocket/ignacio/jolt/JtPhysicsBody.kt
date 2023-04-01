@@ -27,17 +27,17 @@ data class JtPhysicsBody internal constructor(
 
         override val active get() = body.isActive
 
-        override val objectLayer get() = JtObjectLayer(body.objectLayer)
+        override val contactFilter get() = JtBodyContactFilter(body.objectLayer)
 
-        override val position get() = pushMemory { arena ->
+        override val position get() = pushArena { arena ->
             arena.JtDVec3().also { body.getPosition(it) }.asIgnacio()
         }
 
-        override val rotation get() = pushMemory { arena ->
+        override val rotation get() = pushArena { arena ->
             arena.JtQuat().also { body.getRotation(it) }.asIgnacio()
         }
 
-        override val transform get() = pushMemory { arena ->
+        override val transform get() = pushArena { arena ->
             val position = arena.JtDVec3().also { body.getPosition(it) }.asIgnacio()
             val rotation = arena.JtQuat().also { body.getRotation(it) }.asIgnacio()
             Transform(position, rotation)
@@ -53,19 +53,19 @@ data class JtPhysicsBody internal constructor(
 
         override var position: DVec3
             get() = super.position
-            set(value) = pushMemory { arena ->
+            set(value) = pushArena { arena ->
                 key.physics.bodyInterfaceNoLock.setPosition(key.id, arena.asJolt(value), Activation.DONT_ACTIVATE)
             }
 
         override var rotation: Quat
             get() = super.rotation
-            set(value) = pushMemory { arena ->
+            set(value) = pushArena { arena ->
                 key.physics.bodyInterfaceNoLock.setRotation(key.id, arena.asJolt(value), Activation.DONT_ACTIVATE)
             }
 
         override var transform: Transform
             get() = super.transform
-            set(value) = pushMemory { arena ->
+            set(value) = pushArena { arena ->
                 key.physics.bodyInterfaceNoLock.setPositionAndRotation(
                     key.id,
                     arena.asJolt(value.position),
@@ -90,7 +90,7 @@ data class JtPhysicsBody internal constructor(
     private interface StaticAccess : Access, PhysicsBody.StaticAccess {
         override fun asDescriptor() = StaticBodyDescriptor(
             shape = shape,
-            objectLayer = objectLayer,
+            contactFilter = contactFilter,
             trigger = trigger,
         )
     }
@@ -102,12 +102,12 @@ data class JtPhysicsBody internal constructor(
             get() = body.isKinematic
 
         override val linearVelocity: Vec3
-            get() = pushMemory { arena ->
+            get() = pushArena { arena ->
                 arena.JtFVec3().also { key.physics.bodyInterfaceNoLock.getLinearVelocity(key.id, it) }.asIgnacio()
             }
 
         override val angularVelocity: Vec3
-            get() = pushMemory { arena ->
+            get() = pushArena { arena ->
                 arena.JtFVec3().also { key.physics.bodyInterfaceNoLock.getAngularVelocity(key.id, it) }.asIgnacio()
             }
 
@@ -116,7 +116,7 @@ data class JtPhysicsBody internal constructor(
 
         override fun asDescriptor() = MovingBodyDescriptor(
             shape = shape,
-            objectLayer = objectLayer,
+            contactFilter = contactFilter,
             trigger = trigger,
             kinematic = kinematic,
             linearVelocity = linearVelocity,
@@ -132,13 +132,13 @@ data class JtPhysicsBody internal constructor(
 
         override var linearVelocity: Vec3
             get() = super.linearVelocity
-            set(value) = pushMemory { arena ->
+            set(value) = pushArena { arena ->
                 body.setLinearVelocityClamped(arena.asJolt(value))
             }
 
         override var angularVelocity: Vec3
             get() = super.angularVelocity
-            set(value) = pushMemory { arena ->
+            set(value) = pushArena { arena ->
                 body.setAngularVelocityClamped(arena.asJolt(value))
             }
 
@@ -156,27 +156,27 @@ data class JtPhysicsBody internal constructor(
             key.physics.bodyInterfaceNoLock.deactivateBody(key.id)
         }
 
-        override fun applyForce(force: Vec3) = pushMemory { arena ->
+        override fun applyForce(force: Vec3) = pushArena { arena ->
             body.addForce(arena.asJolt(force))
         }
 
-        override fun applyForceAt(force: Vec3, at: RVec3) = pushMemory { arena ->
+        override fun applyForceAt(force: Vec3, at: RVec3) = pushArena { arena ->
             body.addForce(arena.asJolt(force), arena.asJolt(at))
         }
 
-        override fun applyImpulse(impulse: Vec3) = pushMemory { arena ->
+        override fun applyImpulse(impulse: Vec3) = pushArena { arena ->
             body.addImpulse(arena.asJolt(impulse))
         }
 
-        override fun applyImpulseAt(impulse: Vec3, at: RVec3) = pushMemory { arena ->
+        override fun applyImpulseAt(impulse: Vec3, at: RVec3) = pushArena { arena ->
             body.addImpulse(arena.asJolt(impulse), arena.asJolt(at))
         }
 
-        override fun applyTorque(torque: Vec3) = pushMemory { arena ->
+        override fun applyTorque(torque: Vec3) = pushArena { arena ->
             body.addTorque(arena.asJolt(torque))
         }
 
-        override fun applyAngularImpulse(impulse: Vec3) = pushMemory { arena ->
+        override fun applyAngularImpulse(impulse: Vec3) = pushArena { arena ->
             body.addAngularImpulse(arena.asJolt(impulse))
         }
     }
@@ -210,7 +210,7 @@ data class JtPhysicsBody internal constructor(
     private inline fun readWith(
         locker: BodyLockInterface,
         crossinline block: (PhysicsBody.Read) -> Unit
-    ): Boolean = pushMemory { arena ->
+    ): Boolean = pushArena { arena ->
         val lock = BodyLockRead.of(arena)
         locker.lockRead(id, lock)
         var success = false
@@ -228,7 +228,7 @@ data class JtPhysicsBody internal constructor(
     private inline fun writeWith(
         locker: BodyLockInterface,
         crossinline block: (PhysicsBody.Write) -> Unit
-    ): Boolean = pushMemory { arena ->
+    ): Boolean = pushArena { arena ->
         val lock = BodyLockWrite.of(arena)
         locker.lockWrite(id, lock)
         var success = false

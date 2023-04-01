@@ -1,34 +1,75 @@
 package io.github.aecsocket.ignacio
 
-import io.github.aecsocket.klam.DAffine3
-import io.github.aecsocket.klam.DVec3
-import io.github.aecsocket.klam.FQuat
-import io.github.aecsocket.klam.FVec3
+import io.github.aecsocket.klam.*
 
 typealias Vec3 = FVec3
 typealias RVec3 = DVec3
 typealias Quat = FQuat
 typealias Transform = DAffine3
+typealias RRay = DRay3
 
-interface ObjectLayer
+interface BodyLayer
 
-interface ObjectLayerKey
+enum class BodyLayerType {
+    STATIC,
+    MOVING,
+    TERRAIN,
+}
+
+interface BodyFlag
+
+interface BodyContactFilter
+
+interface LayerFilter : Destroyable
+
+interface BodyFilter : Destroyable
+
+interface ShapeFilter : Destroyable
 
 interface IgnacioEngine : Destroyable {
     val build: String
 
-    val objectLayers: ObjectLayers
-    interface ObjectLayers {
-        val static: ObjectLayer
+    val layers: Layers
+    interface Layers {
+        val static: BodyLayer
 
-        val moving: ObjectLayer
+        val moving: BodyLayer
 
-        val terrain: ObjectLayer
+        val terrain: BodyLayer
 
-        val entity: ObjectLayer
+        val entity: BodyLayer
     }
 
-    fun createShape(geom: Geometry): Shape
+    val filters: Filters
+    interface Filters {
+        val anyLayer: LayerFilter
 
-    fun createSpace(settings: PhysicsSpace.Settings): PhysicsSpace
+        val anyBody: BodyFilter
+
+        val anyShape: ShapeFilter
+
+        // TODO
+//        fun forLayer(layer: Filter<BodyLayer>, flag: Filter<BodyFlag>): LayerFilter
+//
+//        fun forBody(test: Predicate<PhysicsBody.Read>): BodyFilter
+
+        // TODO fun forShape(test: )
+    }
+
+    fun contactFilter(layer: BodyLayer, flags: Set<BodyFlag>): BodyContactFilter
+
+    fun contactFilter(layer: BodyLayer, vararg flags: BodyFlag) = contactFilter(layer, setOf(*flags))
+
+    fun shape(geom: Geometry): Shape
+
+    fun space(settings: PhysicsSpace.Settings): PhysicsSpace
+
+    interface Builder {
+        // TODO
+//        fun defineBodyLayer(type: BodyLayerType): BodyLayer
+//
+//        fun defineBodyFlag(): BodyFlag
+
+        fun build(): IgnacioEngine
+    }
 }

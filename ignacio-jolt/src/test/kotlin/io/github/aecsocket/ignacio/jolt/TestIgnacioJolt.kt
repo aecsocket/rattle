@@ -6,19 +6,21 @@ import kotlin.test.Test
 class TestIgnacioJolt {
     @Test
     fun test() {
-        val engine = JoltEngine(JoltEngine.Settings())
-        val physics = engine.createSpace(PhysicsSpace.Settings())
+        val engineBuilder = JoltEngine.Builder(JoltEngine.Settings())
+        val engine = engineBuilder.build()
 
-        val floorShape = engine.createShape(BoxGeometry(Vec3(100.0f, 0.5f, 100.0f)))
-        val floorBody = physics.addStaticBody(StaticBodyDescriptor(
+        val physics = engine.space(PhysicsSpace.Settings())
+
+        val floorShape = engine.shape(BoxGeometry(Vec3(100.0f, 0.5f, 100.0f)))
+        val floorBody = physics.bodies.addStatic(StaticBodyDescriptor(
             shape = floorShape,
-            objectLayer = engine.objectLayers.static,
+            contactFilter = engine.contactFilter(engine.layers.static),
         ), Transform())
 
-        val ballShape = engine.createShape(SphereGeometry(1.0f))
-        val ballBody = physics.addMovingBody(MovingBodyDescriptor(
+        val ballShape = engine.shape(SphereGeometry(1.0f))
+        val ballBody = physics.bodies.addMovingBody(MovingBodyDescriptor(
             shape = ballShape,
-            objectLayer = engine.objectLayers.moving,
+            contactFilter = engine.contactFilter(engine.layers.moving),
             linearVelocity = Vec3(0.0f, 2.0f, 0.0f),
             restitution = 0.5f,
         ), Transform(RVec3(0.0, 5.0, 0.0)))
@@ -35,7 +37,9 @@ class TestIgnacioJolt {
             }
         }
 
-        physics.removeBodies(setOf(ballBody, floorBody))
+        println("Bodies within 16m of (0, 0, 0): ${physics.broadQuery.contactSphere(RVec3(0.0, 0.0, 0.0), 16.0f, engine.filters.anyLayer)}")
+
+        physics.bodies.removeAll(setOf(ballBody, floorBody))
         ballShape.destroy()
         floorShape.destroy()
         physics.destroy()
