@@ -4,7 +4,9 @@ import com.github.retrooper.packetevents.protocol.entity.data.EntityData
 import com.github.retrooper.packetevents.protocol.entity.data.EntityDataTypes
 import com.github.retrooper.packetevents.protocol.entity.type.EntityType
 import com.github.retrooper.packetevents.protocol.entity.type.EntityTypes
+import com.github.retrooper.packetevents.util.Quaternion4f
 import com.github.retrooper.packetevents.util.Vector3d
+import com.github.retrooper.packetevents.util.Vector3f
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerDestroyEntities
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityMetadata
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityTeleport
@@ -26,14 +28,13 @@ sealed class DisplayRender(
     val netId: Int,
     descriptor: RenderDescriptor,
 ) : Render {
-//    private fun metadataScale() =
-//        // 11: Display/Scale
-//        EntityData(11, VECTOR3F, scale.run { Vector3f(x, y, z) })
+    private fun metadataScale() =
+        // 11: Display/Scale
+        EntityData(11, EntityDataTypes.VECTOR3F, scale.run { Vector3f(x, y, z) })
 
-    // TODO
-//    private fun metadataRotation() =
-//        // 12: Display/Rotation left
-//        EntityData(12, QUATERNIONF, transform.rotation)
+    private fun metadataRotation() =
+        // 12: Display/Rotation left
+        EntityData(12, EntityDataTypes.QUATERNION, transform.rotation.run { Quaternion4f(x, y, z, w) })
 
     protected abstract val descriptor: RenderDescriptor
 
@@ -59,7 +60,7 @@ sealed class DisplayRender(
                     false,
                 ),
                 WrapperPlayServerEntityMetadata(netId, listOf(
-                    //TODO metadataRotation(),
+                    metadataRotation(),
                 ))
             )
             trackedPlayers().forEach { player ->
@@ -72,7 +73,7 @@ sealed class DisplayRender(
         set(value) {
             field = FVec3(value)
             val packet = WrapperPlayServerEntityMetadata(netId, listOf(
-                //TODO metadataScale(),
+                metadataScale(),
             ))
             trackedPlayers().forEach { player ->
                 player.sendPacket(packet)
@@ -97,8 +98,8 @@ sealed class DisplayRender(
                 Optional.empty(),
             ),
             WrapperPlayServerEntityMetadata(netId, listOf(
-                //TODO metadataScale(),
-                //TODO metadataRotation(),
+                metadataScale(),
+                metadataRotation(),
                 metadataBillboarding(),
             ) + metadata()),
         )

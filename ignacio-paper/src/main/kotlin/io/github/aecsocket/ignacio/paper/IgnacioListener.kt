@@ -19,6 +19,7 @@ internal class IgnacioListener(private val ignacio: Ignacio) : Listener {
     @EventHandler
     fun on(event: WorldUnloadEvent) {
         ignacio.worlds.destroy(event.world)
+        ignacio.primitiveBodies.onWorldUnload(event.world)
     }
 
     @EventHandler
@@ -33,16 +34,19 @@ internal class IgnacioListener(private val ignacio: Ignacio) : Listener {
 
     @EventHandler
     fun on(event: EntityRemoveFromWorldEvent) {
+        ignacio.primitiveBodies.onEntityRemove(event.entity)
         ignacio.primitiveRenders.onEntityRemove(event.entity)
     }
 
     @EventHandler
     fun on(event: PlayerTrackEntityEvent) {
+        ignacio.primitiveBodies.onPlayerTrackEntity(event.player, event.entity)
         ignacio.primitiveRenders.onPlayerTrackEntity(event.player, event.entity)
     }
 
     @EventHandler
     fun on(event: PlayerUntrackEntityEvent) {
+        ignacio.primitiveBodies.onPlayerUntrackEntity(event.player, event.entity)
         ignacio.primitiveRenders.onPlayerUntrackEntity(event.player, event.entity)
     }
 }

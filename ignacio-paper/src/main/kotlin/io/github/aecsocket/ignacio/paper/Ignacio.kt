@@ -7,6 +7,7 @@ import io.github.aecsocket.alexandria.Logging
 import io.github.aecsocket.alexandria.LoggingList
 import io.github.aecsocket.alexandria.paper.AlexandriaPlugin
 import io.github.aecsocket.alexandria.paper.ItemDescriptor
+import io.github.aecsocket.alexandria.paper.extension.registerEvents
 import io.github.aecsocket.alexandria.paper.extension.runRepeating
 import io.github.aecsocket.alexandria.paper.fallbackLocale
 import io.github.aecsocket.alexandria.paper.seralizer.alexandriaPaperSerializers
@@ -127,9 +128,7 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
 
     override fun onEnable() {
         IgnacioCommand(this)
-        runRepeating {
-            syncUpdate()
-        }
+        registerEvents(IgnacioListener(this))
     }
 
     override fun onDisable() {
