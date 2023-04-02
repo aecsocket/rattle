@@ -1,6 +1,8 @@
 package io.github.aecsocket.ignacio
 
+import io.github.aecsocket.klam.DVec3
 import io.github.aecsocket.klam.FPI
+import io.github.aecsocket.klam.FVec3
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import java.util.function.Consumer
 
@@ -30,8 +32,8 @@ data class MovingBodyDescriptor(
     val maxLinearVelocity: Float = 500.0f,
     val maxAngularVelocity: Float = 0.25f * FPI * 60.0f,
     val gravityFactor: Float = 1.0f,
-    val linearVelocity: Vec3 = Vec3(0.0f),
-    val angularVelocity: Vec3 = Vec3(0.0f),
+    val linearVelocity: FVec3 = FVec3(0.0f),
+    val angularVelocity: FVec3 = FVec3(0.0f),
 ) : BodyDescriptor
 
 interface PhysicsBody {
@@ -52,7 +54,7 @@ interface PhysicsBody {
 
         val contactFilter: BodyContactFilter
 
-        val position: RVec3
+        val position: DVec3
 
         val rotation: Quat
 
@@ -70,7 +72,7 @@ interface PhysicsBody {
     interface Read : Access
 
     interface Write : Access {
-        override var position: RVec3
+        override var position: DVec3
 
         override var rotation: Quat
 
@@ -93,9 +95,9 @@ interface PhysicsBody {
     interface MovingAccess : Access {
         val kinematic: Boolean
 
-        val linearVelocity: Vec3
+        val linearVelocity: FVec3
 
-        val angularVelocity: Vec3
+        val angularVelocity: FVec3
 
         val gravityFactor: Float
 
@@ -107,9 +109,9 @@ interface PhysicsBody {
     interface MovingWrite : MovingAccess, Write {
         override var kinematic: Boolean
 
-        override var linearVelocity: Vec3
+        override var linearVelocity: FVec3
 
-        override var angularVelocity: Vec3
+        override var angularVelocity: FVec3
 
         override var gravityFactor: Float
 
@@ -117,17 +119,17 @@ interface PhysicsBody {
 
         fun deactivate()
 
-        fun applyForce(force: Vec3)
+        fun applyForce(force: FVec3)
 
-        fun applyForceAt(force: Vec3, at: RVec3)
+        fun applyForceAt(force: FVec3, at: DVec3)
 
-        fun applyImpulse(impulse: Vec3)
+        fun applyImpulse(impulse: FVec3)
 
-        fun applyImpulseAt(impulse: Vec3, at: RVec3)
+        fun applyImpulseAt(impulse: FVec3, at: DVec3)
 
-        fun applyTorque(torque: Vec3)
+        fun applyTorque(torque: FVec3)
 
-        fun applyAngularImpulse(impulse: Vec3)
+        fun applyAngularImpulse(impulse: FVec3)
     }
 }
 

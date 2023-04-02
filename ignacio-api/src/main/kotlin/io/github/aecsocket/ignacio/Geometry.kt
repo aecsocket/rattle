@@ -1,5 +1,6 @@
 package io.github.aecsocket.ignacio
 
+import io.github.aecsocket.klam.FVec3
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 
 sealed interface Geometry
@@ -15,7 +16,7 @@ data class SphereGeometry(
 
 @ConfigSerializable
 data class BoxGeometry(
-    val halfExtent: Vec3,
+    val halfExtent: FVec3,
     val convexRadius: Float = DEFAULT_CONVEX_RADIUS,
 ) : ConvexGeometry
 
@@ -41,7 +42,7 @@ data class CylinderGeometry(
 
 data class CompoundChild(
     val shape: Shape,
-    val position: Vec3,
+    val position: FVec3,
     val rotation: Quat,
 )
 

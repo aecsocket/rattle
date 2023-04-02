@@ -2,8 +2,6 @@ package io.github.aecsocket.ignacio
 
 import io.github.aecsocket.klam.*
 
-typealias Vec3 = FVec3
-typealias RVec3 = DVec3
 typealias Quat = FQuat
 typealias Transform = DAffine3
 typealias RRay = DRay3

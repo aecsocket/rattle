@@ -2,6 +2,7 @@ package io.github.aecsocket.ignacio.jolt
 
 import io.github.aecsocket.ignacio.*
 import io.github.aecsocket.klam.DVec3
+import io.github.aecsocket.klam.FVec3
 import jolt.physics.Activation
 import jolt.physics.PhysicsSystem
 import jolt.physics.body.*
@@ -101,12 +102,12 @@ data class JtPhysicsBody internal constructor(
         override val kinematic: Boolean
             get() = body.isKinematic
 
-        override val linearVelocity: Vec3
+        override val linearVelocity: FVec3
             get() = pushArena { arena ->
                 arena.JtFVec3().also { key.physics.bodyInterfaceNoLock.getLinearVelocity(key.id, it) }.asIgnacio()
             }
 
-        override val angularVelocity: Vec3
+        override val angularVelocity: FVec3
             get() = pushArena { arena ->
                 arena.JtFVec3().also { key.physics.bodyInterfaceNoLock.getAngularVelocity(key.id, it) }.asIgnacio()
             }
@@ -130,13 +131,13 @@ data class JtPhysicsBody internal constructor(
             get() = super.kinematic
             set(value) { body.motionType = if (value) MotionType.KINEMATIC else MotionType.DYNAMIC }
 
-        override var linearVelocity: Vec3
+        override var linearVelocity: FVec3
             get() = super.linearVelocity
             set(value) = pushArena { arena ->
                 body.setLinearVelocityClamped(arena.asJolt(value))
             }
 
-        override var angularVelocity: Vec3
+        override var angularVelocity: FVec3
             get() = super.angularVelocity
             set(value) = pushArena { arena ->
                 body.setAngularVelocityClamped(arena.asJolt(value))
@@ -156,27 +157,27 @@ data class JtPhysicsBody internal constructor(
             key.physics.bodyInterfaceNoLock.deactivateBody(key.id)
         }
 
-        override fun applyForce(force: Vec3) = pushArena { arena ->
+        override fun applyForce(force: FVec3) = pushArena { arena ->
             body.addForce(arena.asJolt(force))
         }
 
-        override fun applyForceAt(force: Vec3, at: RVec3) = pushArena { arena ->
+        override fun applyForceAt(force: FVec3, at: DVec3) = pushArena { arena ->
             body.addForce(arena.asJolt(force), arena.asJolt(at))
         }
 
-        override fun applyImpulse(impulse: Vec3) = pushArena { arena ->
+        override fun applyImpulse(impulse: FVec3) = pushArena { arena ->
             body.addImpulse(arena.asJolt(impulse))
         }
 
-        override fun applyImpulseAt(impulse: Vec3, at: RVec3) = pushArena { arena ->
+        override fun applyImpulseAt(impulse: FVec3, at: DVec3) = pushArena { arena ->
             body.addImpulse(arena.asJolt(impulse), arena.asJolt(at))
         }
 
-        override fun applyTorque(torque: Vec3) = pushArena { arena ->
+        override fun applyTorque(torque: FVec3) = pushArena { arena ->
             body.addTorque(arena.asJolt(torque))
         }
 
-        override fun applyAngularImpulse(impulse: Vec3) = pushArena { arena ->
+        override fun applyAngularImpulse(impulse: FVec3) = pushArena { arena ->
             body.addAngularImpulse(arena.asJolt(impulse))
         }
     }

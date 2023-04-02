@@ -1,5 +1,7 @@
 package io.github.aecsocket.ignacio
 
+import io.github.aecsocket.klam.DVec3
+import io.github.aecsocket.klam.FVec3
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 
 fun interface StepListener {
@@ -9,7 +11,7 @@ fun interface StepListener {
 interface PhysicsSpace : Destroyable {
     @ConfigSerializable
     data class Settings(
-        val gravity: Vec3 = Vec3(0.0f, -9.81f, 0.0f),
+        val gravity: FVec3 = FVec3(0.0f, -9.81f, 0.0f),
     )
 
     var settings: Settings
@@ -61,7 +63,7 @@ interface PhysicsSpace : Destroyable {
 
         fun rayCastBodies(ray: RRay, distance: Float, layerFilter: LayerFilter): Collection<RayCast>
 
-        fun contactSphere(position: RVec3, radius: Float, layerFilter: LayerFilter): Collection<PhysicsBody>
+        fun contactSphere(position: DVec3, radius: Float, layerFilter: LayerFilter): Collection<PhysicsBody>
     }
 
     val narrowQuery: NarrowQuery

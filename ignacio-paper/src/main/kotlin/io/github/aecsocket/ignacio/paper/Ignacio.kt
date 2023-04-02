@@ -1,18 +1,26 @@
 package io.github.aecsocket.ignacio.paper
 
 import com.github.retrooper.packetevents.PacketEvents
+import com.github.retrooper.packetevents.wrapper.PacketWrapper
 import io.github.aecsocket.alexandria.Logging
 import io.github.aecsocket.alexandria.LoggingList
 import io.github.aecsocket.alexandria.paper.AlexandriaPlugin
+import io.github.aecsocket.alexandria.paper.ItemDescriptor
+import io.github.aecsocket.alexandria.paper.extension.runRepeating
 import io.github.aecsocket.alexandria.paper.fallbackLocale
 import io.github.aecsocket.alexandria.paper.seralizer.alexandriaPaperSerializers
 import io.github.aecsocket.glossa.MessageProxy
 import io.github.aecsocket.glossa.messageProxy
 import io.github.aecsocket.ignacio.IgnacioEngine
+import io.github.aecsocket.ignacio.PhysicsSpace
 import io.github.aecsocket.ignacio.jolt.JoltEngine
+import io.github.aecsocket.ignacio.paper.render.DisplayRenders
+import io.github.aecsocket.ignacio.paper.render.Renders
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder
 import io.papermc.paper.util.Tick
 import net.kyori.adventure.text.format.TextColor
+import org.bukkit.Material
+import org.bukkit.World
 import org.bukkit.entity.Player
 import org.spongepowered.configurate.ConfigurationNode
 import org.spongepowered.configurate.ConfigurationOptions
@@ -22,6 +30,7 @@ import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import org.spongepowered.configurate.objectmapping.ObjectMapper
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.collections.HashMap
 
 private lateinit var instance: Ignacio
 val IgnacioAPI get() = instance
@@ -52,16 +61,32 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
     @ConfigSerializable
     data class Settings(
         override val defaultLocale: Locale = fallbackLocale,
-        val deltaTimeMultiplier: Float = 1.0f,
         val jolt: JoltEngine.Settings = JoltEngine.Settings(),
-    ) : AlexandriaPlugin.Settings {}
+        val worlds: Worlds = Worlds(),
+        val primitiveMeshes: PrimitiveMeshes = PrimitiveMeshes(),
+    ) : AlexandriaPlugin.Settings {
+        @ConfigSerializable
+        data class Worlds(
+            val space: PhysicsSpace.Settings = PhysicsSpace.Settings(),
+            val deltaTimeMultiplier: Float = 1.0f,
+        )
+
+        @ConfigSerializable
+        data class PrimitiveMeshes(
+            val box: ItemDescriptor = ItemDescriptor(Material.STONE),
+            val sphere: ItemDescriptor = ItemDescriptor(Material.STONE),
+        )
+    }
 
     override lateinit var settings: Settings private set
     lateinit var engine: IgnacioEngine private set
     lateinit var messages: MessageProxy<IgnacioMessages> private set
-    private var globalDeltaTime = 0f
+    private var worldDeltaTime = 0f
     private val players = ConcurrentHashMap<Player, IgnacioPlayer>()
-
+    private val worldMap = HashMap<World, PhysicsWorld>()
+    val renders: Renders = DisplayRenders()
+    val primitiveBodies = PrimitiveBodies(this)
+    val primitiveRenders = PrimitiveRenders(this)
 
     init {
         instance = this
@@ -76,16 +101,23 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
 
         super.onLoad()
 
-        engine = JoltEngine(settings.jolt)
+        // TODO other plugins should be able to use this builder
+        engine = JoltEngine.Builder(settings.jolt).build()
         logger.info("${ProcessHandle.current().pid()}: Loaded ${engine::class.simpleName} ${engine.build}")
     }
 
     override fun onEnable() {
         IgnacioCommand(this)
+        runRepeating {
+            syncUpdate()
+        }
     }
 
     override fun onDisable() {
         engine.destroy()
+        worldMap.forEach { (_, world) ->
+            world.physics.destroy()
+        }
     }
 
     override fun configOptions() = configOptions
@@ -96,7 +128,7 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
 
     override fun load(log: LoggingList) {
         messages = glossa.messageProxy()
-        globalDeltaTime = (Tick.of(1).toMillis() / 1000.0f) * settings.deltaTimeMultiplier
+        worldDeltaTime = (Tick.of(1).toMillis() / 1000.0f) * settings.worlds.deltaTimeMultiplier
     }
 
     override fun reload(log: Logging) {
@@ -105,15 +137,37 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
         }
     }
 
+    internal fun syncUpdate() {
+        players.toMap().forEach { (_, player) ->
+            player.update()
+        }
+        primitiveRenders.syncUpdate()
+    }
+
     fun playerData(player: Player) = players.computeIfAbsent(player) { IgnacioPlayer(this, player) }
 
     internal fun removePlayer(player: Player) {
         players.remove(player)
     }
 
-    internal fun update() {
-        players.toMap().forEach { (_, player) ->
-            player.update()
+    val worlds = Worlds()
+    inner class Worlds {
+        operator fun contains(world: World) = synchronized(worldMap) { worldMap.containsKey(world) }
+
+        operator fun get(world: World) = synchronized(worldMap) { worldMap[world] }
+
+        fun getOrCreate(world: World) = synchronized(worldMap) {
+            worldMap.computeIfAbsent(world) {
+                val physics = engine.space(settings.worlds.space)
+                PhysicsWorld(engine, world, physics)
+            }
+        }
+
+        fun destroy(world: World) = synchronized(worldMap) {
+            worldMap.remove(world)?.destroy()
         }
     }
 }
+
+fun Player.sendPacket(packet: PacketWrapper<*>) =
+    PacketEvents.getAPI().playerManager.sendPacket(this, packet)

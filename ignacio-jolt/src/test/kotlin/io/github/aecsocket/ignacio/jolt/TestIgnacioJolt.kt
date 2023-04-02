@@ -1,6 +1,8 @@
 package io.github.aecsocket.ignacio.jolt
 
 import io.github.aecsocket.ignacio.*
+import io.github.aecsocket.klam.DVec3
+import io.github.aecsocket.klam.FVec3
 import kotlin.test.Test
 
 class TestIgnacioJolt {
@@ -11,7 +13,7 @@ class TestIgnacioJolt {
 
         val physics = engine.space(PhysicsSpace.Settings())
 
-        val floorShape = engine.shape(BoxGeometry(Vec3(100.0f, 0.5f, 100.0f)))
+        val floorShape = engine.shape(BoxGeometry(FVec3(100.0f, 0.5f, 100.0f)))
         val floorBody = physics.bodies.addStatic(StaticBodyDescriptor(
             shape = floorShape,
             contactFilter = engine.contactFilter(engine.layers.static),
@@ -21,9 +23,9 @@ class TestIgnacioJolt {
         val ballBody = physics.bodies.addMovingBody(MovingBodyDescriptor(
             shape = ballShape,
             contactFilter = engine.contactFilter(engine.layers.moving),
-            linearVelocity = Vec3(0.0f, 2.0f, 0.0f),
+            linearVelocity = FVec3(0.0f, 2.0f, 0.0f),
             restitution = 0.5f,
-        ), Transform(RVec3(0.0, 5.0, 0.0)))
+        ), Transform(DVec3(0.0, 5.0, 0.0)))
 
         ballBody.writeAs<PhysicsBody.MovingWrite> { ball ->
             ball.activate()
@@ -37,7 +39,8 @@ class TestIgnacioJolt {
             }
         }
 
-        println("Bodies within 16m of (0, 0, 0): ${physics.broadQuery.contactSphere(RVec3(0.0, 0.0, 0.0), 16.0f, engine.filters.anyLayer)}")
+        val bodies1 = physics.broadQuery.contactSphere(DVec3(0.0, 0.0, 0.0), 16.0f, engine.filters.anyLayer)
+        println("Bodies within 16m of (0, 0, 0): $bodies1")
 
         physics.bodies.removeAll(setOf(ballBody, floorBody))
         ballShape.destroy()

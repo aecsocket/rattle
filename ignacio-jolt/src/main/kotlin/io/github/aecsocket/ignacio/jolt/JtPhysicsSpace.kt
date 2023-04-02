@@ -1,6 +1,7 @@
 package io.github.aecsocket.ignacio.jolt
 
 import io.github.aecsocket.ignacio.*
+import io.github.aecsocket.klam.DVec3
 import io.github.aecsocket.klam.FVec3
 import jolt.core.TempAllocator
 import jolt.physics.Activation
@@ -206,7 +207,7 @@ class JtPhysicsSpace internal constructor(
         }
 
         override fun contactSphere(
-            position: RVec3,
+            position: DVec3,
             radius: Float,
             layerFilter: LayerFilter
         ): Collection<PhysicsBody> {
