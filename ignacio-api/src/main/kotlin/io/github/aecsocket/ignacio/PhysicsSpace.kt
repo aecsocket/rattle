@@ -1,5 +1,6 @@
 package io.github.aecsocket.ignacio
 
+import io.github.aecsocket.klam.DRay3
 import io.github.aecsocket.klam.DVec3
 import io.github.aecsocket.klam.FVec3
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
@@ -21,6 +22,10 @@ interface PhysicsSpace : Destroyable {
         val count: Int
 
         val activeCount: Int
+
+        fun all(): Collection<PhysicsBody>
+
+        fun active(): Collection<PhysicsBody>
 
         fun createStatic(descriptor: StaticBodyDescriptor, transform: Transform): PhysicsBody
 
@@ -63,18 +68,18 @@ interface PhysicsSpace : Destroyable {
 
     val broadQuery: BroadQuery
     interface BroadQuery {
-        fun rayCastBody(ray: RRay, distance: Float, layerFilter: LayerFilter): RayCast?
+        fun rayCastBody(ray: DRay3, distance: Float, layerFilter: LayerFilter): RayCast?
 
-        fun rayCastBodies(ray: RRay, distance: Float, layerFilter: LayerFilter): Collection<RayCast>
+        fun rayCastBodies(ray: DRay3, distance: Float, layerFilter: LayerFilter): Collection<RayCast>
 
         fun contactSphere(position: DVec3, radius: Float, layerFilter: LayerFilter): Collection<PhysicsBody>
     }
 
     val narrowQuery: NarrowQuery
     interface NarrowQuery {
-        fun rayCastBody(ray: RRay, distance: Float, layerFilter: LayerFilter, bodyFilter: BodyFilter): RayCast?
+        fun rayCastBody(ray: DRay3, distance: Float, layerFilter: LayerFilter, bodyFilter: BodyFilter): RayCast?
 
-        fun rayCastBodies(ray: RRay, distance: Float, layerFilter: LayerFilter, bodyFilter: BodyFilter, shapeFilter: ShapeFilter): Collection<RayCast>
+        fun rayCastBodies(ray: DRay3, distance: Float, layerFilter: LayerFilter, bodyFilter: BodyFilter, shapeFilter: ShapeFilter): Collection<RayCast>
     }
 
     fun onStep(listener: StepListener)

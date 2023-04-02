@@ -5,7 +5,6 @@ import kotlinx.coroutines.CoroutineScope
 
 typealias Quat = FQuat
 typealias Transform = DAffine3
-typealias RRay = DRay3
 
 interface BodyLayer
 
@@ -17,7 +16,10 @@ enum class BodyLayerType {
 
 interface BodyFlag
 
-interface BodyContactFilter
+interface BodyContactFilter {
+    val layer: BodyLayer
+    val flags: Set<BodyFlag>
+}
 
 interface LayerFilter : Destroyable
 

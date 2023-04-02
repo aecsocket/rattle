@@ -15,15 +15,8 @@ import jolt.physics.collision.broadphase.BroadPhaseLayerFilter
 import jolt.physics.collision.broadphase.BroadPhaseLayerInterface
 import jolt.physics.collision.broadphase.BroadPhaseLayerInterfaceFn
 import jolt.physics.collision.broadphase.ObjectVsBroadPhaseLayerFilter
-import jolt.physics.collision.shape.BoxShape
-import jolt.physics.collision.shape.CapsuleShape
-import jolt.physics.collision.shape.CompoundShapeSettings
-import jolt.physics.collision.shape.CylinderShape
-import jolt.physics.collision.shape.MutableCompoundShapeSettings
+import jolt.physics.collision.shape.*
 import jolt.physics.collision.shape.Shape
-import jolt.physics.collision.shape.SphereShape
-import jolt.physics.collision.shape.StaticCompoundShapeSettings
-import jolt.physics.collision.shape.TaperedCapsuleShapeSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
@@ -59,8 +52,6 @@ fun <T : Deletable, R> T.use(block: (T) -> R): R {
 data class JtBodyLayer(val id: Short) : BodyLayer
 
 data class JtBodyFlag(val id: Short) : BodyFlag
-
-data class JtBodyContactFilter(val id: Short) : BodyContactFilter
 
 data class JtLayerFilter(
     val broad: BroadPhaseLayerFilter,
@@ -152,6 +143,13 @@ class JoltEngine internal constructor(
             val allowSleeping: Boolean = true,
             val checkActiveEdges: Boolean = true,
         )
+    }
+
+    // TODO
+    inner class JtBodyContactFilter(val id: Short) : BodyContactFilter {
+        override val layer get() = JtBodyLayer(id)
+
+        override val flags get() = emptySet<BodyFlag>()
     }
 
     private val destroyed = DestroyFlag()
@@ -261,13 +259,29 @@ class JoltEngine internal constructor(
         }
 
         val handle: Shape = when (geom) {
-            is SphereGeometry -> SphereShape.of(geom.radius)
-            is BoxGeometry -> BoxShape.of(arena.asJolt(geom.halfExtent), geom.convexRadius)
-            is CapsuleGeometry -> CapsuleShape.of(geom.halfHeight, geom.radius)
-            is TaperedCapsuleGeometry -> TaperedCapsuleShapeSettings.of(geom.halfHeight, geom.topRadius, geom.bottomRadius).use { settings ->
+            // convex
+            is SphereGeometry -> SphereShapeSettings.of(geom.radius).use { settings ->
+                settings.density = geom.density
                 settings.create(arena).orThrow()
             }
-            is CylinderGeometry -> CylinderShape.of(geom.halfHeight, geom.radius, geom.convexRadius)
+            is BoxGeometry -> BoxShapeSettings.of(arena.asJolt(geom.halfExtent), geom.convexRadius).use { settings ->
+                settings.density = geom.density
+                settings.create(arena).orThrow()
+            }
+            is CapsuleGeometry -> CapsuleShapeSettings.of(geom.halfHeight, geom.radius).use { settings ->
+                settings.density = geom.density
+                settings.create(arena).orThrow()
+            }
+            is TaperedCapsuleGeometry -> TaperedCapsuleShapeSettings.of(geom.halfHeight, geom.topRadius, geom.bottomRadius).use { settings ->
+                settings.density = geom.density
+                settings.create(arena).orThrow()
+            }
+            is CylinderGeometry -> CylinderShapeSettings.of(geom.halfHeight, geom.radius, geom.convexRadius).use { settings ->
+                settings.density = geom.density
+                settings.create(arena).orThrow()
+            }
+
+            // compound
             is StaticCompoundGeometry -> StaticCompoundShapeSettings.of().use { settings ->
                 geom.children.forEach { child ->
                     settings.addChild(child)

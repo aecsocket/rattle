@@ -31,7 +31,7 @@ translations:
               =0 {zero renders}
               one {<p1>#</p1> render}
               other {<p1>#</p1> renders}
-            }.
+            }
 
       body:
         create:
@@ -60,10 +60,10 @@ translations:
         destroy:
           all: >-
             <p2>Destroyed {count, plural,
-              =0 {zero renders}
-              one {<p1>#</p1> render}
-              other {<p1>#</p1> renders}
-            }.
+              =0 {zero bodies}
+              one {<p1>#</p1> body}
+              other {<p1>#</p1> bodies}
+            }
 
       timings:
         timings_header: |-

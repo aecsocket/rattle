@@ -20,7 +20,6 @@ import io.github.aecsocket.ignacio.paper.render.ModelDescriptor
 import io.github.aecsocket.ignacio.paper.render.RenderDescriptor
 import io.github.aecsocket.ignacio.paper.render.TextDescriptor
 import io.github.aecsocket.klam.*
-import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.minimessage.MiniMessage
 import org.bukkit.Location
 import org.bukkit.World
@@ -479,8 +478,7 @@ internal class IgnacioCommand(
         virtual: Boolean,
         friction: Float,
         restitution: Float,
-        mass: Float,
-        density: Float,
+        mass: Float?,
         model: ItemDescriptor,
         scale: FVec3,
         geometry: Geometry,
@@ -490,6 +488,7 @@ internal class IgnacioCommand(
             contactFilter = ignacio.engine.contactFilter(ignacio.engine.layers.moving),
             friction = friction,
             restitution = restitution,
+            mass = mass?.let { Mass.Constant(it) } ?: Mass.Calculate,
         )
         bodyCreate(location, count, spread, virtual, model, scale) { physics, transform ->
             physics.bodies.createMoving(descriptor, transform)
@@ -506,15 +505,15 @@ internal class IgnacioCommand(
         val virtual = ctx.hasFlag(VIRTUAL)
         val friction = ctx.flag(FRICTION) ?: 0.2f
         val restitution = ctx.flag(RESTITUTION) ?: 0.0f
-        val mass = ctx.flag(MASS) ?: 1.0f
-        val density = ctx.flag(DENSITY) ?: 1000.0f
+        val mass = ctx.flag<Float>(MASS)
+        val density = ctx.flag(DENSITY) ?: DEFAULT_DENSITY
 
         bodyCreateMoving(
             location, count, spread, virtual,
-            friction, restitution, mass, density,
+            friction, restitution, mass,
             ignacio.settings.bodyModels.box,
             FVec3(halfExtent * 2.0f),
-            BoxGeometry(FVec3(halfExtent)),
+            BoxGeometry(FVec3(halfExtent), density = density),
         )
 
         messages.command.body.create.moving.box(
@@ -533,27 +532,21 @@ internal class IgnacioCommand(
         val virtual = ctx.hasFlag(VIRTUAL)
         val friction = ctx.flag(FRICTION) ?: 0.2f
         val restitution = ctx.flag(RESTITUTION) ?: 0.0f
-        val mass = ctx.flag(MASS) ?: 1.0f
-        val density = ctx.flag(DENSITY) ?: 1000.0f
+        val mass = ctx.flag<Float>(MASS)
+        val density = ctx.flag(DENSITY) ?: DEFAULT_DENSITY
 
         bodyCreateMoving(
             location, count, spread, virtual,
-            friction, restitution, mass, density,
+            friction, restitution, mass,
             ignacio.settings.bodyModels.sphere,
             FVec3(radius * 2.0f),
-            SphereGeometry(radius),
+            SphereGeometry(radius, density = density),
         )
 
         messages.command.body.create.moving.sphere(
             count = count,
             locationX = location.x, locationY = location.y, locationZ = location.z,
         ).sendTo(sender)
-    }
-
-    private fun bodyDestroyOne(ctx: Context) {
-        val sender = ctx.sender
-        val messages = ignacio.messages.forAudience(sender)
-
     }
 
     private fun bodyDestroyAll(ctx: Context) {

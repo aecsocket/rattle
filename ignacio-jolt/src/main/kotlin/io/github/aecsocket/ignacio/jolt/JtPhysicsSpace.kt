@@ -1,6 +1,7 @@
 package io.github.aecsocket.ignacio.jolt
 
 import io.github.aecsocket.ignacio.*
+import io.github.aecsocket.klam.DRay3
 import io.github.aecsocket.klam.DVec3
 import io.github.aecsocket.klam.FVec3
 import jolt.core.TempAllocator
@@ -8,7 +9,9 @@ import jolt.physics.Activation
 import jolt.physics.PhysicsStepListener
 import jolt.physics.PhysicsSystem
 import jolt.physics.body.BodyCreationSettings
+import jolt.physics.body.MassProperties
 import jolt.physics.body.MotionType
+import jolt.physics.body.OverrideMassProperties
 import jolt.physics.collision.CastRayCollector
 import jolt.physics.collision.RayCastResult
 import jolt.physics.collision.RayCastSettings
@@ -57,12 +60,16 @@ class JtPhysicsSpace internal constructor(
         arena.close()
     }
 
-    fun bodyOf(id: Int) = JtPhysicsBody(handle, id)
+    fun bodyOf(id: Int) = JtPhysicsBody(engine, handle, id)
 
     override val bodies = object : PhysicsSpace.Bodies {
         override val count get() = numBodies
 
         override val activeCount get() = numActiveBodies
+
+        override fun all() = handle.bodies.map { bodyOf(it) }
+
+        override fun active() = handle.activeBodies.map { bodyOf(it) }
 
         private fun createBodySettings(
             mem: MemorySession,
@@ -75,13 +82,13 @@ class JtPhysicsSpace internal constructor(
                 mem.asJolt(transform.position),
                 mem.asJolt(transform.rotation),
                 motionType,
-                (descriptor.contactFilter as JtBodyContactFilter).id,
+                (descriptor.contactFilter as JoltEngine.JtBodyContactFilter).id,
             )
             bodySettings.isSensor = descriptor.trigger
             return bodySettings
         }
 
-        private fun createBody(settings: BodyCreationSettings, descriptor: BodyDescriptor): JtPhysicsBody {
+        private fun createBody(settings: BodyCreationSettings): JtPhysicsBody {
             val body = handle.bodyInterface.createBody(settings)
             return bodyOf(body.id)
         }
@@ -89,7 +96,7 @@ class JtPhysicsSpace internal constructor(
         override fun createStatic(descriptor: StaticBodyDescriptor, transform: Transform): PhysicsBody {
             return pushArena { arena ->
                 val bodySettings = createBodySettings(arena, descriptor, transform, MotionType.STATIC)
-                createBody(bodySettings, descriptor)
+                createBody(bodySettings)
             }
         }
 
@@ -101,16 +108,35 @@ class JtPhysicsSpace internal constructor(
                     transform,
                     if (descriptor.kinematic) MotionType.KINEMATIC else MotionType.DYNAMIC,
                 )
+                when (val mass = descriptor.mass) {
+                    is Mass.WithInertia -> {
+                        bodySettings.overrideMassProperties = OverrideMassProperties.MASS_AND_INERTIA_PROVIDED
+                        bodySettings.massPropertiesOverride = MassProperties.of(arena,
+                            mass.mass,
+                            arena.asJolt(mass.inertia)
+                        )
+                    }
+                    is Mass.Constant -> {
+                        bodySettings.overrideMassProperties = OverrideMassProperties.CALCULATE_INERTIA
+                        bodySettings.massPropertiesOverride = MassProperties.of(arena,
+                            mass.mass,
+                            arena.FMat44(),
+                        )
+                    }
+                    is Mass.Calculate -> {
+                        bodySettings.overrideMassProperties = OverrideMassProperties.CALCULATE_MASS_AND_INERTIA
+                    }
+                }
+                bodySettings.linearVelocity = arena.asJolt(descriptor.linearVelocity)
+                bodySettings.angularVelocity = arena.asJolt(descriptor.angularVelocity)
                 bodySettings.friction = descriptor.friction
                 bodySettings.restitution = descriptor.restitution
+                bodySettings.gravityFactor = descriptor.gravityFactor
                 bodySettings.linearDamping = descriptor.linearDamping
                 bodySettings.angularDamping = descriptor.angularDamping
                 bodySettings.maxLinearVelocity = descriptor.maxLinearVelocity
                 bodySettings.maxAngularVelocity = descriptor.maxAngularVelocity
-                bodySettings.gravityFactor = descriptor.gravityFactor
-                bodySettings.linearVelocity = arena.asJolt(descriptor.linearVelocity)
-                bodySettings.angularVelocity = arena.asJolt(descriptor.angularVelocity)
-                createBody(bodySettings, descriptor)
+                createBody(bodySettings)
             }
         }
 
@@ -187,7 +213,7 @@ class JtPhysicsSpace internal constructor(
     }
 
     override val broadQuery = object : PhysicsSpace.BroadQuery {
-        override fun rayCastBodies(ray: RRay, distance: Float, layerFilter: LayerFilter): Collection<PhysicsSpace.RayCast> {
+        override fun rayCastBodies(ray: DRay3, distance: Float, layerFilter: LayerFilter): Collection<PhysicsSpace.RayCast> {
             layerFilter as JtLayerFilter
             val result = ArrayList<PhysicsSpace.RayCast>()
             pushArena { arena ->
@@ -206,7 +232,7 @@ class JtPhysicsSpace internal constructor(
             return result
         }
 
-        override fun rayCastBody(ray: RRay, distance: Float, layerFilter: LayerFilter): PhysicsSpace.RayCast? {
+        override fun rayCastBody(ray: DRay3, distance: Float, layerFilter: LayerFilter): PhysicsSpace.RayCast? {
             return rayCastBodies(ray, distance, layerFilter).firstOrNull()
         }
 
@@ -233,7 +259,7 @@ class JtPhysicsSpace internal constructor(
     }
 
     override val narrowQuery = object : PhysicsSpace.NarrowQuery {
-        override fun rayCastBody(ray: RRay, distance: Float, layerFilter: LayerFilter, bodyFilter: BodyFilter): PhysicsSpace.RayCast? {
+        override fun rayCastBody(ray: DRay3, distance: Float, layerFilter: LayerFilter, bodyFilter: BodyFilter): PhysicsSpace.RayCast? {
             layerFilter as JtLayerFilter
             bodyFilter as JtBodyFilter
             return pushArena { arena ->
@@ -252,7 +278,7 @@ class JtPhysicsSpace internal constructor(
             }
         }
 
-        override fun rayCastBodies(ray: RRay, distance: Float, layerFilter: LayerFilter, bodyFilter: BodyFilter, shapeFilter: ShapeFilter): Collection<PhysicsSpace.RayCast> {
+        override fun rayCastBodies(ray: DRay3, distance: Float, layerFilter: LayerFilter, bodyFilter: BodyFilter, shapeFilter: ShapeFilter): Collection<PhysicsSpace.RayCast> {
             layerFilter as JtLayerFilter
             bodyFilter as JtBodyFilter
             shapeFilter as JtShapeFilter

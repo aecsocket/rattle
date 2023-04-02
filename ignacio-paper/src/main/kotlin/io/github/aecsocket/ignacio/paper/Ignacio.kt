@@ -127,11 +127,13 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
     }
 
     override fun onEnable() {
+        PacketEvents.getAPI().init()
         IgnacioCommand(this)
         registerEvents(IgnacioListener(this))
     }
 
     override fun onDisable() {
+        PacketEvents.getAPI().terminate()
         engine.destroy()
         worldMap.forEach { (_, world) ->
             world.physics.destroy()

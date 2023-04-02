@@ -1,8 +1,10 @@
 package io.github.aecsocket.ignacio.jolt
 
 import io.github.aecsocket.ignacio.*
+import io.github.aecsocket.klam.DAabb3
 import io.github.aecsocket.klam.DVec3
 import io.github.aecsocket.klam.FVec3
+import io.github.aecsocket.klam.plus
 import jolt.physics.Activation
 import jolt.physics.PhysicsSystem
 import jolt.physics.body.*
@@ -16,6 +18,7 @@ private fun assertAdded(body: Body) {
 }
 
 data class JtPhysicsBody internal constructor(
+    val engine: JoltEngine,
     val physics: PhysicsSystem,
     val id: Int,
 ) : PhysicsBody {
@@ -28,20 +31,34 @@ data class JtPhysicsBody internal constructor(
 
         override val active get() = body.isActive
 
-        override val contactFilter get() = JtBodyContactFilter(body.objectLayer)
+        override val contactFilter get() = key.engine.JtBodyContactFilter(body.objectLayer)
 
         override val position get() = pushArena { arena ->
-            arena.JtDVec3().also { body.getPosition(it) }.asIgnacio()
+            arena.DVec3().also { body.getPosition(it) }.asIgnacio()
         }
 
         override val rotation get() = pushArena { arena ->
-            arena.JtQuat().also { body.getRotation(it) }.asIgnacio()
+            arena.Quat().also { body.getRotation(it) }.asIgnacio()
         }
 
         override val transform get() = pushArena { arena ->
-            val position = arena.JtDVec3().also { body.getPosition(it) }.asIgnacio()
-            val rotation = arena.JtQuat().also { body.getRotation(it) }.asIgnacio()
+            val position = arena.DVec3().also { body.getPosition(it) }.asIgnacio()
+            val rotation = arena.Quat().also { body.getRotation(it) }.asIgnacio()
             Transform(position, rotation)
+        }
+
+        override val bounds get() = pushArena { arena ->
+            val comTransform = arena.DMat44().also { body.getCenterOfMassTransform(it) }
+            val translation = DVec3(
+                comTransform.getTranslation(0),
+                comTransform.getTranslation(1),
+                comTransform.getTranslation(2),
+            )
+            val fComTransform = arena.FMat44()
+            fComTransform.read(comTransform.rotationComponents(), floatArrayOf(0.0f, 0.0f, 0.0f))
+
+            val out = arena.AABox().also { body.shape.getWorldSpaceBounds(fComTransform, arena.asJolt(FVec3(1.0f)), it) }
+            DAabb3(DVec3(out.min.asIgnacio()) + translation, DVec3(out.max.asIgnacio()) + translation)
         }
 
         override val shape get(): Shape = JtShape(body.shape)
@@ -104,25 +121,50 @@ data class JtPhysicsBody internal constructor(
 
         override val linearVelocity: FVec3
             get() = pushArena { arena ->
-                arena.JtFVec3().also { key.physics.bodyInterfaceNoLock.getLinearVelocity(key.id, it) }.asIgnacio()
+                arena.FVec3().also { key.physics.bodyInterfaceNoLock.getLinearVelocity(key.id, it) }.asIgnacio()
             }
 
         override val angularVelocity: FVec3
             get() = pushArena { arena ->
-                arena.JtFVec3().also { key.physics.bodyInterfaceNoLock.getAngularVelocity(key.id, it) }.asIgnacio()
+                arena.FVec3().also { key.physics.bodyInterfaceNoLock.getAngularVelocity(key.id, it) }.asIgnacio()
             }
+
+        override val friction: Float
+            get() = body.friction
+
+        override val restitution: Float
+            get() = body.restitution
 
         override val gravityFactor: Float
             get() = body.motionProperties.gravityFactor
+
+        override val linearDamping: Float
+            get() = body.motionProperties.linearDamping
+
+        override val angularDamping: Float
+            get() = body.motionProperties.angularDamping
+
+        override val maxLinearVelocity: Float
+            get() = body.motionProperties.maxLinearVelocity
+
+        override val maxAngularVelocity: Float
+            get() = body.motionProperties.maxAngularVelocity
 
         override fun asDescriptor() = MovingBodyDescriptor(
             shape = shape,
             contactFilter = contactFilter,
             trigger = trigger,
             kinematic = kinematic,
+            mass = Mass.Calculate,
             linearVelocity = linearVelocity,
             angularVelocity = angularVelocity,
+            friction = friction,
+            restitution = restitution,
             gravityFactor = gravityFactor,
+            linearDamping = linearDamping,
+            angularDamping = angularDamping,
+            maxLinearVelocity = maxLinearVelocity,
+            maxAngularVelocity = maxAngularVelocity,
         )
     }
 
@@ -143,9 +185,33 @@ data class JtPhysicsBody internal constructor(
                 body.setAngularVelocityClamped(arena.asJolt(value))
             }
 
+        override var friction: Float
+            get() = super.friction
+            set(value) { body.friction = value }
+
+        override var restitution: Float
+            get() = super.restitution
+            set(value) { body.restitution = value }
+
         override var gravityFactor: Float
             get() = super.gravityFactor
             set(value) { body.motionProperties.gravityFactor = value }
+
+        override var linearDamping: Float
+            get() = super.linearDamping
+            set(value) { body.motionProperties.linearDamping = value }
+
+        override var angularDamping: Float
+            get() = super.angularDamping
+            set(value) { body.motionProperties.angularDamping = value }
+
+        override var maxLinearVelocity: Float
+            get() = super.maxLinearVelocity
+            set(value) { body.motionProperties.maxLinearVelocity = value }
+
+        override var maxAngularVelocity: Float
+            get() = super.maxAngularVelocity
+            set(value) { body.motionProperties.maxAngularVelocity = value }
 
         override fun activate() {
             assertAdded(body)

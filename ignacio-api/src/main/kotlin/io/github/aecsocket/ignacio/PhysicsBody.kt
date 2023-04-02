@@ -1,8 +1,6 @@
 package io.github.aecsocket.ignacio
 
-import io.github.aecsocket.klam.DVec3
-import io.github.aecsocket.klam.FPI
-import io.github.aecsocket.klam.FVec3
+import io.github.aecsocket.klam.*
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import java.util.function.Consumer
 
@@ -19,21 +17,30 @@ data class StaticBodyDescriptor(
     override val trigger: Boolean = false,
 ) : BodyDescriptor
 
+sealed interface Mass {
+    data class WithInertia(val mass: Float, val inertia: FMat4) : Mass
+
+    data class Constant(val mass: Float) : Mass
+
+    object Calculate : Mass
+}
+
 @ConfigSerializable
 data class MovingBodyDescriptor(
     override val shape: Shape,
     override val contactFilter: BodyContactFilter,
     override val trigger: Boolean = false,
     val kinematic: Boolean = false,
+    val mass: Mass = Mass.Calculate,
+    val linearVelocity: FVec3 = FVec3(0.0f),
+    val angularVelocity: FVec3 = FVec3(0.0f),
     val friction: Float = 0.2f,
     val restitution: Float = 0.0f,
+    val gravityFactor: Float = 1.0f,
     val linearDamping: Float = 0.05f,
     val angularDamping: Float = 0.05f,
     val maxLinearVelocity: Float = 500.0f,
     val maxAngularVelocity: Float = 0.25f * FPI * 60.0f,
-    val gravityFactor: Float = 1.0f,
-    val linearVelocity: FVec3 = FVec3(0.0f),
-    val angularVelocity: FVec3 = FVec3(0.0f),
 ) : BodyDescriptor
 
 interface PhysicsBody {
@@ -60,7 +67,7 @@ interface PhysicsBody {
 
         val transform: Transform
 
-        // TODO val bounds: AABB
+        val bounds: DAabb3
 
         val shape: Shape
 
@@ -99,7 +106,19 @@ interface PhysicsBody {
 
         val angularVelocity: FVec3
 
+        val friction: Float
+
+        val restitution: Float
+
         val gravityFactor: Float
+
+        val linearDamping: Float
+
+        val angularDamping: Float
+
+        val maxLinearVelocity: Float
+
+        val maxAngularVelocity: Float
 
         override fun asDescriptor(): MovingBodyDescriptor
     }
@@ -113,7 +132,19 @@ interface PhysicsBody {
 
         override var angularVelocity: FVec3
 
+        override var friction: Float
+
+        override var restitution: Float
+
         override var gravityFactor: Float
+
+        override var linearDamping: Float
+
+        override var angularDamping: Float
+
+        override var maxLinearVelocity: Float
+
+        override var maxAngularVelocity: Float
 
         fun activate()
 
