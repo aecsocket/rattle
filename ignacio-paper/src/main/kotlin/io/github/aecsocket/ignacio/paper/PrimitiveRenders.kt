@@ -15,21 +15,21 @@ class PrimitiveRenders internal constructor(private val ignacio: Ignacio) {
         val marker: Entity,
     )
 
-    private val nextRenderId = AtomicInteger()
+    private val nextId = AtomicInteger()
     private val lock = Any()
     private val instances = HashMap<Int, Instance>()
-    private val entityToRender = HashMap<Entity, Instance>()
+    private val entityToInstance = HashMap<Entity, Instance>()
 
     val size get() = synchronized(lock) { instances.size }
 
     fun create(world: World, transform: Transform, descriptor: RenderDescriptor): Int {
-        val id = nextRenderId.incrementAndGet()
+        val id = nextId.getAndIncrement()
         spawnMarkerEntity(transform.position.location(world)) { marker ->
             val render = ignacio.renders.create(descriptor, marker.playerTracker(), transform)
             val instance = Instance(id, render, marker)
             synchronized(lock) {
                 instances[id] = instance
-                entityToRender[marker] = instance
+                entityToInstance[marker] = instance
             }
 
             ignacio.runDelayed {
@@ -46,7 +46,7 @@ class PrimitiveRenders internal constructor(private val ignacio: Ignacio) {
     fun destroy(id: Int): Boolean {
         return synchronized(lock) {
             instances.remove(id)?.let { instance ->
-                entityToRender -= instance.marker
+                entityToInstance -= instance.marker
                 destroyInternal(instance)
                 true
             } ?: false
@@ -59,7 +59,7 @@ class PrimitiveRenders internal constructor(private val ignacio: Ignacio) {
                 destroyInternal(instance)
             }
             instances.clear()
-            entityToRender.clear()
+            entityToInstance.clear()
         }
     }
 
@@ -68,7 +68,7 @@ class PrimitiveRenders internal constructor(private val ignacio: Ignacio) {
     internal fun syncUpdate() {
         // TODO Folia: tasks must be individually scheduled per entity
         synchronized(lock) {
-            entityToRender.forEach { (entity, instance) ->
+            entityToInstance.forEach { (entity, instance) ->
                 entity.teleport(instance.render.transform.position.location(entity.world))
             }
         }
@@ -76,7 +76,7 @@ class PrimitiveRenders internal constructor(private val ignacio: Ignacio) {
 
     internal fun onEntityRemove(entity: Entity) {
         synchronized(lock) {
-            entityToRender.remove(entity)?.let { instance ->
+            entityToInstance.remove(entity)?.let { instance ->
                 instances -= instance.id
                 destroyInternal(instance)
             }
@@ -85,14 +85,14 @@ class PrimitiveRenders internal constructor(private val ignacio: Ignacio) {
 
     internal fun onPlayerTrackEntity(player: Player, entity: Entity) {
         synchronized(lock) {
-            val instance = entityToRender[entity] ?: return
+            val instance = entityToInstance[entity] ?: return
             instance.render.spawn(player)
         }
     }
 
     internal fun onPlayerUntrackEntity(player: Player, entity: Entity) {
         synchronized(lock) {
-            val instance = entityToRender[entity] ?: return
+            val instance = entityToInstance[entity] ?: return
             instance.render.despawn(player)
         }
     }

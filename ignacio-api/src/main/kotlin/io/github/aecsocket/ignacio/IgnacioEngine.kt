@@ -1,6 +1,7 @@
 package io.github.aecsocket.ignacio
 
 import io.github.aecsocket.klam.*
+import kotlinx.coroutines.CoroutineScope
 
 typealias Quat = FQuat
 typealias Transform = DAffine3
@@ -53,6 +54,10 @@ interface IgnacioEngine : Destroyable {
 
         // TODO fun forShape(test: )
     }
+
+    fun runTask(block: Runnable)
+
+    fun launchTask(block: suspend CoroutineScope.() -> Unit)
 
     fun contactFilter(layer: BodyLayer, flags: Set<BodyFlag>): BodyContactFilter
 

@@ -16,6 +16,7 @@ translations:
           <p2>Created physics space for <p1>{world}</p1>
         destroy: >-
           <p2>Destroyed physics space for <p1>{world}</p1>
+
       render:
         create:
           model: >-
@@ -31,3 +32,27 @@ translations:
               one {<p1>#</p1> render}
               other {<p1>#</p1> renders}
             }.
+      body:
+        create:
+          static:
+            box: >-
+              <p2>Created {count, plural,
+                one {<p1>#</p1> static box}
+                other {<p1>#</p1> static boxes}
+              } at <p1>{location_x}, {location_y}, {location_z}</p1>
+            sphere: >-
+              <p2>Created {count, plural,
+                one {<p1>#</p1> static sphere}
+                other {<p1>#</p1> static spheres}
+              } at <p1>{location_x}, {location_y}, {location_z}</p1>
+          moving:
+            box: >-
+              <p2>Created {count, plural,
+                one {<p1>#</p1> moving box}
+                other {<p1>#</p1> moving boxes}
+              } at <p1>{location_x}, {location_y}, {location_z}</p1>
+            sphere: >-
+              <p2>Created {count, plural,
+                one {<p1>#</p1> moving sphere}
+                other {<p1>#</p1> moving spheres}
+              } at <p1>{location_x}, {location_y}, {location_z}</p1>

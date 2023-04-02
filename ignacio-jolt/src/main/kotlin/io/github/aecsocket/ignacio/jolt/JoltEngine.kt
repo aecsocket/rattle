@@ -24,8 +24,14 @@ import jolt.physics.collision.shape.Shape
 import jolt.physics.collision.shape.SphereShape
 import jolt.physics.collision.shape.StaticCompoundShapeSettings
 import jolt.physics.collision.shape.TaperedCapsuleShapeSettings
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.launch
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import java.lang.foreign.MemorySession
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.cos
 
 private const val BP_LAYER_STATIC: Byte = 0
@@ -101,9 +107,11 @@ class JoltEngine internal constructor(
     ) {
         @ConfigSerializable
         data class Jobs(
+            val physicsThreads: Int = 0,
+            val workerThreads: Int = 0,
+            val threadTerminateTime: Double = 0.0,
             val maxJobs: Int = JobSystem.MAX_PHYSICS_JOBS,
             val maxBarriers: Int = JobSystem.MAX_PHYSICS_BARRIERS,
-            val numThreads: Int = 0,
         )
 
         @ConfigSerializable
@@ -149,10 +157,14 @@ class JoltEngine internal constructor(
     private val destroyed = DestroyFlag()
     override val build: String
     private val arena: MemorySession
+    private val executorId = AtomicInteger(1)
+    private val executor: ExecutorService
+    private val executorScope: CoroutineScope
+
     val jobSystem: JobSystem
-    private val bpLayerInterface: BroadPhaseLayerInterface
-    private val objBpLayerFilter: ObjectVsBroadPhaseLayerFilter
-    private val objLayerPairFilter: ObjectLayerPairFilter
+    val bpLayerInterface: BroadPhaseLayerInterface
+    val objBpLayerFilter: ObjectVsBroadPhaseLayerFilter
+    val objLayerPairFilter: ObjectLayerPairFilter
 
     private val spaces = HashMap<PhysicsSystem, JtPhysicsSpace>()
 
@@ -164,8 +176,12 @@ class JoltEngine internal constructor(
         Jolt.createFactory()
         Jolt.registerTypes()
         arena = MemorySession.openShared()
+        executor = Executors.newFixedThreadPool(numThreads(settings.jobs.workerThreads)) { task ->
+            Thread(task, "Ignacio-Worker-${executorId.getAndIncrement()}")
+        }
+        executorScope = CoroutineScope(executor.asCoroutineDispatcher())
 
-        jobSystem = JobSystem.of(settings.jobs.maxJobs, settings.jobs.maxBarriers, numThreads(settings.jobs.numThreads))
+        jobSystem = JobSystem.of(settings.jobs.maxJobs, settings.jobs.maxBarriers, numThreads(settings.jobs.physicsThreads))
 
         bpLayerInterface = BroadPhaseLayerInterface.of(arena, object : BroadPhaseLayerInterfaceFn {
             override fun getNumBroadPhaseLayers() = objectLayers.size
@@ -215,6 +231,15 @@ class JoltEngine internal constructor(
         override val anyBody = JtBodyFilter(jolt.physics.collision.BodyFilter.passthrough(), openArena())
 
         override val anyShape = JtShapeFilter(jolt.physics.collision.ShapeFilter.passthrough(), openArena())
+    }
+
+    override fun runTask(block: Runnable) {
+        executor.execute(block)
+    }
+
+    override fun launchTask(block: suspend CoroutineScope.() -> Unit) {
+        if (destroyed.marked()) return
+        executorScope.launch(block = block)
     }
 
     override fun contactFilter(layer: BodyLayer, flags: Set<BodyFlag>): BodyContactFilter {

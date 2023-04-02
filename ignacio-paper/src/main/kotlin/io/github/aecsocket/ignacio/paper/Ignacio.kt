@@ -13,9 +13,11 @@ import io.github.aecsocket.glossa.MessageProxy
 import io.github.aecsocket.glossa.messageProxy
 import io.github.aecsocket.ignacio.IgnacioEngine
 import io.github.aecsocket.ignacio.PhysicsSpace
+import io.github.aecsocket.ignacio.TimestampedList
 import io.github.aecsocket.ignacio.jolt.JoltEngine
 import io.github.aecsocket.ignacio.paper.render.DisplayRenders
 import io.github.aecsocket.ignacio.paper.render.Renders
+import io.github.aecsocket.ignacio.timestampedList
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder
 import io.papermc.paper.util.Tick
 import net.kyori.adventure.text.format.TextColor
@@ -30,6 +32,7 @@ import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import org.spongepowered.configurate.objectmapping.ObjectMapper
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.collections.HashMap
 
 private lateinit var instance: Ignacio
@@ -63,7 +66,8 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
         override val defaultLocale: Locale = fallbackLocale,
         val jolt: JoltEngine.Settings = JoltEngine.Settings(),
         val worlds: Worlds = Worlds(),
-        val primitiveMeshes: PrimitiveMeshes = PrimitiveMeshes(),
+        val bodyModels: BodyModels = BodyModels(),
+        val engineTimings: EngineTimings = EngineTimings(),
     ) : AlexandriaPlugin.Settings {
         @ConfigSerializable
         data class Worlds(
@@ -72,9 +76,16 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
         )
 
         @ConfigSerializable
-        data class PrimitiveMeshes(
+        data class BodyModels(
             val box: ItemDescriptor = ItemDescriptor(Material.STONE),
             val sphere: ItemDescriptor = ItemDescriptor(Material.STONE),
+        )
+
+        @ConfigSerializable
+        data class EngineTimings(
+            val buffer: Double = 60.0,
+            val buffersToDisplay: List<Double> = listOf(5.0, 15.0, 60.0),
+            val barBuffer: Double = 5.0,
         )
     }
 
@@ -87,6 +98,9 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
     val renders: Renders = DisplayRenders()
     val primitiveBodies = PrimitiveBodies(this)
     val primitiveRenders = PrimitiveRenders(this)
+    private val updatingPhysics = AtomicBoolean(false)
+    private val mEngineTimings = timestampedList<Long>(0)
+    val engineTimings: TimestampedList<Long> get() = mEngineTimings
 
     init {
         instance = this
@@ -129,6 +143,7 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
     override fun load(log: LoggingList) {
         messages = glossa.messageProxy()
         worldDeltaTime = (Tick.of(1).toMillis() / 1000.0f) * settings.worlds.deltaTimeMultiplier
+        mEngineTimings.buffer = (settings.engineTimings.buffer * 1000).toLong()
     }
 
     override fun reload(log: Logging) {
@@ -141,7 +156,25 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
         players.toMap().forEach { (_, player) ->
             player.update()
         }
+        primitiveBodies.syncUpdate()
         primitiveRenders.syncUpdate()
+
+        engine.launchTask {
+            if (updatingPhysics.getAndSet(true)) return@launchTask
+
+            val start = System.nanoTime()
+            primitiveBodies.physicsUpdate()
+            worldMap.forEach { (_, world) ->
+                world.startPhysicsUpdate(worldDeltaTime)
+            }
+            worldMap.forEach { (_, world) ->
+                world.joinPhysicsUpdate()
+            }
+            val end = System.nanoTime()
+
+            updatingPhysics.set(false)
+            mEngineTimings.add(end - start)
+        }
     }
 
     fun playerData(player: Player) = players.computeIfAbsent(player) { IgnacioPlayer(this, player) }

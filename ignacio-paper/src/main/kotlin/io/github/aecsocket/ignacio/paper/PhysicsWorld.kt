@@ -12,8 +12,19 @@ class PhysicsWorld(
     val physics: PhysicsSpace,
 ) : Destroyable {
     private val destroyed = DestroyFlag()
+    private var nextDeltaTime = 0f
 
     override fun destroy() {
         destroyed.mark()
+    }
+
+    operator fun component1() = physics
+
+    internal fun startPhysicsUpdate(deltaTime: Float) {
+        nextDeltaTime = deltaTime
+    }
+
+    internal fun joinPhysicsUpdate() {
+        physics.update(nextDeltaTime)
     }
 }

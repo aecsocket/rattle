@@ -64,13 +64,31 @@ interface IgnacioMessages {
             }
         }
 
-        val primitive: Primitive
-        interface Primitive {
+        val body: Body
+        interface Body {
             val create: Create
             interface Create {
                 val static: Static
                 interface Static {
                     fun box(
+                        count: Int,
+                        locationX: Double, locationY: Double, locationZ: Double,
+                    ): Message
+
+                    fun sphere(
+                        count: Int,
+                        locationX: Double, locationY: Double, locationZ: Double,
+                    ): Message
+                }
+
+                val moving: Moving
+                interface Moving {
+                    fun box(
+                        count: Int,
+                        locationX: Double, locationY: Double, locationZ: Double,
+                    ): Message
+
+                    fun sphere(
                         count: Int,
                         locationX: Double, locationY: Double, locationZ: Double,
                     ): Message

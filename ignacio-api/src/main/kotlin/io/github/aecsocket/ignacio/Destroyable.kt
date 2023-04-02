@@ -7,10 +7,12 @@ interface Destroyable {
 }
 
 class DestroyFlag {
-    private val destroyed = AtomicBoolean(false)
+    private val marked = AtomicBoolean(false)
+
+    fun marked() = marked.get()
 
     fun mark() {
-        if (destroyed.getAndSet(true))
+        if (marked.getAndSet(true))
             throw IllegalStateException("Object is already destroyed")
     }
 }

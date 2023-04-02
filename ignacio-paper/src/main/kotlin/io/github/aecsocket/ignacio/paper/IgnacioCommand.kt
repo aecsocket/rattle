@@ -24,11 +24,14 @@ import net.kyori.adventure.text.minimessage.MiniMessage
 import org.bukkit.Location
 import org.bukkit.World
 import org.bukkit.command.CommandSender
+import org.bukkit.entity.Display.Billboard
 import kotlin.random.Random
 
 private const val ANGLES = "angles"
+private const val BILLBOARD = "billboard"
 private const val COUNT = "count"
 private const val DENSITY = "density"
+private const val FRICTION = "friction"
 private const val HALF_EXTENT = "half-extent"
 private const val ID = "id"
 private const val ITEM = "item"
@@ -36,6 +39,7 @@ private const val LOCATION = "location"
 private const val MASS = "mass"
 private const val ORDER = "order"
 private const val RADIUS = "radius"
+private const val RESTITUTION = "restitution"
 private const val SCALE = "scale"
 private const val SHOW_TIMINGS = "show-timings"
 private const val SPREAD = "spread"
@@ -43,9 +47,6 @@ private const val TEXT = "text"
 private const val TO = "to"
 private const val VIRTUAL = "virtual"
 private const val WORLD = "world"
-private const val X = "x"
-private const val Y = "y"
-private const val Z = "z"
 
 internal class IgnacioCommand(
     private val ignacio: Ignacio
@@ -83,6 +84,10 @@ internal class IgnacioCommand(
                     manager.command(create
                         .literal("text")
                         .argument(StringArgument.quoted(TEXT))
+                        .flag(manager.flagBuilder(BILLBOARD)
+                            .withAliases("b")
+                            .withArgument(EnumArgument.of<CommandSender, Billboard>(Billboard::class.java, BILLBOARD))
+                        )
                         .handler(::renderCreateText)
                     )
                 }
@@ -107,14 +112,12 @@ internal class IgnacioCommand(
                         .argument(LocationArgument.of(TO))
                         .handler(::renderEditPosition)
                     )
-
                     manager.command(edit
                         .literal("rotation")
                         .argument(EnumArgument.of(EulerOrder::class.java, ORDER))
                         .argumentFVec3(ANGLES)
                         .handler(::renderEditRotation)
                     )
-
                     manager.command(edit
                         .literal("scale")
                         .argumentFVec3(SCALE)
@@ -123,9 +126,9 @@ internal class IgnacioCommand(
                 }
         }
 
-        root.literal("primitive").let { primitive ->
-            primitive.literal("create")
-                .alexandriaPermission("primitive.create")
+        root.literal("body").let { body ->
+            body.literal("create")
+                .alexandriaPermission("body.create")
                 .argument(LocationArgument.of(LOCATION))
                 .flag(manager.flagBuilder(COUNT)
                     .withAliases("n")
@@ -144,16 +147,26 @@ internal class IgnacioCommand(
                         manager.command(static
                             .literal("box")
                             .argument(FloatArgument.of(HALF_EXTENT))
-                            .handler(::primitiveCreateStaticBox)
+                            .handler(::bodyCreateStaticBox)
                         )
                         manager.command(static
                             .literal("sphere")
                             .argument(FloatArgument.of(RADIUS))
-                            .handler(::primitiveCreateStaticSphere)
+                            .handler(::bodyCreateStaticSphere)
                         )
                     }
 
                     create.literal("moving")
+                        .flag(manager.flagBuilder(FRICTION)
+                            .withAliases("f")
+                            .withArgument(FloatArgument.builder<CommandSender>(FRICTION)
+                                .withMin(0).build())
+                        )
+                        .flag(manager.flagBuilder(RESTITUTION)
+                            .withAliases("r")
+                            .withArgument(FloatArgument.builder<CommandSender>(RESTITUTION)
+                                .withMin(0).build())
+                        )
                         .flag(manager.flagBuilder(MASS)
                             .withAliases("m")
                             .withArgument(FloatArgument.builder<CommandSender>(MASS)
@@ -168,21 +181,23 @@ internal class IgnacioCommand(
                             manager.command(moving
                                 .literal("box")
                                 .argument(FloatArgument.of(HALF_EXTENT))
-                                .handler(::primitiveCreateMovingBox)
+                                .handler(::bodyCreateMovingBox)
                             )
                             manager.command(moving
                                 .literal("sphere")
                                 .argument(FloatArgument.of(RADIUS))
-                                .handler(::primitiveCreateMovingSphere)
+                                .handler(::bodyCreateMovingSphere)
                             )
                     }
                 }
 
-            manager.command(primitive
-                .literal("destroy-all")
-                .alexandriaPermission("primitives.destroy-all")
-                .handler(::primitiveDestroyAll)
-            )
+            body.literal("destroy")
+                .alexandriaPermission("body.destroy").let { destroy ->
+                manager.command(destroy
+                    .literal("all")
+                    .handler(::bodyDestroyAll)
+                )
+            }
         }
     }
 
@@ -239,9 +254,11 @@ internal class IgnacioCommand(
         val location = ctx.get<Location>(LOCATION)
         val item = ctx.get<ProtoItemStack>(ITEM).createItemStack(1, false)
         val scale = ctx.flag(SCALE) ?: 1.0f
+        val billboard = ctx.flag(BILLBOARD) ?: Billboard.FIXED
 
         val renderId = renderCreate(location, ModelDescriptor(
             scale = FVec3(scale),
+            billboard = billboard,
             item = item,
         ))
 
@@ -257,9 +274,11 @@ internal class IgnacioCommand(
         val location = ctx.get<Location>(LOCATION)
         val text = MiniMessage.miniMessage().deserialize(ctx.get(TEXT))
         val scale = ctx.flag(SCALE) ?: 1.0f
+        val billboard = ctx.flag(BILLBOARD) ?: Billboard.CENTER
 
         val renderId = renderCreate(location, TextDescriptor(
             scale = FVec3(scale),
+            billboard = billboard,
             text = text,
         ))
 
@@ -345,38 +364,53 @@ internal class IgnacioCommand(
         render.scale = scale
     }
 
-    private fun primitiveCreate(
+    private fun bodyCreate(
         location: Location,
         count: Int,
         spread: Double,
         virtual: Boolean,
         model: ItemDescriptor,
-        addBody: (physics: PhysicsSpace, transform: Transform) -> PhysicsBody,
+        scale: FVec3,
+        createBody: (physics: PhysicsSpace, transform: Transform) -> PhysicsBody,
     ) {
+        val item = model.create()
         repeat(count) {
             val transform = Transform(location.position() - spread + Random.nextDVec3() * (spread * 2))
+            ignacio.primitiveBodies.create(
+                location.world,
+                transform,
+                { physics -> createBody(physics, transform) },
+                if (virtual) null else {
+                    { tracker ->
+                        ignacio.renders.create(ModelDescriptor(
+                            item = item,
+                            scale = scale,
+                        ), tracker, transform)
+                    }
+                }
+            )
         }
     }
 
-    private fun primitiveCreateStatic(
+    private fun bodyCreateStatic(
         location: Location,
-        virtual: Boolean,
-        model: ItemDescriptor,
         count: Int,
         spread: Double,
+        virtual: Boolean,
+        model: ItemDescriptor,
+        scale: FVec3,
         geometry: Geometry,
     ) {
         val descriptor = StaticBodyDescriptor(
             shape = ignacio.engine.shape(geometry),
             contactFilter = ignacio.engine.contactFilter(ignacio.engine.layers.moving),
         )
-        TODO()
-//        primitiveCreate(location, count, spread, virtual, model) { physics, transform ->
-//
-//        }
+        bodyCreate(location, count, spread, virtual, model, scale) { physics, transform ->
+            physics.bodies.createStatic(descriptor, transform)
+        }
     }
 
-    private fun primitiveCreateStaticBox(ctx: Context) {
+    private fun bodyCreateStaticBox(ctx: Context) {
         val sender = ctx.sender
         val messages = ignacio.messages.forAudience(sender)
         val location = ctx.get<Location>(LOCATION)
@@ -385,38 +419,133 @@ internal class IgnacioCommand(
         val spread = ctx.flag(SPREAD) ?: 0.0
         val virtual = ctx.hasFlag(VIRTUAL)
 
-//        primitiveCreateStatic(
-//            location, count, spread, virtual,
-//            ignacio.settings.primitiveModels.box,
-//            BoxGeometry(Vec3(halfExtent)),
-//        )
+        bodyCreateStatic(
+            location, count, spread, virtual,
+            ignacio.settings.bodyModels.box,
+            FVec3(halfExtent),
+            BoxGeometry(FVec3(halfExtent)),
+        )
 
-        messages.command.primitive.create.static.box(
+        messages.command.body.create.static.box(
             count = count,
             locationX = location.x, locationY = location.y, locationZ = location.z,
         ).sendTo(sender)
     }
 
-    private fun primitiveCreateStaticSphere(ctx: Context) {
+    private fun bodyCreateStaticSphere(ctx: Context) {
+        val sender = ctx.sender
+        val messages = ignacio.messages.forAudience(sender)
+        val location = ctx.get<Location>(LOCATION)
+        val radius = ctx.get<Float>(RADIUS)
+        val count = ctx.flag(COUNT) ?: 1
+        val spread = ctx.flag(SPREAD) ?: 0.0
+        val virtual = ctx.hasFlag(VIRTUAL)
+
+        bodyCreateStatic(
+            location, count, spread, virtual,
+            ignacio.settings.bodyModels.sphere,
+            FVec3(radius),
+            SphereGeometry(radius),
+        )
+
+        messages.command.body.create.static.sphere(
+            count = count,
+            locationX = location.x, locationY = location.y, locationZ = location.z,
+        ).sendTo(sender)
+    }
+
+    private fun bodyCreateMoving(
+        location: Location,
+        count: Int,
+        spread: Double,
+        virtual: Boolean,
+        friction: Float,
+        restitution: Float,
+        mass: Float,
+        density: Float,
+        model: ItemDescriptor,
+        scale: FVec3,
+        geometry: Geometry,
+    ) {
+        val descriptor = MovingBodyDescriptor(
+            shape = ignacio.engine.shape(geometry),
+            contactFilter = ignacio.engine.contactFilter(ignacio.engine.layers.moving),
+            friction = friction,
+            restitution = restitution,
+        )
+        bodyCreate(location, count, spread, virtual, model, scale) { physics, transform ->
+            physics.bodies.createMoving(descriptor, transform)
+        }
+    }
+
+    private fun bodyCreateMovingBox(ctx: Context) {
+        val sender = ctx.sender
+        val messages = ignacio.messages.forAudience(sender)
+        val location = ctx.get<Location>(LOCATION)
+        val halfExtent = ctx.get<Float>(HALF_EXTENT)
+        val count = ctx.flag(COUNT) ?: 1
+        val spread = ctx.flag(SPREAD) ?: 0.0
+        val virtual = ctx.hasFlag(VIRTUAL)
+        val friction = ctx.flag(FRICTION) ?: 0.2f
+        val restitution = ctx.flag(RESTITUTION) ?: 0.0f
+        val mass = ctx.flag(MASS) ?: 1.0f
+        val density = ctx.flag(DENSITY) ?: 1000.0f
+
+        bodyCreateMoving(
+            location, count, spread, virtual,
+            friction, restitution, mass, density,
+            ignacio.settings.bodyModels.box,
+            FVec3(halfExtent),
+            BoxGeometry(FVec3(halfExtent)),
+        )
+
+        messages.command.body.create.moving.box(
+            count = count,
+            locationX = location.x, locationY = location.y, locationZ = location.z,
+        ).sendTo(sender)
+    }
+
+    private fun bodyCreateMovingSphere(ctx: Context) {
+        val sender = ctx.sender
+        val messages = ignacio.messages.forAudience(sender)
+        val location = ctx.get<Location>(LOCATION)
+        val radius = ctx.get<Float>(RADIUS)
+        val count = ctx.flag(COUNT) ?: 1
+        val spread = ctx.flag(SPREAD) ?: 0.0
+        val virtual = ctx.hasFlag(VIRTUAL)
+        val friction = ctx.flag(FRICTION) ?: 0.2f
+        val restitution = ctx.flag(RESTITUTION) ?: 0.0f
+        val mass = ctx.flag(MASS) ?: 1.0f
+        val density = ctx.flag(DENSITY) ?: 1000.0f
+
+        bodyCreateMoving(
+            location, count, spread, virtual,
+            friction, restitution, mass, density,
+            ignacio.settings.bodyModels.sphere,
+            FVec3(radius),
+            SphereGeometry(radius),
+        )
+
+        messages.command.body.create.moving.sphere(
+            count = count,
+            locationX = location.x, locationY = location.y, locationZ = location.z,
+        ).sendTo(sender)
+    }
+
+    private fun bodyDestroyOne(ctx: Context) {
+        val sender = ctx.sender
+        val messages = ignacio.messages.forAudience(sender)
 
     }
 
-    private fun primitiveCreateMovingBox(ctx: Context) {
-
-    }
-
-    private fun primitiveCreateMovingSphere(ctx: Context) {
-
-    }
-
-    private fun primitiveDestroyAll(ctx: Context) {
+    private fun bodyDestroyAll(ctx: Context) {
         val sender = ctx.sender
         val messages = ignacio.messages.forAudience(sender)
 
         val count = ignacio.primitiveBodies.size
         ignacio.primitiveBodies.destroyAll()
 
-        messages.command.primitive.destroy.all(
+        messages.command.body.destroy.all(
             count = count,
         ).sendTo(sender)
     }

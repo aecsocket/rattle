@@ -5,32 +5,20 @@ import com.github.retrooper.packetevents.protocol.entity.data.EntityDataTypes
 import com.github.retrooper.packetevents.protocol.entity.type.EntityType
 import com.github.retrooper.packetevents.protocol.entity.type.EntityTypes
 import com.github.retrooper.packetevents.util.Vector3d
-import com.github.retrooper.packetevents.util.Vector3f
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerDestroyEntities
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityMetadata
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityTeleport
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSpawnEntity
 import io.github.aecsocket.alexandria.paper.extension.nextEntityId
-import io.github.aecsocket.ignacio.Quat
 import io.github.aecsocket.ignacio.Transform
 import io.github.aecsocket.ignacio.paper.sendPacket
 import io.github.aecsocket.klam.FVec3
 import io.github.aecsocket.klam.asARGB
 import io.github.retrooper.packetevents.util.SpigotConversionUtil
 import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer
+import org.bukkit.entity.Display.Billboard
 import org.bukkit.entity.Player
 import java.util.*
-
-val VECTOR3F = EntityDataTypes.ROTATION
-val QUATERNIONF = EntityDataTypes.define("quaternionf",
-    { wrapper -> Quat(wrapper.readFloat(), wrapper.readFloat(), wrapper.readFloat(), wrapper.readFloat()) },
-    { wrapper, value ->
-        wrapper.writeFloat(value.x)
-        wrapper.writeFloat(value.y)
-        wrapper.writeFloat(value.z)
-        wrapper.writeFloat(value.w)
-    }
-)
 
 sealed class DisplayRender(
     override var tracker: PlayerTracker,
@@ -47,10 +35,21 @@ sealed class DisplayRender(
 //        // 12: Display/Rotation left
 //        EntityData(12, QUATERNIONF, transform.rotation)
 
+    protected abstract val descriptor: RenderDescriptor
+
+    private fun metadataBillboarding() =
+        // 14: Display/Billboard constraints
+        EntityData(14, EntityDataTypes.BYTE, when (descriptor.billboard) {
+            Billboard.FIXED -> 0
+            Billboard.VERTICAL -> 1
+            Billboard.HORIZONTAL -> 2
+            Billboard.CENTER -> 3
+        }.toByte())
+
     override var transform = transform
         get() = Transform(field)
         set(value) {
-            field = value
+            field = Transform(value)
             val packets = listOf(
                 WrapperPlayServerEntityTeleport(
                     netId,
@@ -71,7 +70,7 @@ sealed class DisplayRender(
     override var scale = FVec3(descriptor.scale)
         get() = FVec3(field)
         set(value) {
-            field = value
+            field = FVec3(value)
             val packet = WrapperPlayServerEntityMetadata(netId, listOf(
                 //TODO metadataScale(),
             ))
@@ -97,9 +96,10 @@ sealed class DisplayRender(
                 0,
                 Optional.empty(),
             ),
-            WrapperPlayServerEntityMetadata(netId, listOf<EntityData>(
+            WrapperPlayServerEntityMetadata(netId, listOf(
                 //TODO metadataScale(),
                 //TODO metadataRotation(),
+                metadataBillboarding(),
             ) + metadata()),
         )
         players.forEach { player ->
@@ -119,7 +119,7 @@ class DisplayModelRender(
     tracker: PlayerTracker,
     transform: Transform,
     netId: Int,
-    descriptor: ModelDescriptor,
+    override val descriptor: ModelDescriptor,
 ) : DisplayRender(tracker, transform, netId, descriptor), ModelRender {
     private fun metadataItem() =
         // 22: Item Display/Displayed item
@@ -147,7 +147,7 @@ class DisplayTextRender(
     tracker: PlayerTracker,
     transform: Transform,
     netId: Int,
-    private val descriptor: TextDescriptor,
+    override val descriptor: TextDescriptor,
 ) : DisplayRender(tracker, transform, netId, descriptor), TextRender {
     private fun metadataText() =
         // 22: Text Display/Text

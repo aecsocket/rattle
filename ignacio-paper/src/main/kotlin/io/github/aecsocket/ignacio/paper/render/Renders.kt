@@ -3,7 +3,7 @@ package io.github.aecsocket.ignacio.paper.render
 import io.github.aecsocket.ignacio.Transform
 import io.github.aecsocket.klam.*
 import net.kyori.adventure.text.Component
-import net.kyori.adventure.text.format.TextColor
+import org.bukkit.entity.Display.Billboard
 import org.bukkit.entity.Entity
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
@@ -17,10 +17,12 @@ fun Entity.playerTracker() = PlayerTracker { trackedPlayers }
 
 sealed interface RenderDescriptor {
     val scale: FVec3
+    val billboard: Billboard
 }
 
 data class ModelDescriptor(
     override val scale: FVec3 = FVec3(1.0f),
+    override val billboard: Billboard = Billboard.FIXED,
     val item: ItemStack,
 ) : RenderDescriptor
 
@@ -32,6 +34,7 @@ enum class TextAlignment {
 
 data class TextDescriptor(
     override val scale: FVec3 = FVec3(1.0f),
+    override val billboard: Billboard = Billboard.CENTER,
     val text: Component,
     val lineWidth: Int = 200,
     val backgroundColor: RGBA = fromARGB(0x40000000),
