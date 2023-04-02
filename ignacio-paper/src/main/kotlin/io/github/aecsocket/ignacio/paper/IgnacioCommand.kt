@@ -20,11 +20,13 @@ import io.github.aecsocket.ignacio.paper.render.ModelDescriptor
 import io.github.aecsocket.ignacio.paper.render.RenderDescriptor
 import io.github.aecsocket.ignacio.paper.render.TextDescriptor
 import io.github.aecsocket.klam.*
+import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.minimessage.MiniMessage
 import org.bukkit.Location
 import org.bukkit.World
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Display.Billboard
+import org.bukkit.entity.Player
 import kotlin.random.Random
 
 private const val ANGLES = "angles"
@@ -199,6 +201,22 @@ internal class IgnacioCommand(
                 )
             }
         }
+
+        manager.command(root
+            .literal("timings")
+            .alexandriaPermission("timings")
+            .handler(::timings)
+        )
+
+        manager.command(root
+            .literal("debug")
+            .alexandriaPermission("debug")
+            .senderType(Player::class.java)
+            .flag(manager.flagBuilder(SHOW_TIMINGS)
+                .withAliases("t")
+            )
+            .handler(::debug)
+        )
     }
 
     private fun spaceCreate(ctx: Context) {
@@ -308,7 +326,7 @@ internal class IgnacioCommand(
         val sender = ctx.sender
         val messages = ignacio.messages.forAudience(sender)
 
-        val count = ignacio.primitiveRenders.size
+        val count = ignacio.primitiveRenders.count
         ignacio.primitiveRenders.destroyAll()
 
         messages.command.render.destroy.all(
@@ -542,11 +560,49 @@ internal class IgnacioCommand(
         val sender = ctx.sender
         val messages = ignacio.messages.forAudience(sender)
 
-        val count = ignacio.primitiveBodies.size
+        val count = ignacio.primitiveBodies.count
         ignacio.primitiveBodies.destroyAll()
 
         messages.command.body.destroy.all(
             count = count,
         ).sendTo(sender)
+    }
+
+    private fun timings(ctx: Context) {
+        val sender = ctx.sender
+        val messages = ignacio.messages.forAudience(sender)
+
+        messages.command.timings.timingsHeader().sendTo(sender)
+
+        ignacio.settings.engineTimings.buffersToDisplay.forEach { buffer ->
+            val (median, best5, worst5) = timingStatsOf(ignacio.engineTimings.getLast((buffer * 1000).toLong()))
+            messages.command.timings.timing(
+                buffer = buffer,
+                median = formatTiming(median, messages),
+                best5 = formatTiming(best5, messages),
+                worst5 = formatTiming(worst5, messages),
+            ).sendTo(sender)
+        }
+
+        messages.command.timings.spacesHeader(
+            numWorldPhysicsSpaces = ignacio.worlds.count,
+        ).sendTo(sender)
+
+        ignacio.worlds.all().forEach { (_, world) ->
+            messages.command.timings.space(
+                worldName = world.world.name,
+                numBodies = world.physics.bodies.count,
+                numActiveBodies = world.physics.bodies.activeCount,
+            ).sendTo(sender)
+        }
+    }
+
+    private fun debug(ctx: Context) {
+        val sender = ctx.sender as Player
+        val showTimings = ctx.hasFlag(SHOW_TIMINGS)
+
+        ignacio.playerData(sender).updateDebugFlags(IgnacioPlayer.DebugFlags(
+            showTimings = showTimings,
+        ))
     }
 }

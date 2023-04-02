@@ -20,7 +20,7 @@ class PrimitiveRenders internal constructor(private val ignacio: Ignacio) {
     private val instances = HashMap<Int, Instance>()
     private val entityToInstance = HashMap<Entity, Instance>()
 
-    val size get() = synchronized(lock) { instances.size }
+    val count get() = synchronized(lock) { instances.size }
 
     fun create(world: World, transform: Transform, descriptor: RenderDescriptor): Int {
         val id = nextId.getAndIncrement()

@@ -1,6 +1,7 @@
 package io.github.aecsocket.ignacio.paper
 
 import io.github.aecsocket.glossa.Message
+import net.kyori.adventure.text.Component
 
 interface IgnacioMessages {
     val error: Error
@@ -97,14 +98,52 @@ interface IgnacioMessages {
 
             val destroy: Destroy
             interface Destroy {
-                fun one(
-                    id: Int,
-                ): Message
-
                 fun all(
                     count: Int,
                 ): Message
             }
         }
+
+        val timings: Timings
+        interface Timings {
+            fun timingsHeader(): Message
+
+            fun timing(
+                buffer: Double,
+                median: Component,
+                best5: Component,
+                worst5: Component,
+            ): Message
+
+            fun spacesHeader(
+                numWorldPhysicsSpaces: Int,
+            ): Message
+
+            fun space(
+                worldName: String,
+                numBodies: Int,
+                numActiveBodies: Int,
+            ): Message
+        }
+    }
+
+    fun timing(
+        time: Double,
+    ): Message
+
+    val timingsBar: TimingsBar
+    interface TimingsBar {
+        fun none(
+            worldName: String,
+        ): Message
+
+        fun some(
+            worldName: String,
+            numBodies: Int,
+            numActiveBodies: Int,
+            median: Component,
+            best5: Component,
+            worst5: Component,
+        ): Message
     }
 }

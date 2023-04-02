@@ -26,7 +26,7 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
     private val entityToInstance = HashMap<Entity, Instance>()
     private var nextMove = emptyMap<Entity, Location>()
 
-    val size get() = synchronized(lock) { instances.size }
+    val count get() = synchronized(lock) { instances.size }
 
     fun create(
         world: World,
@@ -59,12 +59,12 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
     }
 
     private fun destroyInternal(instance: Instance) {
+        instance.render?.despawn()
         instance.marker.remove()
         ignacio.engine.launchTask {
             instance.physics.bodies.remove(instance.body)
             instance.physics.bodies.destroy(instance.body)
         }
-        instance.render?.despawn()
     }
 
     fun destroy(id: Int): Boolean {

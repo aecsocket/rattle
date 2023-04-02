@@ -60,6 +60,10 @@ class JtPhysicsSpace internal constructor(
     fun bodyOf(id: Int) = JtPhysicsBody(handle, id)
 
     override val bodies = object : PhysicsSpace.Bodies {
+        override val count get() = numBodies
+
+        override val activeCount get() = numActiveBodies
+
         private fun createBodySettings(
             mem: MemorySession,
             descriptor: BodyDescriptor,
@@ -290,5 +294,7 @@ class JtPhysicsSpace internal constructor(
             tempAllocator,
             engine.jobSystem,
         )
+        numBodies = handle.numBodies
+        numActiveBodies = handle.numActiveBodies
     }
 }

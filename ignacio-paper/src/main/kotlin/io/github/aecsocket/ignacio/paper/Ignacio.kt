@@ -2,6 +2,7 @@ package io.github.aecsocket.ignacio.paper
 
 import com.github.retrooper.packetevents.PacketEvents
 import com.github.retrooper.packetevents.wrapper.PacketWrapper
+import io.github.aecsocket.alexandria.BossBarDescriptor
 import io.github.aecsocket.alexandria.Logging
 import io.github.aecsocket.alexandria.LoggingList
 import io.github.aecsocket.alexandria.paper.AlexandriaPlugin
@@ -17,6 +18,9 @@ import io.github.aecsocket.ignacio.TimestampedList
 import io.github.aecsocket.ignacio.jolt.JoltEngine
 import io.github.aecsocket.ignacio.paper.render.DisplayRenders
 import io.github.aecsocket.ignacio.paper.render.Renders
+import io.github.aecsocket.ignacio.paper.world.NoOpEntityStrategy
+import io.github.aecsocket.ignacio.paper.world.NoOpTerrainStrategy
+import io.github.aecsocket.ignacio.paper.world.PhysicsWorld
 import io.github.aecsocket.ignacio.timestampedList
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder
 import io.papermc.paper.util.Tick
@@ -68,6 +72,7 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
         val worlds: Worlds = Worlds(),
         val bodyModels: BodyModels = BodyModels(),
         val engineTimings: EngineTimings = EngineTimings(),
+        val timingsBar: BossBarDescriptor = BossBarDescriptor()
     ) : AlexandriaPlugin.Settings {
         @ConfigSerializable
         data class Worlds(
@@ -154,7 +159,7 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
 
     internal fun syncUpdate() {
         players.toMap().forEach { (_, player) ->
-            player.update()
+            player.syncUpdate()
         }
         primitiveBodies.syncUpdate()
         primitiveRenders.syncUpdate()
@@ -185,6 +190,8 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
 
     val worlds = Worlds()
     inner class Worlds {
+        val count get() = synchronized(worldMap) { worldMap.size }
+
         operator fun contains(world: World) = synchronized(worldMap) { worldMap.containsKey(world) }
 
         operator fun get(world: World) = synchronized(worldMap) { worldMap[world] }
@@ -192,13 +199,15 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
         fun getOrCreate(world: World) = synchronized(worldMap) {
             worldMap.computeIfAbsent(world) {
                 val physics = engine.space(settings.worlds.space)
-                PhysicsWorld(engine, world, physics)
+                PhysicsWorld(world, physics, NoOpTerrainStrategy, NoOpEntityStrategy)
             }
         }
 
         fun destroy(world: World) = synchronized(worldMap) {
             worldMap.remove(world)?.destroy()
         }
+
+        fun all() = synchronized(worldMap) { worldMap.toMap() }
     }
 }
 

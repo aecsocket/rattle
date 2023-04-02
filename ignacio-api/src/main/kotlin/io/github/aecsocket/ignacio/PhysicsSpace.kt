@@ -18,6 +18,10 @@ interface PhysicsSpace : Destroyable {
 
     val bodies: Bodies
     interface Bodies {
+        val count: Int
+
+        val activeCount: Int
+
         fun createStatic(descriptor: StaticBodyDescriptor, transform: Transform): PhysicsBody
 
         fun createMoving(descriptor: MovingBodyDescriptor, transform: Transform): PhysicsBody
