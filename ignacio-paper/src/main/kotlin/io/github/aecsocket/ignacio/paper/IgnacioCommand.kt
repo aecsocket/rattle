@@ -1,6 +1,7 @@
 package io.github.aecsocket.ignacio.paper
 
 import cloud.commandframework.arguments.standard.DoubleArgument
+import cloud.commandframework.arguments.standard.EnumArgument
 import cloud.commandframework.arguments.standard.FloatArgument
 import cloud.commandframework.arguments.standard.IntegerArgument
 import cloud.commandframework.arguments.standard.StringArgument
@@ -23,9 +24,9 @@ import net.kyori.adventure.text.minimessage.MiniMessage
 import org.bukkit.Location
 import org.bukkit.World
 import org.bukkit.command.CommandSender
-import org.bukkit.inventory.ItemStack
 import kotlin.random.Random
 
+private const val ANGLES = "angles"
 private const val COUNT = "count"
 private const val DENSITY = "density"
 private const val HALF_EXTENT = "half-extent"
@@ -33,6 +34,7 @@ private const val ID = "id"
 private const val ITEM = "item"
 private const val LOCATION = "location"
 private const val MASS = "mass"
+private const val ORDER = "order"
 private const val RADIUS = "radius"
 private const val SCALE = "scale"
 private const val SHOW_TIMINGS = "show-timings"
@@ -41,6 +43,9 @@ private const val TEXT = "text"
 private const val TO = "to"
 private const val VIRTUAL = "virtual"
 private const val WORLD = "world"
+private const val X = "x"
+private const val Y = "y"
+private const val Z = "z"
 
 internal class IgnacioCommand(
     private val ignacio: Ignacio
@@ -77,7 +82,7 @@ internal class IgnacioCommand(
                     )
                     manager.command(create
                         .literal("text")
-                        .argument(StringArgument.of(TEXT))
+                        .argument(StringArgument.quoted(TEXT))
                         .handler(::renderCreateText)
                     )
                 }
@@ -98,9 +103,22 @@ internal class IgnacioCommand(
                 .alexandriaPermission("render.edit")
                 .argument(IntegerArgument.of(ID)).let { edit ->
                     manager.command(edit
-                        .literal("move")
+                        .literal("position")
                         .argument(LocationArgument.of(TO))
-                        .handler(::renderEditMove)
+                        .handler(::renderEditPosition)
+                    )
+
+                    manager.command(edit
+                        .literal("rotation")
+                        .argument(EnumArgument.of(EulerOrder::class.java, ORDER))
+                        .argumentFVec3(ANGLES)
+                        .handler(::renderEditRotation)
+                    )
+
+                    manager.command(edit
+                        .literal("scale")
+                        .argumentFVec3(SCALE)
+                        .handler(::renderEditScale)
                     )
                 }
         }
@@ -279,7 +297,7 @@ internal class IgnacioCommand(
         ).sendTo(sender)
     }
 
-    private fun renderEditMove(ctx: Context) {
+    private fun renderEditPosition(ctx: Context) {
         val sender = ctx.sender
         val messages = ignacio.messages.forAudience(sender)
         val id = ctx.get<Int>(ID)
@@ -293,6 +311,38 @@ internal class IgnacioCommand(
         }
 
         render.transform = Transform(to.position(), render.transform.rotation)
+    }
+
+    private fun renderEditRotation(ctx: Context) {
+        val sender = ctx.sender
+        val messages = ignacio.messages.forAudience(sender)
+        val id = ctx.get<Int>(ID)
+        val rotation = asQuat(ctx.get<FVec3>(ANGLES), ctx.get(ORDER))
+
+        val render = ignacio.primitiveRenders[id] ?: run {
+            messages.error.render.doesNotExist(
+                id = id,
+            ).sendTo(sender)
+            return
+        }
+
+        render.transform = Transform(render.transform.position, rotation)
+    }
+
+    private fun renderEditScale(ctx: Context) {
+        val sender = ctx.sender
+        val messages = ignacio.messages.forAudience(sender)
+        val id = ctx.get<Int>(ID)
+        val scale = ctx.get<FVec3>(SCALE)
+
+        val render = ignacio.primitiveRenders[id] ?: run {
+            messages.error.render.doesNotExist(
+                id = id,
+            ).sendTo(sender)
+            return
+        }
+
+        render.scale = scale
     }
 
     private fun primitiveCreate(

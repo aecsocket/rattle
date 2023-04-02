@@ -1,6 +1,12 @@
 package io.github.aecsocket.ignacio.paper
 
+import cloud.commandframework.ArgumentDescription
+import cloud.commandframework.Command
+import cloud.commandframework.types.tuples.Triplet
+import io.github.aecsocket.alexandria.extension.typeToken
 import io.github.aecsocket.klam.DVec3
+import io.github.aecsocket.klam.FVec3
+import io.leangen.geantyref.TypeToken
 import org.bukkit.Location
 import org.bukkit.World
 import org.bukkit.entity.ArmorStand
@@ -26,3 +32,19 @@ fun spawnMarkerEntity(location: Location, block: (Entity) -> Unit = {}): Entity 
         block(entity)
     }
 }
+
+fun <C> Command.Builder<C>.argumentFVec3(name: String) = argumentTriplet(name,
+    typeToken<FVec3>(),
+    Triplet.of("x", "y", "z"),
+    Triplet.of(Float::class.java, Float::class.java, Float::class.java),
+    { _, t -> FVec3(t.first, t.second, t.third) },
+    ArgumentDescription.empty()
+)
+
+fun <C> Command.Builder<C>.argumentDVec3(name: String) = argumentTriplet(name,
+    typeToken<DVec3>(),
+    Triplet.of("x", "y", "z"),
+    Triplet.of(Double::class.java, Double::class.java, Double::class.java),
+    { _, t -> DVec3(t.first, t.second, t.third) },
+    ArgumentDescription.empty()
+)

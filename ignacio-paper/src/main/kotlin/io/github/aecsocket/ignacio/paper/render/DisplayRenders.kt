@@ -5,11 +5,13 @@ import com.github.retrooper.packetevents.protocol.entity.data.EntityDataTypes
 import com.github.retrooper.packetevents.protocol.entity.type.EntityType
 import com.github.retrooper.packetevents.protocol.entity.type.EntityTypes
 import com.github.retrooper.packetevents.util.Vector3d
+import com.github.retrooper.packetevents.util.Vector3f
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerDestroyEntities
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityMetadata
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityTeleport
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSpawnEntity
 import io.github.aecsocket.alexandria.paper.extension.nextEntityId
+import io.github.aecsocket.ignacio.Quat
 import io.github.aecsocket.ignacio.Transform
 import io.github.aecsocket.ignacio.paper.sendPacket
 import io.github.aecsocket.klam.FVec3
@@ -19,12 +21,32 @@ import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer
 import org.bukkit.entity.Player
 import java.util.*
 
+val VECTOR3F = EntityDataTypes.ROTATION
+val QUATERNIONF = EntityDataTypes.define("quaternionf",
+    { wrapper -> Quat(wrapper.readFloat(), wrapper.readFloat(), wrapper.readFloat(), wrapper.readFloat()) },
+    { wrapper, value ->
+        wrapper.writeFloat(value.x)
+        wrapper.writeFloat(value.y)
+        wrapper.writeFloat(value.z)
+        wrapper.writeFloat(value.w)
+    }
+)
+
 sealed class DisplayRender(
     override var tracker: PlayerTracker,
     transform: Transform,
     val netId: Int,
     descriptor: RenderDescriptor,
 ) : Render {
+//    private fun metadataScale() =
+//        // 11: Display/Scale
+//        EntityData(11, VECTOR3F, scale.run { Vector3f(x, y, z) })
+
+    // TODO
+//    private fun metadataRotation() =
+//        // 12: Display/Rotation left
+//        EntityData(12, QUATERNIONF, transform.rotation)
+
     override var transform = transform
         get() = Transform(field)
         set(value) {
@@ -38,8 +60,7 @@ sealed class DisplayRender(
                     false,
                 ),
                 WrapperPlayServerEntityMetadata(netId, listOf(
-                    // 12: Display/Rotation left
-                    // TODO EntityData(12, EntityDataTypes.QUAT)
+                    //TODO metadataRotation(),
                 ))
             )
             trackedPlayers().forEach { player ->
@@ -52,8 +73,7 @@ sealed class DisplayRender(
         set(value) {
             field = value
             val packet = WrapperPlayServerEntityMetadata(netId, listOf(
-                // 11: Display/Scale
-                // TODO EntityData(11, EntityDataTypes.VEC)
+                //TODO metadataScale(),
             ))
             trackedPlayers().forEach { player ->
                 player.sendPacket(packet)
@@ -78,8 +98,8 @@ sealed class DisplayRender(
                 Optional.empty(),
             ),
             WrapperPlayServerEntityMetadata(netId, listOf<EntityData>(
-                // 12: Display/Rotation left
-                // TODO EntityData(12, EntityDataTypes.QUAT)
+                //TODO metadataScale(),
+                //TODO metadataRotation(),
             ) + metadata()),
         )
         players.forEach { player ->
