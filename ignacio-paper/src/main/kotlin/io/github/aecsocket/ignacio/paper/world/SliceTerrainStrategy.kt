@@ -6,9 +6,9 @@ import io.github.aecsocket.ignacio.paper.asKlam
 import io.github.aecsocket.klam.*
 import org.bukkit.Chunk
 import org.bukkit.ChunkSnapshot
+import org.bukkit.Material
 import org.bukkit.World
 import org.bukkit.block.Block
-import org.bukkit.block.BlockState
 import org.bukkit.block.data.BlockData
 import org.bukkit.util.Vector
 
@@ -29,6 +29,10 @@ sealed interface TerrainLayer {
 val solidLayer = TerrainLayer.Solid
 val waterLayer = TerrainLayer.Fluid(997.0f)
 val lavaLayer = TerrainLayer.Fluid(3100.0f)
+
+private const val SLICE_SIZE = 16 * 16 * 16
+
+private val centerOffset = FVec3(0.5f)
 
 fun enclosedPoints(b: DAabb3): Iterable<IVec3> {
     fun floor(s: Double): Int {
@@ -80,50 +84,45 @@ class SliceTerrainStrategy(
     private val physics: PhysicsSpace,
 ) : TerrainStrategy {
     class SliceSnapshot(
-        val pos: IVec3,
         val blocks: ChunkSnapshot,
-        val blockShapes: Array<Shape?>,
+        val shapes: Array<Shape?>,
     )
 
     data class Slice(
         val layers: Map<TerrainLayer, PhysicsBody>,
-    )
+    ) {
+        fun bodies() = layers.map { (_, body) -> body }
+    }
 
     private val engine = ignacio.engine
     private val destroyed = DestroyFlag()
-    private val cube = engine.shape(BoxGeometry(FVec3(0.5f)))
     private val yStart = world.minHeight
     private val ySize = world.maxHeight - yStart
     private val numSlices = ySize / 16
     private val negativeYSlices = -yStart / 16
+    private val stepListener = StepListener { physicsStep() }
+    private val contactFilter = engine.contactFilter(engine.layers.terrain)
 
-    /*
-    The key to good performance + safety here, is to lock fields enough to be safe, but hold them for short periods
-    to not starve our other threads
-
-    physics step - all bodies unlocked, cannot add/remove bodies:
-      * collect all slice positions that we want to snapshot and create later (read all active bodies) into `toSnapshot`
-      * compute slice positions that we no longer need, into `toRemove`
-    physics update - all bodies locked, can add/remove bodies:
-      * remove all bodies in `toRemove` and clear it
-    processing region (set of chunks):
-      * for all `toSnapshot` positions that are in this region...
-        * create a snapshot and put it into `toCreate`
-     */
-
-    private val toSnapshot: MutableMap<Long, MutableSet<Int>> = HashMap()
-    private var toRemove: MutableSet<IVec3> = HashSet()
-    private val toCreate: MutableMap<IVec3, SliceSnapshot> = HashMap()
+    // The key to good performance + safety here, is to lock fields enough to be safe, but hold them for short periods
+    // to not starve our other threads
 
     private val cubeCache = HashMap<FVec3, Shape>()
+    private val blockShape: Shape
     private val shapeCache = HashMap<BlockData, Shape?>()
     private val slices = HashMap<IVec3, Slice>()
+    private val bodyToSlice = HashMap<PhysicsBody, Pair<Slice, TerrainLayer>>()
 
     var enabled = true
         private set
 
+    init {
+        physics.onStep(stepListener)
+        blockShape = cubeShape(FVec3(0.5f))
+    }
+
     override fun destroy() {
         destroyed.mark()
+        physics.removeStepListener(stepListener)
         synchronized(shapeCache) {
             shapeCache.forEach { (_, shape) ->
                 shape?.destroy()
@@ -146,36 +145,102 @@ class SliceTerrainStrategy(
         enabled = false
     }
 
-    override fun physicsUpdate(deltaTime: Float) {
+    private data class SlicePositionUpdates(
+        val toRemove: Set<IVec3>,
+        val toSnapshot: Map<IVec2, Set<Int>>,
+    )
+
+    private fun physicsStep() {
+        // context: physics step; all bodies locked, cannot add or remove bodies
         if (!enabled) return
 
+        val (toRemove, toSnapshot) = computeSlicePositionUpdates()
+
+        engine.launchTask {
+            // context: physics non-step; can add or remove bodies
+            removeSlices(toRemove)
+        }
+
+        toSnapshot.forEach { (xz, sys) ->
+            ignacio.scheduling.onChunk(world, xz.x, xz.y) {
+                // context: chunk tick thread
+                val toCreate = computeSliceSnapshots(xz.x, xz.y, sys)
+                engine.launchTask {
+                    // context: physics non-step
+                    addSlices(toCreate)
+                }
+            }.run()
+        }
+    }
+
+    private fun computeSlicePositionUpdates(): SlicePositionUpdates {
         // make sets of which slice positions we need to snapshot, and which to remove
         // we want to make bodies for all slices which are intersected by a body
         val toRemove = synchronized(slices) { slices.keys.toMutableSet() }
-        val toSnapshot = HashSet<IVec3>()
+        // key by chunk x,z for easy task scheduling later
+        val toSnapshot = HashMap<IVec2, MutableSet<Int>>()
         physics.bodies.active().forEach { bodyId ->
             bodyId.readUnlocked { body ->
                 // only create slices for moving objects
                 // TODO custom layer support: make this variable
                 if (body.contactFilter.layer != engine.layers.moving) return@readUnlocked
                 val overlappingSlices = enclosedPoints(body.bounds / 16.0).toSet()
-                toSnapshot += overlappingSlices
                 toRemove -= overlappingSlices
+                overlappingSlices.forEach { (sx, sy, sz) ->
+                    toSnapshot.computeIfAbsent(IVec2(sx, sz)) { HashSet() } += sy
+                }
             }
         }
+        return SlicePositionUpdates(toRemove, toSnapshot)
+    }
 
-        engine.launchTask {
-            // TODO toRemove
+    private fun removeSlices(slicePositions: Collection<IVec3>) {
+        val bodies = synchronized(slices) {
+            slicePositions.flatMap { slices.remove(it)?.bodies() ?: emptyList() }
         }
+        physics.bodies.removeAll(bodies)
+    }
 
-        ignacio.scheduling.onChunk(world)
+    private fun computeSliceSnapshots(sx: Int, sz: Int, sys: Collection<Int>): List<Pair<IVec3, SliceSnapshot>> {
+        if (!world.isChunkLoaded(sx, sz)) return emptyList()
+        val chunk = world.getChunkAt(sx, sz)
+        val snapshot = chunk.getChunkSnapshot(false, false, false)
+        // build snapshots of the slices we want to create bodies for later
+        val toCreate = ArrayList<Pair<IVec3, SliceSnapshot>>()
+        sys.forEach { sy ->
+            val pos = IVec3(sx, sy, sz)
+            // we already have a body for this slice; don't process it
+            if (slices.contains(pos)) return@forEach
+            // iy is the index of the Y slice, as stored by server internals
+            //     if sy: -4..16
+            //   then iy: 0..20
+            val iy = sy + negativeYSlices
+            // out of range; can't read any blocks here
+            if (iy < 0 || iy >= numSlices) return@forEach
+            // empty slices don't need to be created
+            if (snapshot.isSectionEmpty(iy)) return@forEach
 
-        synchronized(this.toSnapshot) {
-            // key by chunk keys themselves, to speed up the 2nd stage
-            toSnapshot.forEach { pos ->
-                this.toSnapshot.computeIfAbsent(Chunk.getChunkKey(pos.x, pos.z)) { HashSet() } += pos.y
+            // chunk snapshots don't contain block shapes, so we have to cache these ourselves
+            // so we can send them over to have collision shapes made out of them later
+            // null = no shape (air/passable)
+            val shapes: Array<Shape?> = Array(SLICE_SIZE) { i ->
+                val lx = (i / 16 / 16) % 16
+                val ly = (i / 16) % 16
+                val lz = i % 16
+                val gy = sy * 16 + ly
+                val block = chunk.getBlock(lx, gy, lz)
+                when {
+                    block.isPassable -> null
+                    else -> blockShape(block)
+                }
             }
+
+            toCreate += pos to SliceSnapshot(
+                blocks = snapshot,
+                shapes = shapes,
+            )
         }
+        return toCreate
     }
 
     private fun cubeShape(halfExtents: FVec3): Shape {
@@ -194,18 +259,17 @@ class SliceTerrainStrategy(
                 val boxes = block.collisionShape.boundingBoxes
                 when {
                     boxes.isEmpty() -> null
-                    boxes.size == 1 && boxes.first().center == Vector(0.0, 0.0, 0.0) -> {
+                    boxes.size == 1 && boxes.first().center == Vector(0.5, 0.5, 0.5) -> {
                         val box = boxes.first()
                         val halfExtent = (box.max.asKlam() - box.min.asKlam()) / 2.0
                         cubeShape(FVec3(halfExtent))
                     }
-
                     else -> {
                         val children = boxes.map { box ->
                             val halfExtent = (box.max.asKlam() - box.min.asKlam()) / 2.0
                             CompoundChild(
                                 shape = cubeShape(FVec3(halfExtent)),
-                                position = FVec3(box.center.asKlam()),
+                                position = FVec3(box.center.asKlam()) - centerOffset,
                                 rotation = Quat.identity(),
                             )
                         }
@@ -216,67 +280,69 @@ class SliceTerrainStrategy(
         }
     }
 
-    private fun chunkUpdate(chunk: Chunk) {
-        if (!chunk.isLoaded)
-            throw IllegalStateException("Updating chunk is not loaded")
-        val sx = chunk.x
-        val sz = chunk.z
-        val chunkKey = Chunk.getChunkKey(sx, sz)
-        // consume the slices we want to process, or early exit
-        val toSnapshot = synchronized(toSnapshot) { toSnapshot.remove(chunkKey)?.toSet() } ?: return
+    private fun addSlices(toCreate: List<Pair<IVec3, SliceSnapshot>>) {
+        val bodies = toCreate.map { (pos, snapshot) ->
+            val sy = pos.y
+            val layers = HashMap<TerrainLayer, MutableList<CompoundChild>>()
 
-        val snapshot by lazy { chunk.getChunkSnapshot(false, false, false) }
-        // build snapshots of the slices we want to create bodies for later
-        val toCreate = HashMap<IVec3, SliceSnapshot>()
-        // under a lock, copy the coordinates of the Y slices we need to generate, then release
-        toSnapshot.forEach { sy ->
-            val pos = IVec3(sx, sy, sz)
-            // we already have a body for this slice; don't process it
-            if (slices.contains(pos)) return@forEach
-            // iy is the index of the Y slice, as stored by server internals
-            //     if sy: -4..16
-            //   then iy: 0..20
-            val iy = sy + negativeYSlices
-            // out of range; can't read any blocks here
-            if (iy < 0 || iy >= numSlices) return@forEach
-            // empty slices don't need to be created
-            if (snapshot.isSectionEmpty(iy)) return@forEach
+            fun add(layer: TerrainLayer, child: CompoundChild) {
+                layers.computeIfAbsent(layer) { ArrayList() } += child
+            }
 
-            // chunk snapshots don't contain block shapes, so we have to cache these ourselves
-            // so we can send them over to have collision shapes made out of them later
-            // null = no shape (air/passable)
-            val blockShapes: Array<Shape?> = Array(16 * 16 * 16) { i ->
+            (0 until SLICE_SIZE).forEach { i ->
                 val lx = (i / 16 / 16) % 16
                 val ly = (i / 16) % 16
                 val lz = i % 16
                 val gy = sy * 16 + ly
-                val block = chunk.getBlock(lx, gy, lz)
-                when {
-                    block.isPassable -> null
-                    else -> blockShape(block)
+                val block = snapshot.blocks.getBlockData(lx, gy, lz)
+                when (block.material) {
+                    Material.WATER -> add(waterLayer, CompoundChild(
+                        shape = blockShape,
+                        position = FVec3(lx + 0.5f, ly + 0.5f, lz + 0.5f),
+                        rotation = Quat.identity(),
+                    ))
+                    Material.LAVA -> add(lavaLayer, CompoundChild(
+                        shape = blockShape,
+                        position = FVec3(lx + 0.5f, ly + 0.5f, lz + 0.5f),
+                        rotation = Quat.identity(),
+                    ))
+                    else -> {
+                        val shape = snapshot.shapes[i] ?: return@forEach
+                        add(solidLayer, CompoundChild(
+                            shape = shape,
+                            position = FVec3(lx + 0.5f, ly + 0.5f, lz + 0.5f),
+                            rotation = Quat.identity(),
+                        ))
+                    }
                 }
             }
 
-            toCreate[pos] = SliceSnapshot(
-                pos = pos,
-                blocks = snapshot,
-                blockShapes = blockShapes,
-            )
-        }
-
-
+            synchronized(slices) {
+                val layerBodies = layers.map { (layer, children) ->
+                    layer to physics.bodies.createStatic(
+                        StaticBodyDescriptor(
+                            shape = engine.shape(StaticCompoundGeometry(children)),
+                            contactFilter = contactFilter,
+                            trigger = !layer.collidable,
+                        ), Transform(DVec3(pos) * 16.0)
+                    )
+                }.associate { it }
+                val slice = Slice(layerBodies)
+                slices[pos] = slice
+                layerBodies.forEach { (layer, body) ->
+                    bodyToSlice[body] = slice to layer
+                }
+                layerBodies.values
+            }
+        }.flatten()
+        physics.bodies.addAll(bodies)
     }
 
-    override fun syncUpdate() {
-        // TODO folia stuff
-        world.loadedChunks.forEach { chunk ->
-            chunkUpdate(chunk)
-        }
-    }
+    override fun physicsUpdate(deltaTime: Float) {}
 
-    override fun isTerrain(body: PhysicsBody.Read): Boolean {
-        TODO("Not yet implemented")
-    }
+    override fun syncUpdate() {}
+
+    override fun isTerrain(body: PhysicsBody.Read) = bodyToSlice.containsKey(body.key)
 
     override fun onChunksLoad(chunks: Collection<Chunk>) {}
 

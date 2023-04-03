@@ -1,6 +1,5 @@
 package io.github.aecsocket.ignacio.paper
 
-import io.github.aecsocket.alexandria.paper.extension.runDelayed
 import io.github.aecsocket.ignacio.Transform
 import io.github.aecsocket.ignacio.paper.render.*
 import org.bukkit.World
@@ -32,9 +31,9 @@ class PrimitiveRenders internal constructor(private val ignacio: Ignacio) {
                 entityToInstance[marker] = instance
             }
 
-            ignacio.runDelayed {
+            ignacio.scheduling.onServer {
                 render.spawn()
-            }
+            }.run()
         }
         return id
     }

@@ -1,6 +1,5 @@
 package io.github.aecsocket.ignacio.paper
 
-import io.github.aecsocket.alexandria.paper.extension.runDelayed
 import io.github.aecsocket.ignacio.*
 import io.github.aecsocket.ignacio.paper.render.*
 import org.bukkit.Location
@@ -23,9 +22,9 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
         fun destroy() {
             if (destroyed.getAndSet(true)) return
             render?.despawn()
-            ignacio.runDelayed {
+            ignacio.scheduling.onEntity(marker) {
                 marker.remove()
-            }
+            }.run()
             ignacio.engine.launchTask {
                 physics.bodies.remove(body)
                 physics.bodies.destroy(body)
@@ -65,9 +64,9 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
             }
 
             render?.let {
-                ignacio.runDelayed {
+                ignacio.scheduling.onServer {
                     it.spawn()
-                }
+                }.run()
             }
         }
         return id
