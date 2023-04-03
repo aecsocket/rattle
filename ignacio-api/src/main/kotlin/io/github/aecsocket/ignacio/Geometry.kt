@@ -55,15 +55,15 @@ data class CompoundChild(
 )
 
 sealed interface CompoundGeometry : Geometry {
-    val children: List<CompoundChild>
+    val children: Collection<CompoundChild>
 }
 
 data class StaticCompoundGeometry(
-    override val children: List<CompoundChild>,
+    override val children: Collection<CompoundChild>,
 ) : CompoundGeometry
 
 data class MutableCompoundGeometry(
-    override val children: List<CompoundChild>,
+    override val children: Collection<CompoundChild>,
 ) : CompoundGeometry
 
 interface Shape : Destroyable

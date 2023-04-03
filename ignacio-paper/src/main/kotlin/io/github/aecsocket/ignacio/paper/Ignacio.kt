@@ -8,7 +8,6 @@ import io.github.aecsocket.alexandria.LoggingList
 import io.github.aecsocket.alexandria.paper.AlexandriaPlugin
 import io.github.aecsocket.alexandria.paper.ItemDescriptor
 import io.github.aecsocket.alexandria.paper.extension.registerEvents
-import io.github.aecsocket.alexandria.paper.extension.runRepeating
 import io.github.aecsocket.alexandria.paper.fallbackLocale
 import io.github.aecsocket.alexandria.paper.seralizer.alexandriaPaperSerializers
 import io.github.aecsocket.glossa.MessageProxy
@@ -19,9 +18,7 @@ import io.github.aecsocket.ignacio.TimestampedList
 import io.github.aecsocket.ignacio.jolt.JoltEngine
 import io.github.aecsocket.ignacio.paper.render.DisplayRenders
 import io.github.aecsocket.ignacio.paper.render.Renders
-import io.github.aecsocket.ignacio.paper.world.NoOpEntityStrategy
-import io.github.aecsocket.ignacio.paper.world.NoOpTerrainStrategy
-import io.github.aecsocket.ignacio.paper.world.PhysicsWorld
+import io.github.aecsocket.ignacio.paper.world.*
 import io.github.aecsocket.ignacio.timestampedList
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder
 import io.papermc.paper.util.Tick
@@ -52,6 +49,23 @@ private val configOptions: ConfigurationOptions = ConfigurationOptions.defaults(
         )
     }
 
+enum class TerrainStrategies(
+    private val factory: TerrainStrategyFactory,
+) {
+    NONE    ({ _, _, _ -> NoOpTerrainStrategy }),
+    SLICE   ({ engine, world, physics -> SliceTerrainStrategy(engine, world, physics) });
+
+    fun create(engine: IgnacioEngine, world: World, physics: PhysicsSpace) = factory.create(engine, world, physics)
+}
+
+enum class EntityStrategies(
+    private val factory: EntityStrategyFactory,
+) {
+    NONE    ({ _, _, _ -> NoOpEntityStrategy });
+
+    fun create(engine: IgnacioEngine, world: World, physics: PhysicsSpace) = factory.create(engine, world, physics)
+}
+
 class Ignacio : AlexandriaPlugin(Manifest("ignacio",
     accentColor = TextColor.color(0xdeab14),
     languageResources = listOf(
@@ -79,6 +93,8 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
         data class Worlds(
             val space: PhysicsSpace.Settings = PhysicsSpace.Settings(),
             val deltaTimeMultiplier: Float = 1.0f,
+            val terrainStrategy: TerrainStrategies = TerrainStrategies.SLICE,
+            val entityStrategy: EntityStrategies = EntityStrategies.NONE,
         )
 
         @ConfigSerializable
@@ -162,6 +178,11 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
         players.toMap().forEach { (_, player) ->
             player.syncUpdate()
         }
+        synchronized(worldMap) {
+            worldMap.forEach { (_, world) ->
+                world.syncUpdate()
+            }
+        }
         primitiveBodies.syncUpdate()
         primitiveRenders.syncUpdate()
 
@@ -170,11 +191,13 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
 
             val start = System.nanoTime()
             primitiveBodies.physicsUpdate()
-            worldMap.forEach { (_, world) ->
-                world.startPhysicsUpdate(worldDeltaTime)
-            }
-            worldMap.forEach { (_, world) ->
-                world.joinPhysicsUpdate()
+            synchronized(worldMap) {
+                worldMap.forEach { (_, world) ->
+                    world.startPhysicsUpdate(worldDeltaTime)
+                }
+                worldMap.forEach { (_, world) ->
+                    world.joinPhysicsUpdate()
+                }
             }
             val end = System.nanoTime()
 
@@ -200,7 +223,12 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
         fun getOrCreate(world: World) = synchronized(worldMap) {
             worldMap.computeIfAbsent(world) {
                 val physics = engine.space(settings.worlds.space)
-                PhysicsWorld(world, physics, NoOpTerrainStrategy, NoOpEntityStrategy)
+                PhysicsWorld(
+                    world,
+                    physics,
+                    settings.worlds.terrainStrategy.create(engine, world, physics),
+                    settings.worlds.entityStrategy.create(engine, world, physics),
+                )
             }
         }
 

@@ -1,9 +1,6 @@
 package io.github.aecsocket.ignacio.paper.world
 
-import io.github.aecsocket.ignacio.DestroyFlag
-import io.github.aecsocket.ignacio.Destroyable
-import io.github.aecsocket.ignacio.PhysicsBody
-import io.github.aecsocket.ignacio.PhysicsSpace
+import io.github.aecsocket.ignacio.*
 import org.bukkit.Chunk
 import org.bukkit.World
 
@@ -15,9 +12,17 @@ interface TerrainStrategy : Destroyable {
 
      fun isTerrain(body: PhysicsBody.Read): Boolean
 
+     fun physicsUpdate(deltaTime: Float)
+
+     fun syncUpdate()
+
      fun onChunksLoad(chunks: Collection<Chunk>)
 
      fun onChunksUnload(chunks: Collection<Chunk>)
+}
+
+fun interface TerrainStrategyFactory {
+    fun create(engine: IgnacioEngine, world: World, physics: PhysicsSpace): TerrainStrategy
 }
 
 object NoOpTerrainStrategy : TerrainStrategy {
@@ -29,6 +34,10 @@ object NoOpTerrainStrategy : TerrainStrategy {
 
     override fun isTerrain(body: PhysicsBody.Read) = false
 
+    override fun physicsUpdate(deltaTime: Float) {}
+
+    override fun syncUpdate() {}
+
     override fun onChunksLoad(chunks: Collection<Chunk>) {}
 
     override fun onChunksUnload(chunks: Collection<Chunk>) {}
@@ -36,6 +45,10 @@ object NoOpTerrainStrategy : TerrainStrategy {
 
 interface EntityStrategy : Destroyable {
 
+}
+
+fun interface EntityStrategyFactory {
+    fun create(engine: IgnacioEngine, world: World, physics: PhysicsSpace): EntityStrategy
 }
 
 object NoOpEntityStrategy : EntityStrategy {
@@ -59,11 +72,16 @@ class PhysicsWorld(
 
     operator fun component1() = physics
 
-    internal fun startPhysicsUpdate(deltaTime: Float) {
+    fun startPhysicsUpdate(deltaTime: Float) {
         nextDeltaTime = deltaTime
     }
 
-    internal fun joinPhysicsUpdate() {
+    fun joinPhysicsUpdate() {
         physics.update(nextDeltaTime)
+        terrain.physicsUpdate(nextDeltaTime)
+    }
+
+    fun syncUpdate() {
+        terrain.syncUpdate()
     }
 }

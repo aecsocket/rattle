@@ -18,9 +18,9 @@ import org.bukkit.util.Vector
 fun Location.position() = DVec3(x, y, z)
 fun DVec3.location(world: World, yaw: Float = 0.0f, pitch: Float = 0.0f) = Location(world, x, y, z, yaw, pitch)
 
-fun asKlam(v: Vector) = DVec3(v.x, v.y, v.z)
+fun Vector.asKlam() = DVec3(x, y, z)
 
-fun asPaper(v: DVec3) = Vector(v.x, v.y, v.z)
+fun DVec3.asPaper() = Vector(x, y, z)
 
 fun spawnMarkerEntity(location: Location, block: (Entity) -> Unit = {}): Entity {
     return location.world.spawnEntity(location, EntityType.ARMOR_STAND, CreatureSpawnEvent.SpawnReason.COMMAND) { entity ->
