@@ -1,6 +1,7 @@
 package io.github.aecsocket.ignacio.paper.world
 
 import io.github.aecsocket.ignacio.*
+import io.github.aecsocket.ignacio.paper.Ignacio
 import org.bukkit.Chunk
 import org.bukkit.World
 
@@ -22,7 +23,7 @@ interface TerrainStrategy : Destroyable {
 }
 
 fun interface TerrainStrategyFactory {
-    fun create(engine: IgnacioEngine, world: World, physics: PhysicsSpace): TerrainStrategy
+    fun create(ignacio: Ignacio, world: World, physics: PhysicsSpace): TerrainStrategy
 }
 
 object NoOpTerrainStrategy : TerrainStrategy {
@@ -48,7 +49,7 @@ interface EntityStrategy : Destroyable {
 }
 
 fun interface EntityStrategyFactory {
-    fun create(engine: IgnacioEngine, world: World, physics: PhysicsSpace): EntityStrategy
+    fun create(ignacio: Ignacio, world: World, physics: PhysicsSpace): EntityStrategy
 }
 
 object NoOpEntityStrategy : EntityStrategy {

@@ -53,9 +53,9 @@ enum class TerrainStrategies(
     private val factory: TerrainStrategyFactory,
 ) {
     NONE    ({ _, _, _ -> NoOpTerrainStrategy }),
-    SLICE   ({ engine, world, physics -> SliceTerrainStrategy(engine, world, physics) });
+    SLICE   ({ ignacio, world, physics -> SliceTerrainStrategy(ignacio, world, physics) });
 
-    fun create(engine: IgnacioEngine, world: World, physics: PhysicsSpace) = factory.create(engine, world, physics)
+    fun create(ignacio: Ignacio, world: World, physics: PhysicsSpace) = factory.create(ignacio, world, physics)
 }
 
 enum class EntityStrategies(
@@ -63,7 +63,7 @@ enum class EntityStrategies(
 ) {
     NONE    ({ _, _, _ -> NoOpEntityStrategy });
 
-    fun create(engine: IgnacioEngine, world: World, physics: PhysicsSpace) = factory.create(engine, world, physics)
+    fun create(ignacio: Ignacio, world: World, physics: PhysicsSpace) = factory.create(ignacio, world, physics)
 }
 
 class Ignacio : AlexandriaPlugin(Manifest("ignacio",
@@ -226,8 +226,8 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
                 PhysicsWorld(
                     world,
                     physics,
-                    settings.worlds.terrainStrategy.create(engine, world, physics),
-                    settings.worlds.entityStrategy.create(engine, world, physics),
+                    settings.worlds.terrainStrategy.create(this@Ignacio, world, physics),
+                    settings.worlds.entityStrategy.create(this@Ignacio, world, physics),
                 )
             }
         }

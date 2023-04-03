@@ -1,6 +1,7 @@
 package io.github.aecsocket.ignacio.paper.world
 
 import io.github.aecsocket.ignacio.*
+import io.github.aecsocket.ignacio.paper.Ignacio
 import io.github.aecsocket.ignacio.paper.asKlam
 import io.github.aecsocket.klam.*
 import org.bukkit.Chunk
@@ -74,7 +75,7 @@ fun enclosedPoints(b: DAabb3): Iterable<IVec3> {
 }
 
 class SliceTerrainStrategy(
-    private val engine: IgnacioEngine,
+    private val ignacio: Ignacio,
     private val world: World,
     private val physics: PhysicsSpace,
 ) : TerrainStrategy {
@@ -88,6 +89,7 @@ class SliceTerrainStrategy(
         val layers: Map<TerrainLayer, PhysicsBody>,
     )
 
+    private val engine = ignacio.engine
     private val destroyed = DestroyFlag()
     private val cube = engine.shape(BoxGeometry(FVec3(0.5f)))
     private val yStart = world.minHeight
@@ -162,9 +164,12 @@ class SliceTerrainStrategy(
             }
         }
 
-        synchronized(this.toRemove) {
-            this.toRemove += toRemove
+        engine.launchTask {
+            // TODO toRemove
         }
+
+        ignacio.scheduling.onChunk(world)
+
         synchronized(this.toSnapshot) {
             // key by chunk keys themselves, to speed up the 2nd stage
             toSnapshot.forEach { pos ->
