@@ -322,10 +322,6 @@ class MovingSliceTerrainStrategy(
 
             slicesMutex.withLock {
                 val layerBodies = layers.map { (layer, children) ->
-                    println("Creating terrain; children: ${children.size}")
-                    children.forEachIndexed { i, child ->
-                        println("  $i. $child")
-                    }
                     val shape = engine.shape(StaticCompoundGeometry(children))
                     layer to physics.bodies.createStatic(StaticBodyDescriptor(
                         shape = shape,

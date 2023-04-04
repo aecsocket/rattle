@@ -2,6 +2,7 @@ package io.github.aecsocket.ignacio.paper
 
 import io.github.aecsocket.ignacio.Transform
 import io.github.aecsocket.ignacio.paper.render.*
+import io.github.aecsocket.klam.FVec3
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.bukkit.Bukkit
@@ -12,12 +13,28 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
 class PrimitiveRenders internal constructor(private val ignacio: Ignacio) {
-    private inner class Instance(
-        val id: Int,
-        val render: Render,
-        val marker: Entity,
+    inner class Instance(
+        internal val id: Int,
+        internal val render: Render,
+        internal val marker: Entity,
     ) {
         val destroyed = AtomicBoolean()
+
+        var transform: Transform
+            get() = render.transform
+            set(value) {
+                ignacio.scheduling.onEntity(marker).launch {
+                    render.transform = value
+                }
+            }
+
+        var scale: FVec3
+            get() = render.scale
+            set(value) {
+                ignacio.scheduling.onEntity(marker).launch {
+                    render.scale = value
+                }
+            }
 
         fun destroy() {
             if (destroyed.getAndSet(true)) return
@@ -48,13 +65,6 @@ class PrimitiveRenders internal constructor(private val ignacio: Ignacio) {
             ignacio.scheduling.onEntity(marker).launch {
                 render.spawn()
             }
-            ignacio.scheduling.onEntity(marker).runRepeating { task ->
-                if (instance.destroyed.get()) {
-                    task.cancel()
-                    return@runRepeating
-                }
-                marker.teleportAsync(instance.render.transform.position.location(marker.world))
-            }
         }
         return id
     }
@@ -80,7 +90,7 @@ class PrimitiveRenders internal constructor(private val ignacio: Ignacio) {
         }
     }
 
-    operator fun get(id: Int) = instances[id]?.render
+    operator fun get(id: Int) = instances[id]
 
     internal suspend fun onEntityRemove(entity: Entity) {
         mutex.withLock {

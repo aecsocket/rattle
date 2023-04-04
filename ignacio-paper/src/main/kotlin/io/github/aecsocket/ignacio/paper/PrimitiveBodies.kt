@@ -11,16 +11,20 @@ import org.bukkit.entity.Player
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
+private const val TELEPORT_THRESHOLD_SQ = 16.0 * 16.0
+
 class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
-    private inner class Instance(
-        val id: Int,
-        val physics: PhysicsSpace,
-        val body: PhysicsBody,
-        val render: Render?,
-        val marker: Entity,
-        var location: Location,
+    inner class Instance(
+        internal val id: Int,
+        internal val physics: PhysicsSpace,
+        internal val body: PhysicsBody,
+        internal val render: Render?,
+        internal val marker: Entity,
+        internal var location: Location,
     ) {
         val destroyed = AtomicBoolean()
+
+        internal var lastLocation = location
 
         fun destroy() {
             if (destroyed.getAndSet(true)) return
@@ -79,7 +83,11 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
                         task.cancel()
                         return@runRepeating
                     }
-                    marker.teleport(instance.location)
+                    // only teleport after a threshold, since on Folia teleporting is somewhat expensive
+                    if (instance.lastLocation.distanceSquared(instance.location) >= TELEPORT_THRESHOLD_SQ) {
+                        instance.lastLocation = instance.location
+                        marker.teleportAsync(instance.location)
+                    }
                 }
             }
         }
@@ -113,7 +121,7 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
         }
     }
 
-    operator fun get(id: Int) = instances[id]?.run { physics to body }
+    operator fun get(id: Int) = instances[id]
 
     internal suspend fun onPhysicsUpdate() {
         val toRemove = HashSet<Instance>()

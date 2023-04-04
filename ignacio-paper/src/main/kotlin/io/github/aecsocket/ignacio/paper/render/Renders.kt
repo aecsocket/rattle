@@ -12,7 +12,7 @@ fun interface PlayerTracker {
     fun trackedPlayers(): Collection<Player>
 }
 
-fun Entity.playerTracker() = PlayerTracker { trackedPlayers }
+fun Entity.playerTracker() = PlayerTracker { trackedPlayers.toSet() }
 
 
 sealed interface RenderDescriptor {
