@@ -1,1 +1,70 @@
+# Config file for Ignacio
+# Example file is available at
+# https://github.com/aecsocket/ignacio/blob/main/ignacio-paper/src/main/resources/settings.yml
+
+# The default locale to use for the plugin. Must be a valid Java locale.
+# string: en-US
 default-locale: en-US
+
+# Settings for physics spaces which are linked to game worlds.
+worlds:
+  # Physics space initialization parameters.
+  space:
+    # The gravity vector - acceleration to apply to all moving bodies (m/s^2)
+    # 3D decimal vector: [ 0.0, -9.81, 0.0 ]
+    gravity: [ 0.0, -9.81, 0.0 ]
+  # decimal: 1.0
+  # Multiplier for the physics time step - decreasing will make the simulation slower (slow-motion).
+  delta-time-multiplier: 1.0
+  # Which method to use for managing bodies for block terrain.
+  # (none, moving_slice): moving_slice
+  terrain-strategy: moving_slice
+  # Which method to use for managing bodies for entities.
+  # (none): none
+  entity-strategy: none
+
+# Item descriptors for models spawned by `/ignacio body create`.
+body-models:
+  # For `/ignacio body create [...] box`.
+  box:
+    material: minecraft:stone
+  # For `/ignacio body create [...] sphere`.
+  sphere:
+    material: minecraft:stone
+
+# Settings for timing statistics shown by `/ignacio timings`.
+engine-timings:
+  # How many seconds of timings to keep in the buffer.
+  # decimal: 60.0
+  buffer: 60.0
+  # Which intervals to display timings data for in `/ignacio timings`.
+  # decimal list: [ 5.0, 15.0, 60.0 ]
+  buffers-to-display: [ 5.0, 15.0, 60.0 ]
+  # How many seconds of the timings buffer to display for in the `/ignacio debug --show-timings` bar.
+  # decimal: 5.0
+  bar-buffer: 5.0
+
+# Settings for the `/ignacio debug --show-timings` bar.
+timings-bar:
+  progress: 1.0
+  color: white
+  overlay: progress
+
+# Settings for the Jolt engine internals.
+# You should probably leave this alone, unless you know what you're doing.
+jolt:
+  jobs:
+    physics-threads: 0
+    worker-threads: 0
+    thread-terminate-time: 5.0
+    max-jobs: 2048
+    max-barriers: 8
+  space:
+    max-bodies: 65536
+    num-body-mutexes: 0
+    max-body-pairs: 65536
+    max-contact-constraints: 16384
+    temp-allocator-size: 33554432 # 32 * 1024 * 1024
+    collision-steps: 1
+    integration-sub-steps: 1
+  # physics: {...}

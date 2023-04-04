@@ -24,7 +24,9 @@ import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import java.lang.foreign.MemorySession
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.logging.Logger
 import kotlin.math.cos
 
 private const val BP_LAYER_STATIC: Byte = 0
@@ -87,6 +89,7 @@ internal data class ObjectLayerData(
 )
 
 class JoltEngine internal constructor(
+    private val logger: Logger,
     var settings: Settings,
     private val objectLayers: Array<ObjectLayerData>,
 ) : IgnacioEngine {
@@ -100,7 +103,7 @@ class JoltEngine internal constructor(
         data class Jobs(
             val physicsThreads: Int = 0,
             val workerThreads: Int = 0,
-            val threadTerminateTime: Double = 0.0,
+            val threadTerminateTime: Double = 5.0,
             val maxJobs: Int = JobSystem.MAX_PHYSICS_JOBS,
             val maxBarriers: Int = JobSystem.MAX_PHYSICS_BARRIERS,
         )
@@ -158,13 +161,12 @@ class JoltEngine internal constructor(
     private val executorId = AtomicInteger(1)
     private val executor: ExecutorService
     private val executorScope: CoroutineScope
+    private val isExecutor = ThreadLocal.withInitial { false }
 
     val jobSystem: JobSystem
     val bpLayerInterface: BroadPhaseLayerInterface
     val objBpLayerFilter: ObjectVsBroadPhaseLayerFilter
     val objLayerPairFilter: ObjectLayerPairFilter
-
-    private val spaces = HashMap<PhysicsSystem, JtPhysicsSpace>()
 
     init {
         Jolt.load()
@@ -175,7 +177,10 @@ class JoltEngine internal constructor(
         Jolt.registerTypes()
         arena = MemorySession.openShared()
         executor = Executors.newFixedThreadPool(numThreads(settings.jobs.workerThreads)) { task ->
-            Thread(task, "Ignacio-Worker-${executorId.getAndIncrement()}")
+            Thread({
+                isExecutor.set(true)
+                task.run()
+            }, "Ignacio-Worker-${executorId.getAndIncrement()}")
         }
         executorScope = CoroutineScope(executor.asCoroutineDispatcher())
 
@@ -207,13 +212,20 @@ class JoltEngine internal constructor(
 
     override fun destroy() {
         destroyed.mark()
-
-        spaces.toMap().forEach { (_, space) ->
-            space.destroy()
+        executor.shutdown()
+        logger.info("Waiting ${settings.jobs.threadTerminateTime}s for worker threads")
+        try {
+            if (!executor.awaitTermination((settings.jobs.threadTerminateTime * 1000).toLong(), TimeUnit.MILLISECONDS)) {
+                executor.shutdownNow()
+            }
+        } catch (ex: InterruptedException) {
+            executor.shutdownNow()
+            logger.warning("Could not wait for worker threads")
         }
-        spaces.clear()
 
         arena.close()
+        jobSystem.delete()
+        Jolt.destroyFactory()
     }
 
     override val layers = object : IgnacioEngine.Layers {
@@ -238,6 +250,19 @@ class JoltEngine internal constructor(
     override fun launchTask(block: suspend CoroutineScope.() -> Unit) {
         if (destroyed.marked()) return
         executorScope.launch(block = block)
+    }
+
+    fun assertThread() {
+        // TODO: it's probably a good idea to do thread checks in general,
+        // however this is too limiting in environments like TestIgnacioJolt
+        // for now, we just won't do these checks
+//        if (!isExecutor.get())
+//            throw IllegalStateException("Must run operation from worker thread")
+    }
+
+    inline fun <R> withThreadAssert(block: () -> R): R {
+        assertThread()
+        return block()
     }
 
     override fun contactFilter(layer: BodyLayer, flags: Set<BodyFlag>): BodyContactFilter {
@@ -344,6 +369,7 @@ class JoltEngine internal constructor(
 
     class Builder(
         private val settings: Settings,
+        private val logger: Logger,
     ) : IgnacioEngine.Builder {
         private val layers = mutableListOf(
             ObjectLayerData(BP_LAYER_STATIC,  0b010), // static
@@ -378,7 +404,7 @@ class JoltEngine internal constructor(
             val flagBits = flags
             if (layerBits + flagBits > BODY_LAYER_NUM_BITS)
                 throw IllegalStateException("${layers.size} body layers defined ($layerBits bits), $flags body flags defined ($flagBits bits); must use maximum of $BODY_LAYER_NUM_BITS bits")
-            return JoltEngine(settings, layers.toTypedArray())
+            return JoltEngine(logger, settings, layers.toTypedArray())
         }
     }
 }

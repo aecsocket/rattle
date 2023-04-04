@@ -4,6 +4,8 @@ import io.github.aecsocket.ignacio.*
 import io.github.aecsocket.ignacio.paper.Ignacio
 import io.github.aecsocket.ignacio.paper.asKlam
 import io.github.aecsocket.klam.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.bukkit.Chunk
 import org.bukkit.ChunkSnapshot
 import org.bukkit.Material
@@ -78,7 +80,7 @@ fun enclosedPoints(b: DAabb3): Iterable<IVec3> {
     }
 }
 
-class SliceTerrainStrategy(
+class MovingSliceTerrainStrategy(
     private val ignacio: Ignacio,
     private val world: World,
     private val physics: PhysicsSpace,
@@ -109,6 +111,7 @@ class SliceTerrainStrategy(
     private val cubeCache = HashMap<FVec3, Shape>()
     private val blockShape: Shape
     private val shapeCache = HashMap<BlockData, Shape?>()
+    private val slicesMutex = Mutex()
     private val slices = HashMap<IVec3, Slice>()
     private val bodyToSlice = HashMap<PhysicsBody, Pair<Slice, TerrainLayer>>()
 
@@ -162,14 +165,14 @@ class SliceTerrainStrategy(
         }
 
         toSnapshot.forEach { (xz, sys) ->
-            ignacio.scheduling.onChunk(world, xz.x, xz.y) {
+            ignacio.scheduling.onChunk(world, xz.x, xz.y).launch {
                 // context: chunk tick thread
                 val toCreate = computeSliceSnapshots(xz.x, xz.y, sys)
                 engine.launchTask {
                     // context: physics non-step
                     addSlices(toCreate)
                 }
-            }.run()
+            }
         }
     }
 
@@ -194,8 +197,8 @@ class SliceTerrainStrategy(
         return SlicePositionUpdates(toRemove, toSnapshot)
     }
 
-    private fun removeSlices(slicePositions: Collection<IVec3>) {
-        val bodies = synchronized(slices) {
+    private suspend fun removeSlices(slicePositions: Collection<IVec3>) {
+        val bodies = slicesMutex.withLock {
             slicePositions.flatMap { slices.remove(it)?.bodies() ?: emptyList() }
         }
         physics.bodies.removeAll(bodies)
@@ -280,7 +283,7 @@ class SliceTerrainStrategy(
         }
     }
 
-    private fun addSlices(toCreate: List<Pair<IVec3, SliceSnapshot>>) {
+    private suspend fun addSlices(toCreate: List<Pair<IVec3, SliceSnapshot>>) {
         val bodies = toCreate.map { (pos, snapshot) ->
             val sy = pos.y
             val layers = HashMap<TerrainLayer, MutableList<CompoundChild>>()
@@ -317,15 +320,18 @@ class SliceTerrainStrategy(
                 }
             }
 
-            synchronized(slices) {
+            slicesMutex.withLock {
                 val layerBodies = layers.map { (layer, children) ->
-                    layer to physics.bodies.createStatic(
-                        StaticBodyDescriptor(
-                            shape = engine.shape(StaticCompoundGeometry(children)),
-                            contactFilter = contactFilter,
-                            trigger = !layer.collidable,
-                        ), Transform(DVec3(pos) * 16.0)
-                    )
+                    println("Creating terrain; children: ${children.size}")
+                    children.forEachIndexed { i, child ->
+                        println("  $i. $child")
+                    }
+                    val shape = engine.shape(StaticCompoundGeometry(children))
+                    layer to physics.bodies.createStatic(StaticBodyDescriptor(
+                        shape = shape,
+                        contactFilter = contactFilter,
+                        trigger = !layer.collidable,
+                    ), Transform(DVec3(pos) * 16.0))
                 }.associate { it }
                 val slice = Slice(layerBodies)
                 slices[pos] = slice

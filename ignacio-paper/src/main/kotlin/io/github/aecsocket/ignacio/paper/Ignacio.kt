@@ -52,8 +52,8 @@ private val configOptions: ConfigurationOptions = ConfigurationOptions.defaults(
 enum class TerrainStrategies(
     private val factory: TerrainStrategyFactory,
 ) {
-    NONE    ({ _, _, _ -> NoOpTerrainStrategy }),
-    SLICE   ({ ignacio, world, physics -> SliceTerrainStrategy(ignacio, world, physics) });
+    NONE            ({ _, _, _ -> NoOpTerrainStrategy }),
+    MOVING_SLICE    ({ ignacio, world, physics -> MovingSliceTerrainStrategy(ignacio, world, physics) });
 
     fun create(ignacio: Ignacio, world: World, physics: PhysicsSpace) = factory.create(ignacio, world, physics)
 }
@@ -83,17 +83,17 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
     @ConfigSerializable
     data class Settings(
         override val defaultLocale: Locale = fallbackLocale,
-        val jolt: JoltEngine.Settings = JoltEngine.Settings(),
         val worlds: Worlds = Worlds(),
         val bodyModels: BodyModels = BodyModels(),
         val engineTimings: EngineTimings = EngineTimings(),
-        val timingsBar: BossBarDescriptor = BossBarDescriptor()
+        val timingsBar: BossBarDescriptor = BossBarDescriptor(),
+        val jolt: JoltEngine.Settings = JoltEngine.Settings(),
     ) : AlexandriaPlugin.Settings {
         @ConfigSerializable
         data class Worlds(
             val space: PhysicsSpace.Settings = PhysicsSpace.Settings(),
             val deltaTimeMultiplier: Float = 1.0f,
-            val terrainStrategy: TerrainStrategies = TerrainStrategies.SLICE,
+            val terrainStrategy: TerrainStrategies = TerrainStrategies.MOVING_SLICE,
             val entityStrategy: EntityStrategies = EntityStrategies.NONE,
         )
 
@@ -138,7 +138,7 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
         super.onLoad()
 
         // TODO other plugins should be able to use this builder
-        engine = JoltEngine.Builder(settings.jolt).build()
+        engine = JoltEngine.Builder(settings.jolt, logger).build()
         logger.info("${ProcessHandle.current().pid()}: Loaded ${engine::class.simpleName} ${engine.build}")
     }
 
@@ -146,7 +146,7 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
         PacketEvents.getAPI().init()
         IgnacioCommand(this)
         registerEvents(IgnacioListener(this))
-        scheduling.onServer { onServerUpdate() }.runRepeating()
+        scheduling.onServer().runRepeating { onServerUpdate() }
     }
 
     override fun onDisable() {
@@ -190,23 +190,22 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
         }
     }
 
-    private fun onPhysicsUpdate() {
+    private suspend fun onPhysicsUpdate() {
         primitiveBodies.onPhysicsUpdate()
-        synchronized(worldMap) {
-            worldMap.forEach { (_, world) ->
-                world.startPhysicsUpdate(worldDeltaTime)
-            }
-            worldMap.forEach { (_, world) ->
-                world.joinPhysicsUpdate()
-            }
+        val worldMap = synchronized(worldMap) { worldMap.toMap() }
+        worldMap.forEach { (_, world) ->
+            world.startPhysicsUpdate(worldDeltaTime)
+        }
+        worldMap.forEach { (_, world) ->
+            world.joinPhysicsUpdate()
         }
     }
 
     fun playerData(player: Player) = players.computeIfAbsent(player) {
-        IgnacioPlayer(this, player).also {
-            scheduling.onEntity(player) {
-                it.onEntityUpdate()
-            }.runRepeating()
+        IgnacioPlayer(this, player).also { wrapper ->
+            scheduling.onEntity(player).runRepeating {
+                wrapper.onEntityUpdate()
+            }
         }
     }
 

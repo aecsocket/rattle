@@ -18,6 +18,7 @@ import jolt.physics.collision.RayCastSettings
 import jolt.physics.collision.broadphase.CollideShapeBodyCollector
 import jolt.physics.collision.broadphase.RayCastBodyCollector
 import java.lang.foreign.MemorySession
+import java.util.concurrent.atomic.AtomicInteger
 
 class JtPhysicsSpace internal constructor(
     val engine: JoltEngine,
@@ -44,8 +45,8 @@ class JtPhysicsSpace internal constructor(
     // cache number of bodies after each update
     // this isn't immediately updated, but accessing them directly from Jolt is *really slow* when many bodies are active
     // since it locks the entire body mutex, and causes the calling thread (potentially main!) to block
-    private var numBodies = 0
-    private var numActiveBodies = 0
+    private val numBodies = AtomicInteger()
+    private val numActiveBodies = AtomicInteger()
 
     init {
         updateSettings()
@@ -63,13 +64,17 @@ class JtPhysicsSpace internal constructor(
     fun bodyOf(id: Int) = JtPhysicsBody(engine, handle, id)
 
     override val bodies = object : PhysicsSpace.Bodies {
-        override val count get() = numBodies
+        override val count get() = numBodies.get()
 
-        override val activeCount get() = numActiveBodies
+        override val activeCount get() = numActiveBodies.get()
 
-        override fun all() = handle.bodies.map { bodyOf(it) }
+        override fun all() = engine.withThreadAssert {
+            handle.bodies.map { bodyOf(it) }
+        }
 
-        override fun active() = handle.activeBodies.map { bodyOf(it) }
+        override fun active() = engine.withThreadAssert {
+            handle.activeBodies.map { bodyOf(it) }
+        }
 
         private fun createBodySettings(
             mem: MemorySession,
@@ -94,6 +99,7 @@ class JtPhysicsSpace internal constructor(
         }
 
         override fun createStatic(descriptor: StaticBodyDescriptor, transform: Transform): PhysicsBody {
+            engine.assertThread()
             return pushArena { arena ->
                 val bodySettings = createBodySettings(arena, descriptor, transform, MotionType.STATIC)
                 createBody(bodySettings)
@@ -101,6 +107,7 @@ class JtPhysicsSpace internal constructor(
         }
 
         override fun createMoving(descriptor: MovingBodyDescriptor, transform: Transform): PhysicsBody {
+            engine.assertThread()
             return pushArena { arena ->
                 val bodySettings = createBodySettings(
                     arena,
@@ -141,6 +148,7 @@ class JtPhysicsSpace internal constructor(
         }
 
         override fun destroy(body: PhysicsBody) {
+            engine.assertThread()
             body as JtPhysicsBody
             if (body.added)
                 throw IllegalStateException("Body $body is still added to physics space")
@@ -151,6 +159,7 @@ class JtPhysicsSpace internal constructor(
         }
 
         override fun destroyAll(bodies: Collection<PhysicsBody>) {
+            engine.assertThread()
             @Suppress("UNCHECKED_CAST")
             bodies as Collection<JtPhysicsBody>
             bodies.forEachIndexed { idx, body ->
@@ -164,6 +173,7 @@ class JtPhysicsSpace internal constructor(
         }
 
         override fun add(body: PhysicsBody) {
+            engine.assertThread()
             body as JtPhysicsBody
             if (body.destroyed.get())
                 throw IllegalStateException("Body $body is destroyed")
@@ -174,6 +184,7 @@ class JtPhysicsSpace internal constructor(
         }
 
         override fun addAll(bodies: Collection<PhysicsBody>) {
+            engine.assertThread()
             @Suppress("UNCHECKED_CAST")
             bodies as Collection<JtPhysicsBody>
             bodies.forEachIndexed { idx, body ->
@@ -189,6 +200,7 @@ class JtPhysicsSpace internal constructor(
         }
 
         override fun remove(body: PhysicsBody) {
+            engine.assertThread()
             body as JtPhysicsBody
             if (body.destroyed.get())
                 throw IllegalStateException("Body $body is destroyed")
@@ -199,6 +211,7 @@ class JtPhysicsSpace internal constructor(
         }
 
         override fun removeAll(bodies: Collection<PhysicsBody>) {
+            engine.assertThread()
             @Suppress("UNCHECKED_CAST")
             bodies as Collection<JtPhysicsBody>
             bodies.forEachIndexed { idx, body ->
@@ -214,6 +227,7 @@ class JtPhysicsSpace internal constructor(
 
     override val broadQuery = object : PhysicsSpace.BroadQuery {
         override fun rayCastBodies(ray: DRay3, distance: Float, layerFilter: LayerFilter): Collection<PhysicsSpace.RayCast> {
+            engine.assertThread()
             layerFilter as JtLayerFilter
             val result = ArrayList<PhysicsSpace.RayCast>()
             pushArena { arena ->
@@ -233,6 +247,7 @@ class JtPhysicsSpace internal constructor(
         }
 
         override fun rayCastBody(ray: DRay3, distance: Float, layerFilter: LayerFilter): PhysicsSpace.RayCast? {
+            engine.assertThread()
             return rayCastBodies(ray, distance, layerFilter).firstOrNull()
         }
 
@@ -241,6 +256,7 @@ class JtPhysicsSpace internal constructor(
             radius: Float,
             layerFilter: LayerFilter
         ): Collection<PhysicsBody> {
+            engine.assertThread()
             layerFilter as JtLayerFilter
             val result = ArrayList<PhysicsBody>()
             pushArena { arena ->
@@ -260,6 +276,7 @@ class JtPhysicsSpace internal constructor(
 
     override val narrowQuery = object : PhysicsSpace.NarrowQuery {
         override fun rayCastBody(ray: DRay3, distance: Float, layerFilter: LayerFilter, bodyFilter: BodyFilter): PhysicsSpace.RayCast? {
+            engine.assertThread()
             layerFilter as JtLayerFilter
             bodyFilter as JtBodyFilter
             return pushArena { arena ->
@@ -279,6 +296,7 @@ class JtPhysicsSpace internal constructor(
         }
 
         override fun rayCastBodies(ray: DRay3, distance: Float, layerFilter: LayerFilter, bodyFilter: BodyFilter, shapeFilter: ShapeFilter): Collection<PhysicsSpace.RayCast> {
+            engine.assertThread()
             layerFilter as JtLayerFilter
             bodyFilter as JtBodyFilter
             shapeFilter as JtShapeFilter
@@ -313,6 +331,7 @@ class JtPhysicsSpace internal constructor(
     }
 
     override fun update(deltaTime: Float) {
+        engine.assertThread()
         handle.update(
             deltaTime,
             engine.settings.space.collisionSteps,
@@ -320,7 +339,7 @@ class JtPhysicsSpace internal constructor(
             tempAllocator,
             engine.jobSystem,
         )
-        numBodies = handle.numBodies
-        numActiveBodies = handle.numActiveBodies
+        numBodies.set(handle.numBodies)
+        numActiveBodies.set(handle.numActiveBodies)
     }
 }

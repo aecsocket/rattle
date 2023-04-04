@@ -22,7 +22,7 @@ dependencies {
     runtimeOnly(libs.joltJavaNativesLinuxX86)
     //runtimeOnly(libs.joltJavaNativesWindowsX86)
     //runtimeOnly(libs.joltJavaNativesMacosX86)
-    paperweight.paperDevBundle("$minecraft-R0.1-SNAPSHOT")
+    paperweight.foliaDevBundle("$minecraft-R0.1-SNAPSHOT")
     implementation(libs.kotlinxCoroutinesCore)
     implementation(libs.klam)
     implementation(libs.adventureSerializerConfigurate)

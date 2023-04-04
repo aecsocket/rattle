@@ -4,7 +4,7 @@ metadata:
 
 plugins:
   com.github.johnrengelman.shadow: 8.1.1
-  io.papermc.paperweight.userdev: 1.5.3
+  io.papermc.paperweight.userdev: 1.5.4
   xyz.jpenilla.run-paper: 2.0.1
 
 versions:

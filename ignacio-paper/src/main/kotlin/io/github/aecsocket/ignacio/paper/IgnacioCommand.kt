@@ -59,12 +59,12 @@ internal class IgnacioCommand(
                 manager.command(space
                     .literal("create")
                     .alexandriaPermission("space.create")
-                    .handler(::spaceCreate)
+                    .alexandriaHandler(::spaceCreate)
                 )
                 manager.command(space
                     .literal("destroy")
                     .alexandriaPermission("space.destroy")
-                    .handler(::spaceDestroy)
+                    .alexandriaHandler(::spaceDestroy)
                 )
             }
 
@@ -80,7 +80,7 @@ internal class IgnacioCommand(
                     manager.command(create
                         .literal("model")
                         .argument(ItemStackArgument.of(ITEM))
-                        .handler(::renderCreateModel)
+                        .alexandriaHandler(::renderCreateModel)
                     )
                     manager.command(create
                         .literal("text")
@@ -89,7 +89,7 @@ internal class IgnacioCommand(
                             .withAliases("b")
                             .withArgument(EnumArgument.of<CommandSender, Billboard>(Billboard::class.java, BILLBOARD))
                         )
-                        .handler(::renderCreateText)
+                        .alexandriaHandler(::renderCreateText)
                     )
                 }
 
@@ -97,11 +97,11 @@ internal class IgnacioCommand(
                 .alexandriaPermission("render.destroy").let { destroy ->
                     manager.command(destroy
                         .argument(IntegerArgument.of(ID))
-                        .handler(::renderDestroyOne)
+                        .alexandriaHandler(::renderDestroyOne)
                     )
                     manager.command(destroy
                         .literal("all")
-                        .handler(::renderDestroyAll)
+                        .alexandriaHandler(::renderDestroyAll)
                     )
                 }
 
@@ -111,18 +111,18 @@ internal class IgnacioCommand(
                     manager.command(edit
                         .literal("position")
                         .argument(LocationArgument.of(TO))
-                        .handler(::renderEditPosition)
+                        .alexandriaHandler(::renderEditPosition)
                     )
                     manager.command(edit
                         .literal("rotation")
                         .argument(EnumArgument.of(EulerOrder::class.java, ORDER))
                         .argumentFVec3(ANGLES)
-                        .handler(::renderEditRotation)
+                        .alexandriaHandler(::renderEditRotation)
                     )
                     manager.command(edit
                         .literal("scale")
                         .argumentFVec3(SCALE)
-                        .handler(::renderEditScale)
+                        .alexandriaHandler(::renderEditScale)
                     )
                 }
         }
@@ -148,12 +148,12 @@ internal class IgnacioCommand(
                         manager.command(static
                             .literal("box")
                             .argument(FloatArgument.of(HALF_EXTENT))
-                            .handler(::bodyCreateStaticBox)
+                            .alexandriaHandler(::bodyCreateStaticBox)
                         )
                         manager.command(static
                             .literal("sphere")
                             .argument(FloatArgument.of(RADIUS))
-                            .handler(::bodyCreateStaticSphere)
+                            .alexandriaHandler(::bodyCreateStaticSphere)
                         )
                     }
 
@@ -182,12 +182,12 @@ internal class IgnacioCommand(
                             manager.command(moving
                                 .literal("box")
                                 .argument(FloatArgument.of(HALF_EXTENT))
-                                .handler(::bodyCreateMovingBox)
+                                .alexandriaHandler(::bodyCreateMovingBox)
                             )
                             manager.command(moving
                                 .literal("sphere")
                                 .argument(FloatArgument.of(RADIUS))
-                                .handler(::bodyCreateMovingSphere)
+                                .alexandriaHandler(::bodyCreateMovingSphere)
                             )
                     }
                 }
@@ -196,7 +196,7 @@ internal class IgnacioCommand(
                 .alexandriaPermission("body.destroy").let { destroy ->
                 manager.command(destroy
                     .literal("all")
-                    .handler(::bodyDestroyAll)
+                    .alexandriaHandler(::bodyDestroyAll)
                 )
             }
         }
@@ -204,7 +204,7 @@ internal class IgnacioCommand(
         manager.command(root
             .literal("timings")
             .alexandriaPermission("timings")
-            .handler(::timings)
+            .alexandriaHandler(::timings)
         )
 
         manager.command(root
@@ -214,7 +214,7 @@ internal class IgnacioCommand(
             .flag(manager.flagBuilder(SHOW_TIMINGS)
                 .withAliases("t")
             )
-            .handler(::debug)
+            .alexandriaHandler(::debug)
         )
     }
 
@@ -305,7 +305,7 @@ internal class IgnacioCommand(
         ).sendTo(sender)
     }
 
-    private fun renderDestroyOne(ctx: Context) {
+    private suspend fun renderDestroyOne(ctx: Context) {
         val sender = ctx.sender
         val messages = ignacio.messages.forAudience(sender)
         val id = ctx.get<Int>(ID)
@@ -321,7 +321,7 @@ internal class IgnacioCommand(
         }
     }
 
-    private fun renderDestroyAll(ctx: Context) {
+    private suspend fun renderDestroyAll(ctx: Context) {
         val sender = ctx.sender
         val messages = ignacio.messages.forAudience(sender)
 
@@ -549,7 +549,7 @@ internal class IgnacioCommand(
         ).sendTo(sender)
     }
 
-    private fun bodyDestroyAll(ctx: Context) {
+    private suspend fun bodyDestroyAll(ctx: Context) {
         val sender = ctx.sender
         val messages = ignacio.messages.forAudience(sender)
 

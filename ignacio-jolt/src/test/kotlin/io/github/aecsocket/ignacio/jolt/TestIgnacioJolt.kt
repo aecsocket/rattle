@@ -3,12 +3,13 @@ package io.github.aecsocket.ignacio.jolt
 import io.github.aecsocket.ignacio.*
 import io.github.aecsocket.klam.DVec3
 import io.github.aecsocket.klam.FVec3
+import java.util.logging.Logger
 import kotlin.test.Test
 
 class TestIgnacioJolt {
     @Test
     fun test() {
-        val engineBuilder = JoltEngine.Builder(JoltEngine.Settings())
+        val engineBuilder = JoltEngine.Builder(JoltEngine.Settings(), Logger.getAnonymousLogger())
         val engine = engineBuilder.build()
 
         val physics = engine.space(PhysicsSpace.Settings())

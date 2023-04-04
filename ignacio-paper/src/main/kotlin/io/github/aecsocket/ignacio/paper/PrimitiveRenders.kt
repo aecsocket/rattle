@@ -2,6 +2,9 @@ package io.github.aecsocket.ignacio.paper
 
 import io.github.aecsocket.ignacio.Transform
 import io.github.aecsocket.ignacio.paper.render.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import org.bukkit.Bukkit
 import org.bukkit.World
 import org.bukkit.entity.Entity
 import org.bukkit.entity.Player
@@ -23,38 +26,41 @@ class PrimitiveRenders internal constructor(private val ignacio: Ignacio) {
     }
 
     private val nextId = AtomicInteger(1)
-    private val lock = Any()
+    private val mutex = Mutex()
     private val instances = HashMap<Int, Instance>()
     private val entityToInstance = HashMap<Entity, Instance>()
 
-    val count get() = synchronized(lock) { instances.size }
+    val count get() = instances.size
 
     fun create(world: World, transform: Transform, descriptor: RenderDescriptor): Int {
         val id = nextId.getAndIncrement()
-        spawnMarkerEntity(transform.position.location(world)) { marker ->
+        val location = transform.position.location(world)
+        ignacio.scheduling.onChunk(location).launch {
+            val marker = spawnMarkerEntity(location)
             val render = ignacio.renders.create(descriptor, marker.playerTracker(), transform)
             val instance = Instance(id, render, marker)
-            synchronized(lock) {
+
+            mutex.withLock {
                 instances[id] = instance
                 entityToInstance[marker] = instance
             }
 
-            ignacio.scheduling.onEntity(marker) {
+            ignacio.scheduling.onEntity(marker).launch {
                 render.spawn()
-            }.run()
-            ignacio.scheduling.onEntity(marker) {
+            }
+            ignacio.scheduling.onEntity(marker).runRepeating { task ->
                 if (instance.destroyed.get()) {
-                    cancelCurrentTask()
-                    return@onEntity
+                    task.cancel()
+                    return@runRepeating
                 }
-                marker.teleport(instance.render.transform.position.location(marker.world))
-            }.runRepeating()
+                marker.teleportAsync(instance.render.transform.position.location(marker.world))
+            }
         }
         return id
     }
 
-    fun destroy(id: Int): Boolean {
-        return synchronized(lock) {
+    suspend fun destroy(id: Int): Boolean {
+        return mutex.withLock {
             instances.remove(id)?.let { instance ->
                 entityToInstance -= instance.marker
                 instance.destroy()
@@ -63,20 +69,21 @@ class PrimitiveRenders internal constructor(private val ignacio: Ignacio) {
         }
     }
 
-    fun destroyAll() {
-        synchronized(lock) {
+    suspend fun destroyAll() {
+        mutex.withLock {
             instances.forEach { (_, instance) ->
                 instance.destroy()
             }
             instances.clear()
             entityToInstance.clear()
+
         }
     }
 
     operator fun get(id: Int) = instances[id]?.render
 
-    internal fun onEntityRemove(entity: Entity) {
-        synchronized(lock) {
+    internal suspend fun onEntityRemove(entity: Entity) {
+        mutex.withLock {
             entityToInstance.remove(entity)?.let { instance ->
                 instances -= instance.id
                 instance.destroy()
@@ -84,15 +91,15 @@ class PrimitiveRenders internal constructor(private val ignacio: Ignacio) {
         }
     }
 
-    internal fun onPlayerTrackEntity(player: Player, entity: Entity) {
-        synchronized(lock) {
+    internal suspend fun onPlayerTrackEntity(player: Player, entity: Entity) {
+        mutex.withLock {
             val instance = entityToInstance[entity] ?: return
             instance.render.spawn(player)
         }
     }
 
-    internal fun onPlayerUntrackEntity(player: Player, entity: Entity) {
-        synchronized(lock) {
+    internal suspend fun onPlayerUntrackEntity(player: Player, entity: Entity) {
+        mutex.withLock {
             val instance = entityToInstance[entity] ?: return
             instance.render.despawn(player)
         }
