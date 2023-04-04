@@ -2,18 +2,25 @@ package io.github.aecsocket.ignacio.paper
 
 import io.github.aecsocket.ignacio.Transform
 import io.github.aecsocket.ignacio.paper.render.*
-import org.bukkit.Location
 import org.bukkit.World
 import org.bukkit.entity.Entity
 import org.bukkit.entity.Player
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
 class PrimitiveRenders internal constructor(private val ignacio: Ignacio) {
-    private data class Instance(
+    private inner class Instance(
         val id: Int,
         val render: Render,
         val marker: Entity,
-    )
+    ) {
+        val destroyed = AtomicBoolean()
+
+        fun destroy() {
+            if (destroyed.getAndSet(true)) return
+            render.despawn()
+        }
+    }
 
     private val nextId = AtomicInteger(1)
     private val lock = Any()
@@ -36,21 +43,21 @@ class PrimitiveRenders internal constructor(private val ignacio: Ignacio) {
                 render.spawn()
             }.run()
             ignacio.scheduling.onEntity(marker) {
+                if (instance.destroyed.get()) {
+                    cancelCurrentTask()
+                    return@onEntity
+                }
                 marker.teleport(instance.render.transform.position.location(marker.world))
             }.runRepeating()
         }
         return id
     }
 
-    private fun destroyInternal(instance: Instance) {
-        instance.render.despawn()
-    }
-
     fun destroy(id: Int): Boolean {
         return synchronized(lock) {
             instances.remove(id)?.let { instance ->
                 entityToInstance -= instance.marker
-                destroyInternal(instance)
+                instance.destroy()
                 true
             } ?: false
         }
@@ -59,7 +66,7 @@ class PrimitiveRenders internal constructor(private val ignacio: Ignacio) {
     fun destroyAll() {
         synchronized(lock) {
             instances.forEach { (_, instance) ->
-                destroyInternal(instance)
+                instance.destroy()
             }
             instances.clear()
             entityToInstance.clear()
@@ -72,7 +79,7 @@ class PrimitiveRenders internal constructor(private val ignacio: Ignacio) {
         synchronized(lock) {
             entityToInstance.remove(entity)?.let { instance ->
                 instances -= instance.id
-                destroyInternal(instance)
+                instance.destroy()
             }
         }
     }

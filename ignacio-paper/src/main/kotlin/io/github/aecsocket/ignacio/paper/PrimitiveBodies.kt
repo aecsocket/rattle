@@ -18,7 +18,7 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
         val marker: Entity,
         var location: Location,
     ) {
-        val destroyed = AtomicBoolean(false)
+        val destroyed = AtomicBoolean()
 
         fun destroy() {
             if (destroyed.getAndSet(true)) return
@@ -70,6 +70,10 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
                 }.run()
             }
             ignacio.scheduling.onEntity(marker) {
+                if (instance.destroyed.get()) {
+                    cancelCurrentTask()
+                    return@onEntity
+                }
                 marker.teleport(instance.location)
             }.runRepeating()
         }

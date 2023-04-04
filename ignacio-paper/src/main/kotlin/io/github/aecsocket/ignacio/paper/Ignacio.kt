@@ -146,6 +146,7 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
         PacketEvents.getAPI().init()
         IgnacioCommand(this)
         registerEvents(IgnacioListener(this))
+        scheduling.onServer { onServerUpdate() }.runRepeating()
     }
 
     override fun onDisable() {
