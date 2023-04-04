@@ -39,7 +39,7 @@ class IgnacioPlayer internal constructor(
         debugFlags = newFlags
     }
 
-    internal fun syncUpdate() {
+    internal fun onEntityUpdate() {
         val world = player.world
         timingsBar?.let { timingsBar ->
             val text = ignacio.worlds[world]?.let { (physics) ->

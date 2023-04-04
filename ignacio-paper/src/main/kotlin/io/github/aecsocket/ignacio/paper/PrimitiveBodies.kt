@@ -16,6 +16,7 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
         val body: PhysicsBody,
         val render: Render?,
         val marker: Entity,
+        var location: Location,
     ) {
         val destroyed = AtomicBoolean(false)
 
@@ -32,12 +33,11 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
         }
     }
 
-    private val nextId = AtomicInteger()
+    private val nextId = AtomicInteger(1)
     private val lock = Any()
     private val instances = HashMap<Int, Instance>()
     private val entityToInstance = HashMap<Entity, Instance>()
     private val bodyToInstance = HashMap<World, MutableMap<PhysicsBody, Instance>>()
-    private var nextMove = emptyMap<Entity, Location>()
 
     val count get() = synchronized(lock) { instances.size }
 
@@ -48,7 +48,8 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
         createRender: ((tracker: PlayerTracker) -> Render)?,
     ): Int {
         val id = nextId.getAndIncrement()
-        spawnMarkerEntity(transform.position.location(world)) { marker ->
+        val location = transform.position.location(world)
+        spawnMarkerEntity(location) { marker ->
             val (physics) = ignacio.worlds.getOrCreate(world)
             val body = createBody(physics)
             physics.bodies.add(body)
@@ -56,7 +57,7 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
                 moving.activate()
             }
             val render = createRender?.invoke(marker.playerTracker())
-            val instance = Instance(id, physics, body, render, marker)
+            val instance = Instance(id, physics, body, render, marker, location)
             synchronized(lock) {
                 instances[id] = instance
                 entityToInstance[marker] = instance
@@ -64,10 +65,13 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
             }
 
             render?.let {
-                ignacio.scheduling.onServer {
+                ignacio.scheduling.onEntity(marker) {
                     it.spawn()
                 }.run()
             }
+            ignacio.scheduling.onEntity(marker) {
+                marker.teleport(instance.location)
+            }.runRepeating()
         }
         return id
     }
@@ -101,34 +105,33 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
 
     operator fun get(id: Int) = instances[id]?.run { physics to body }
 
-    internal fun syncUpdate() {
-        // TODO Folia: tasks must be individually scheduled per entity
-        nextMove.forEach { (entity, location) ->
-            entity.teleport(location)
-        }
-    }
+    internal fun onPhysicsUpdate() {
+        val toRemove = HashSet<Instance>()
+        instances.toMap().forEach { (_, instance) ->
+            if (!instance.marker.isValid || !instance.body.added) {
+                toRemove += instance
+                return@forEach
+            }
 
-    internal fun physicsUpdate() {
-        val nextMove = HashMap<Entity, Location>()
-        synchronized(lock) {
-            instances.toMap().forEach { (_, instance) ->
-                if (!instance.marker.isValid || !instance.body.added) {
+            instance.body.read { body ->
+                val transform = body.transform
+                instance.location = transform.position.location(instance.marker.world)
+                instance.render?.transform = transform
+            }
+        }
+
+        if (toRemove.isNotEmpty()) {
+            synchronized(lock) {
+                toRemove.forEach { instance ->
                     removeMapping(instance)
                     instance.destroy()
-                    return@forEach
-                }
-
-                instance.body.read { body ->
-                    val transform = body.transform
-                    nextMove[instance.marker] = transform.position.location(instance.marker.world)
-                    instance.render?.transform = transform
                 }
             }
         }
-        this.nextMove = nextMove
     }
 
     internal fun onWorldUnload(world: World) {
+        // keep the lock held because of `removeMapping`
         synchronized(lock) {
             bodyToInstance.remove(world)?.forEach { (_, instance) ->
                 removeMapping(instance)
@@ -138,6 +141,7 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
     }
 
     internal fun onEntityRemove(entity: Entity) {
+        // keep the lock held because of `removeMapping`
         synchronized(lock) {
             entityToInstance.remove(entity)?.let { instance ->
                 removeMapping(instance)

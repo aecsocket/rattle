@@ -150,10 +150,12 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
 
     override fun onDisable() {
         PacketEvents.getAPI().terminate()
-        engine.destroy()
-        worldMap.forEach { (_, world) ->
-            world.physics.destroy()
+        synchronized(worldMap) {
+            worldMap.forEach { (_, world) ->
+                world.physics.destroy()
+            }
         }
+        engine.destroy()
     }
 
     override fun configOptions() = configOptions
@@ -174,39 +176,38 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
         }
     }
 
-    internal fun syncUpdate() {
-        players.toMap().forEach { (_, player) ->
-            player.syncUpdate()
-        }
-        synchronized(worldMap) {
-            worldMap.forEach { (_, world) ->
-                world.syncUpdate()
-            }
-        }
-        primitiveBodies.syncUpdate()
-        primitiveRenders.syncUpdate()
-
+    private fun onServerUpdate() {
         engine.launchTask {
             if (updatingPhysics.getAndSet(true)) return@launchTask
 
             val start = System.nanoTime()
-            primitiveBodies.physicsUpdate()
-            synchronized(worldMap) {
-                worldMap.forEach { (_, world) ->
-                    world.startPhysicsUpdate(worldDeltaTime)
-                }
-                worldMap.forEach { (_, world) ->
-                    world.joinPhysicsUpdate()
-                }
-            }
+            onPhysicsUpdate()
             val end = System.nanoTime()
 
-            updatingPhysics.set(false)
             mEngineTimings.add(end - start)
+            updatingPhysics.set(false)
         }
     }
 
-    fun playerData(player: Player) = players.computeIfAbsent(player) { IgnacioPlayer(this, player) }
+    private fun onPhysicsUpdate() {
+        primitiveBodies.onPhysicsUpdate()
+        synchronized(worldMap) {
+            worldMap.forEach { (_, world) ->
+                world.startPhysicsUpdate(worldDeltaTime)
+            }
+            worldMap.forEach { (_, world) ->
+                world.joinPhysicsUpdate()
+            }
+        }
+    }
+
+    fun playerData(player: Player) = players.computeIfAbsent(player) {
+        IgnacioPlayer(this, player).also {
+            scheduling.onEntity(player) {
+                it.onEntityUpdate()
+            }.runRepeating()
+        }
+    }
 
     internal fun removePlayer(player: Player) {
         players.remove(player)

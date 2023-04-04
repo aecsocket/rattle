@@ -2,6 +2,7 @@ package io.github.aecsocket.ignacio.paper
 
 import io.github.aecsocket.ignacio.Transform
 import io.github.aecsocket.ignacio.paper.render.*
+import org.bukkit.Location
 import org.bukkit.World
 import org.bukkit.entity.Entity
 import org.bukkit.entity.Player
@@ -14,7 +15,7 @@ class PrimitiveRenders internal constructor(private val ignacio: Ignacio) {
         val marker: Entity,
     )
 
-    private val nextId = AtomicInteger()
+    private val nextId = AtomicInteger(1)
     private val lock = Any()
     private val instances = HashMap<Int, Instance>()
     private val entityToInstance = HashMap<Entity, Instance>()
@@ -31,9 +32,12 @@ class PrimitiveRenders internal constructor(private val ignacio: Ignacio) {
                 entityToInstance[marker] = instance
             }
 
-            ignacio.scheduling.onServer {
+            ignacio.scheduling.onEntity(marker) {
                 render.spawn()
             }.run()
+            ignacio.scheduling.onEntity(marker) {
+                marker.teleport(instance.render.transform.position.location(marker.world))
+            }.runRepeating()
         }
         return id
     }
@@ -63,15 +67,6 @@ class PrimitiveRenders internal constructor(private val ignacio: Ignacio) {
     }
 
     operator fun get(id: Int) = instances[id]?.render
-
-    internal fun syncUpdate() {
-        // TODO Folia: tasks must be individually scheduled per entity
-        synchronized(lock) {
-            entityToInstance.forEach { (entity, instance) ->
-                entity.teleport(instance.render.transform.position.location(entity.world))
-            }
-        }
-    }
 
     internal fun onEntityRemove(entity: Entity) {
         synchronized(lock) {

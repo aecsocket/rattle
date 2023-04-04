@@ -12,11 +12,6 @@ import org.bukkit.event.world.WorldUnloadEvent
 
 internal class IgnacioListener(private val ignacio: Ignacio) : Listener {
     @EventHandler
-    fun on(event: ServerTickEndEvent) {
-        ignacio.syncUpdate()
-    }
-
-    @EventHandler
     fun on(event: WorldUnloadEvent) {
         ignacio.worlds.destroy(event.world)
         ignacio.primitiveBodies.onWorldUnload(event.world)

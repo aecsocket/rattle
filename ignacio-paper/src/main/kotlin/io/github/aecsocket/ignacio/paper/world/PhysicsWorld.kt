@@ -81,8 +81,4 @@ class PhysicsWorld(
         physics.update(nextDeltaTime)
         terrain.physicsUpdate(nextDeltaTime)
     }
-
-    fun syncUpdate() {
-        terrain.syncUpdate()
-    }
 }
