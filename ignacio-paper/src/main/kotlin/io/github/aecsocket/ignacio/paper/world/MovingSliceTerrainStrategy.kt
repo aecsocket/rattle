@@ -1,12 +1,11 @@
 package io.github.aecsocket.ignacio.paper.world
 
+import io.github.aecsocket.alexandria.Mutexed
 import io.github.aecsocket.ignacio.*
 import io.github.aecsocket.ignacio.paper.Ignacio
 import io.github.aecsocket.ignacio.paper.asKlam
 import io.github.aecsocket.klam.*
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import org.bukkit.Chunk
 import org.bukkit.ChunkSnapshot
 import org.bukkit.Material
@@ -97,23 +96,28 @@ class MovingSliceTerrainStrategy(
         fun bodies() = layers.map { (_, body) -> body }
     }
 
+    private data class Slices(
+        val slices: MutableMap<IVec3, Slice> = HashMap(),
+        val bodyToSlice: MutableMap<PhysicsBody, Pair<Slice, TerrainLayer>> = HashMap(),
+    )
+
     private val engine = ignacio.engine
     private val destroyed = DestroyFlag()
     private val yStart = world.minHeight
     private val ySize = world.maxHeight - yStart
     private val numSlices = ySize / 16
     private val negativeYSlices = -yStart / 16
-    private val stepListener = StepListener { runBlocking { onPhysicsStep() } }
+    private val stepListener = StepListener {
+        println("== STEP START")
+        runBlocking { onPhysicsStep() }
+        println("== STEP STOP")
+    }
     private val contactFilter = engine.contactFilter(engine.layers.terrain)
 
-    private val cubeCache = HashMap<FVec3, Shape>()
-    private val cubeCacheMutex = Mutex()
+    private val cubeCache = Mutexed(HashMap<FVec3, Shape>())
     private val blockShape: Shape
-    private val shapeCache = HashMap<BlockData, Shape?>()
-    private val shapeCacheMutex = Mutex()
-    private val slicesMutex = Mutex()
-    private val slices = HashMap<IVec3, Slice>()
-    private val bodyToSlice = HashMap<PhysicsBody, Pair<Slice, TerrainLayer>>()
+    private val shapeCache = Mutexed(HashMap<BlockData, Shape?>())
+    private val slices = Mutexed(Slices())
 
     var enabled = true
         private set
@@ -124,7 +128,7 @@ class MovingSliceTerrainStrategy(
     }
 
     private suspend fun cubeShape(halfExtents: FVec3): Shape {
-        return cubeCacheMutex.withLock {
+        return cubeCache.withLock { cubeCache ->
             cubeCache.computeIfAbsent(halfExtents) {
                 engine.shape(BoxGeometry(halfExtents))
             }
@@ -136,25 +140,18 @@ class MovingSliceTerrainStrategy(
         physics.removeStepListener(stepListener)
 
         runBlocking {
-            shapeCacheMutex.withLock {
+            shapeCache.withLock { shapeCache ->
                 shapeCache.forEach { (_, shape) ->
                     shape?.destroy()
                 }
                 shapeCache.clear()
             }
-        }
-
-        synchronized(shapeCache) {
-            shapeCache.forEach { (_, shape) ->
-                shape?.destroy()
+            cubeCache.withLock { cubeCache ->
+                cubeCache.forEach { (_, shape) ->
+                    shape.destroy()
+                }
+                cubeCache.clear()
             }
-            shapeCache.clear()
-        }
-        synchronized(cubeCache) {
-            cubeCache.forEach { (_, shape) ->
-                shape.destroy()
-            }
-            cubeCache.clear()
         }
     }
 
@@ -171,6 +168,10 @@ class MovingSliceTerrainStrategy(
         val toSnapshot: Map<IVec2, Set<Int>>,
     )
 
+    private fun println(msg: String) {
+        kotlin.io.println("[${Thread.currentThread().name}] $msg")
+    }
+
     private suspend fun onPhysicsStep() {
         // context: physics step; all bodies locked, cannot add or remove bodies
         if (!enabled) return
@@ -181,16 +182,23 @@ class MovingSliceTerrainStrategy(
         engine.launchTask {
             // context: physics non-step; can add or remove bodies
             // remove bodies for slices which we've marked as not needed
+            println("! removing")
             removeSlices(toRemove)
+            println("! removing DONE")
         }
 
         toSnapshot.forEach { (xz, sys) ->
             ignacio.scheduling.onChunk(world, xz.x, xz.y).launch {
                 // context: chunk tick thread
+                println("! computing snapshots")
                 val toCreate = computeSliceSnapshots(xz.x, xz.y, sys)
+                println("! computing snapshots DONE")
                 engine.launchTask {
                     // context: physics non-step
+                    println("! adding slices")
+                    // TODO this blocks
                     addSlices(toCreate)
+                    println("! adding slices DONE")
                 }
             }
         }
@@ -199,7 +207,7 @@ class MovingSliceTerrainStrategy(
     private suspend fun computeSlicePositionUpdates(): SlicePositionUpdates {
         // we want to make bodies for all slices which are intersected by a body
         // and remove bodies for all slices which aren't intersected by any body
-        val toRemove = slicesMutex.withLock { slices.keys.toMutableSet() }
+        val toRemove = slices.withLock { (slices) -> slices.keys.toMutableSet() }
         // key by chunk x,z for easy task scheduling later
         val toSnapshot = HashMap<IVec2, MutableSet<Int>>()
         physics.bodies.active().forEach { bodyId ->
@@ -220,11 +228,12 @@ class MovingSliceTerrainStrategy(
     }
 
     private suspend fun removeSlices(slicePositions: Collection<IVec3>) {
-        val bodies = slicesMutex.withLock {
+        val bodies = slices.withLock { (slices) ->
             slicePositions.flatMap { slices.remove(it)?.bodies() ?: emptyList() }
         }
         // bulk-remove bodies to make it more efficient
         physics.bodies.removeAll(bodies)
+        physics.bodies.destroyAll(bodies)
     }
 
     private suspend fun computeSliceSnapshots(sx: Int, sz: Int, sys: Collection<Int>): List<Pair<IVec3, SliceSnapshot>> {
@@ -236,7 +245,7 @@ class MovingSliceTerrainStrategy(
         sys.forEach { sy ->
             val pos = IVec3(sx, sy, sz)
             // we already have a body for this slice; don't process it
-            if (slices.contains(pos)) return@forEach
+            if (slices.leak().slices.contains(pos)) return@forEach
             // iy is the index of the Y slice, as stored by server internals
             //     if sy: -4..16
             //   then iy: 0..20
@@ -270,11 +279,11 @@ class MovingSliceTerrainStrategy(
     }
 
     private suspend fun blockShape(block: Block): Shape? {
-        return shapeCacheMutex.withLock {
+        return shapeCache.withLock { shapeCache ->
             // cache by block data instead of VoxelShapes, because it might be faster? idk
             val blockData = block.blockData
             // can't use computeIfAbsent because critical suspend point or something
-            shapeCache[blockData]?.let { return it }
+            shapeCache[blockData]?.let { return@withLock it }
             // but otherwise, just fall back generating the shape ourselves
             val boxes = block.collisionShape.boundingBoxes
             val shape = when {
@@ -337,31 +346,45 @@ class MovingSliceTerrainStrategy(
                 }
             }
 
-            slicesMutex.withLock {
+            println(">> enter slice lock")
+            slices.withLock { slices ->
+                println(">> >> A")
                 val layerBodies = layers.map { (layer, children) ->
+                    println(">> >> A1")
                     val shape = engine.shape(StaticCompoundGeometry(children))
+                    println(">> >> A2")
+                    // this `createStatic` blocks, because it waits for mBodiesMutex to unlock
+                    // but WTF locks it and doesn't unlock it??? mutex deadlock??
                     layer to physics.bodies.createStatic(StaticBodyDescriptor(
                         shape = shape,
                         contactFilter = contactFilter,
                         trigger = !layer.collidable,
                     ), Transform(DVec3(pos) * 16.0))
                 }.associate { it }
+                println(">> >>B")
                 val slice = Slice(layerBodies)
-                slices[pos] = slice
+                println(">> >> C")
+                slices.slices[pos] = slice
+                println(">> >> D")
                 layerBodies.forEach { (layer, body) ->
-                    bodyToSlice[body] = slice to layer
+                    slices.bodyToSlice[body] = slice to layer
                 }
+                println(">> >> E")
                 layerBodies.values
+            }.also {
+                println(">> exit slice lock")
             }
         }.flatten()
+        println(">> enter add bodies")
         physics.bodies.addAll(bodies)
+        println(">> exit add bodies")
     }
 
     override fun physicsUpdate(deltaTime: Float) {}
 
     override fun syncUpdate() {}
 
-    override fun isTerrain(body: PhysicsBody.Read) = bodyToSlice.containsKey(body.key)
+    override fun isTerrain(body: PhysicsBody.Read) = slices.leak().bodyToSlice.containsKey(body.key)
 
     override fun onChunksLoad(chunks: Collection<Chunk>) {}
 

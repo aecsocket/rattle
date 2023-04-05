@@ -162,6 +162,7 @@ class JtPhysicsSpace internal constructor(
             engine.assertThread()
             @Suppress("UNCHECKED_CAST")
             bodies as Collection<JtPhysicsBody>
+            if (bodies.isEmpty()) return
             bodies.forEachIndexed { idx, body ->
                 if (body.added)
                     throw IllegalStateException("Body $body [$idx] is still added to physics space")
@@ -187,6 +188,7 @@ class JtPhysicsSpace internal constructor(
             engine.assertThread()
             @Suppress("UNCHECKED_CAST")
             bodies as Collection<JtPhysicsBody>
+            if (bodies.isEmpty()) return
             bodies.forEachIndexed { idx, body ->
                 if (body.destroyed.get())
                     throw IllegalStateException("Body $body [$idx] is destroyed")
@@ -214,6 +216,7 @@ class JtPhysicsSpace internal constructor(
             engine.assertThread()
             @Suppress("UNCHECKED_CAST")
             bodies as Collection<JtPhysicsBody>
+            if (bodies.isEmpty()) return
             bodies.forEachIndexed { idx, body ->
                 if (body.destroyed.get())
                     throw IllegalStateException("Body $body [$idx] is destroyed")

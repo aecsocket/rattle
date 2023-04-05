@@ -20,6 +20,7 @@ import jolt.physics.collision.shape.Shape
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import java.lang.foreign.MemorySession
 import java.util.concurrent.ExecutorService
@@ -43,7 +44,7 @@ private const val BODY_LAYER_NUM_BITS = 16
 
 private fun numThreads(num: Int) =
     if (num > 0) num
-    else clamp(Runtime.getRuntime().availableProcessors() - 1, 1, 16)
+    else clamp((Runtime.getRuntime().availableProcessors() / 2) - 1, 1, 16)
 
 fun <T : Deletable, R> T.use(block: (T) -> R): R {
     val result = block(this)
@@ -249,7 +250,10 @@ class JoltEngine internal constructor(
 
     override fun launchTask(block: suspend CoroutineScope.() -> Unit) {
         if (destroyed.marked()) return
-        executorScope.launch(block = block)
+        executor.execute {
+            runBlocking(block = block)
+        }
+        //executorScope.launch(block = block)
     }
 
     fun assertThread() {
