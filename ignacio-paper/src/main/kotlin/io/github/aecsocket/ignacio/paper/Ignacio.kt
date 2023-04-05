@@ -84,9 +84,8 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
     data class Settings(
         override val defaultLocale: Locale = fallbackLocale,
         val worlds: Worlds = Worlds(),
-        val bodyModels: BodyModels = BodyModels(),
+        val primitiveBodies: PrimitiveBodies = PrimitiveBodies(),
         val engineTimings: EngineTimings = EngineTimings(),
-        val timingsBar: BossBarDescriptor = BossBarDescriptor(),
         val jolt: JoltEngine.Settings = JoltEngine.Settings(),
     ) : AlexandriaPlugin.Settings {
         @ConfigSerializable
@@ -98,16 +97,23 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
         )
 
         @ConfigSerializable
-        data class BodyModels(
-            val box: ItemDescriptor = ItemDescriptor(Material.STONE),
-            val sphere: ItemDescriptor = ItemDescriptor(Material.STONE),
-        )
+        data class PrimitiveBodies(
+            val models: Models = Models(),
+            val teleportThreshold: Double = 16.0,
+        ) {
+            @ConfigSerializable
+            data class Models(
+                val box: ItemDescriptor = ItemDescriptor(Material.STONE),
+                val sphere: ItemDescriptor = ItemDescriptor(Material.STONE),
+            )
+        }
 
         @ConfigSerializable
         data class EngineTimings(
             val buffer: Double = 60.0,
             val buffersToDisplay: List<Double> = listOf(5.0, 15.0, 60.0),
             val barBuffer: Double = 5.0,
+            val bar: BossBarDescriptor = BossBarDescriptor(),
         )
     }
 

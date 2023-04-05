@@ -10,7 +10,7 @@ default-locale: en-US
 worlds:
   # Physics space initialization parameters.
   space:
-    # The gravity vector - acceleration to apply to all moving bodies (m/s^2)
+    # The gravity vector - acceleration to apply to all moving bodies. (m/s^2)
     # 3D decimal vector: [ 0.0, -9.81, 0.0 ]
     gravity: [ 0.0, -9.81, 0.0 ]
   # decimal: 1.0
@@ -23,14 +23,22 @@ worlds:
   # (none): none
   entity-strategy: none
 
-# Item descriptors for models spawned by `/ignacio body create`.
-body-models:
-  # For `/ignacio body create [...] box`.
-  box:
-    material: minecraft:stone
-  # For `/ignacio body create [...] sphere`.
-  sphere:
-    material: minecraft:stone
+# Settings for bodies spawned with `/ignacio body create`.
+primitive-bodies:
+  # Item descriptors for the models of primitive shapes.
+  # If you have a custom resource pack, these should be sized as unit shapes.
+  # The model should span from (0, 0, 0) to (16, 16, 16) in Blockbench units.
+  models:
+    # For `/ignacio body create [...] box`.
+    box:
+      material: minecraft:stone
+    # For `/ignacio body create [...] sphere`.
+    sphere:
+      material: minecraft:stone
+  # How far a body is allowed to move before its marker entity is teleported. (metres)
+  # Teleporting is a potentially expensive operation, especially on Folia.
+  # decimal: 16.0
+  teleport-threshold: 16.0
 
 # Settings for timing statistics shown by `/ignacio timings`.
 engine-timings:
@@ -43,12 +51,11 @@ engine-timings:
   # How many seconds of the timings buffer to display for in the `/ignacio debug --show-timings` bar.
   # decimal: 5.0
   bar-buffer: 5.0
-
-# Settings for the `/ignacio debug --show-timings` bar.
-timings-bar:
-  progress: 1.0
-  color: white
-  overlay: progress
+  # How the bar from `/ignacio debug --show-timings` should be displayed.
+  bar:
+    progress: 1.0
+    color: white
+    overlay: progress
 
 # Settings for the Jolt engine internals.
 # You should probably leave this alone, unless you know what you're doing.

@@ -4,6 +4,7 @@ import io.github.aecsocket.ignacio.*
 import io.github.aecsocket.ignacio.paper.Ignacio
 import io.github.aecsocket.ignacio.paper.asKlam
 import io.github.aecsocket.klam.*
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.bukkit.Chunk
@@ -102,11 +103,8 @@ class MovingSliceTerrainStrategy(
     private val ySize = world.maxHeight - yStart
     private val numSlices = ySize / 16
     private val negativeYSlices = -yStart / 16
-    private val stepListener = StepListener { physicsStep() }
+    private val stepListener = StepListener { runBlocking { physicsStep() } }
     private val contactFilter = engine.contactFilter(engine.layers.terrain)
-
-    // The key to good performance + safety here, is to lock fields enough to be safe, but hold them for short periods
-    // to not starve our other threads
 
     private val cubeCache = HashMap<FVec3, Shape>()
     private val blockShape: Shape
@@ -153,7 +151,7 @@ class MovingSliceTerrainStrategy(
         val toSnapshot: Map<IVec2, Set<Int>>,
     )
 
-    private fun physicsStep() {
+    private suspend fun physicsStep() {
         // context: physics step; all bodies locked, cannot add or remove bodies
         if (!enabled) return
 

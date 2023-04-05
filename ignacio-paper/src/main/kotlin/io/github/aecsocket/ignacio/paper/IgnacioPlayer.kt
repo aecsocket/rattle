@@ -27,7 +27,7 @@ class IgnacioPlayer internal constructor(
 
     fun updateDebugFlags(newFlags: DebugFlags) {
         if (newFlags.showTimings && !debugFlags.showTimings) {
-            val bar = ignacio.settings.timingsBar.create(Component.empty())
+            val bar = ignacio.settings.engineTimings.bar.create(Component.empty())
             player.showBossBar(bar)
             timingsBar = bar
         } else {
