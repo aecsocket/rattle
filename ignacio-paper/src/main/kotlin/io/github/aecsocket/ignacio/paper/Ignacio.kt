@@ -175,6 +175,7 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
         messages = glossa.messageProxy()
         worldDeltaTime = (Tick.of(1).toMillis() / 1000.0f) * settings.worlds.deltaTimeMultiplier
         mEngineTimings.buffer = (settings.engineTimings.buffer * 1000).toLong()
+        primitiveBodies.load()
     }
 
     override fun reload(log: Logging) {

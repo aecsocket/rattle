@@ -1,17 +1,15 @@
 package io.github.aecsocket.ignacio.paper
 
+import io.github.aecsocket.alexandria.Mutexed
 import io.github.aecsocket.ignacio.*
 import io.github.aecsocket.ignacio.paper.render.*
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import io.github.aecsocket.klam.sqr
 import org.bukkit.Location
 import org.bukkit.World
 import org.bukkit.entity.Entity
 import org.bukkit.entity.Player
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
-
-private const val TELEPORT_THRESHOLD_SQ = 16.0 * 16.0
 
 class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
     inner class Instance(
@@ -39,13 +37,21 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
         }
     }
 
-    private val nextId = AtomicInteger(1)
-    private val mutex = Mutex()
-    private val instances = HashMap<Int, Instance>()
-    private val entityToInstance = HashMap<Entity, Instance>()
-    private val bodyToInstance = HashMap<World, MutableMap<PhysicsBody, Instance>>()
+    private data class State(
+        val instances: MutableMap<Int, Instance> = HashMap(),
+        val entityToInstance: MutableMap<Entity, Instance> = HashMap(),
+        val bodyToInstance: MutableMap<World, MutableMap<PhysicsBody, Instance>> = HashMap(),
+    )
 
-    val count get() = instances.size
+    private val nextId = AtomicInteger(1)
+    private val state = Mutexed(State())
+    private var teleportThresholdSq = 0.0
+
+    val count get() = state.leak().instances.size
+
+    internal fun load() {
+        teleportThresholdSq = sqr(ignacio.settings.primitiveBodies.teleportThreshold)
+    }
 
     fun create(
         world: World,
@@ -67,10 +73,10 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
                 val render = createRender?.invoke(marker.playerTracker())
                 val instance = Instance(id, physics, body, render, marker, location)
 
-                mutex.withLock {
-                    instances[id] = instance
-                    entityToInstance[marker] = instance
-                    bodyToInstance.computeIfAbsent(world) { HashMap() }[body] = instance
+                state.withLock { state ->
+                    state.instances[id] = instance
+                    state.entityToInstance[marker] = instance
+                    state.bodyToInstance.computeIfAbsent(world) { HashMap() }[body] = instance
                 }
 
                 render?.let {
@@ -84,7 +90,7 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
                         return@runRepeating
                     }
                     // only teleport after a threshold, since on Folia teleporting is somewhat expensive
-                    if (instance.lastLocation.distanceSquared(instance.location) >= TELEPORT_THRESHOLD_SQ) {
+                    if (instance.lastLocation.distanceSquared(instance.location) >= teleportThresholdSq) {
                         instance.lastLocation = instance.location
                         marker.teleportAsync(instance.location)
                     }
@@ -94,38 +100,38 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
         return id
     }
 
-    private fun removeMapping(instance: Instance) {
-        instances -= instance.id
-        entityToInstance -= instance.marker
-        bodyToInstance[instance.marker.world]?.remove(instance.body)
+    private fun removeMapping(state: State, instance: Instance) {
+        state.instances -= instance.id
+        state.entityToInstance -= instance.marker
+        state.bodyToInstance[instance.marker.world]?.remove(instance.body)
     }
 
     suspend fun destroy(id: Int): Boolean {
-        return mutex.withLock {
-            instances.remove(id)?.let { instance ->
-                removeMapping(instance)
-                instance.destroy()
+        return state.withLock { state ->
+            state.instances.remove(id)?.let { instance ->
+                removeMapping(state, instance)
+                instance.destroyed
                 true
             } ?: false
         }
     }
 
     suspend fun destroyAll() {
-        mutex.withLock {
-            instances.forEach { (_, instance) ->
+        state.withLock { state ->
+            state.instances.forEach { (_, instance) ->
                 instance.destroy()
             }
-            instances.clear()
-            entityToInstance.clear()
-            bodyToInstance.clear()
+            state.instances.clear()
+            state.entityToInstance.clear()
+            state.bodyToInstance.clear()
         }
     }
 
-    operator fun get(id: Int) = instances[id]
+    operator fun get(id: Int) = state.leak().instances[id]
 
     internal suspend fun onPhysicsUpdate() {
         val toRemove = HashSet<Instance>()
-        mutex.withLock { instances.toMap() }.forEach { (_, instance) ->
+        state.withLock { it.instances.toMap() }.forEach { (_, instance) ->
             if (!instance.marker.isValid || !instance.body.added) {
                 toRemove += instance
                 return@forEach
@@ -139,9 +145,9 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
         }
 
         if (toRemove.isNotEmpty()) {
-            mutex.withLock {
+            state.withLock { state ->
                 toRemove.forEach { instance ->
-                    removeMapping(instance)
+                    removeMapping(state, instance)
                     instance.destroy()
                 }
             }
@@ -150,9 +156,9 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
 
     internal suspend fun onWorldUnload(world: World) {
         // keep the lock held because of `removeMapping`
-        mutex.withLock {
-            bodyToInstance.remove(world)?.forEach { (_, instance) ->
-                removeMapping(instance)
+        state.withLock { state ->
+            state.bodyToInstance.remove(world)?.forEach { (_, instance) ->
+                removeMapping(state, instance)
                 instance.destroy()
             }
         }
@@ -160,21 +166,21 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
 
     internal suspend fun onEntityRemove(entity: Entity) {
         // keep the lock held because of `removeMapping`
-        mutex.withLock {
-            entityToInstance.remove(entity)?.let { instance ->
-                removeMapping(instance)
+        state.withLock { state ->
+            state.entityToInstance.remove(entity)?.let { instance ->
+                removeMapping(state, instance)
                 instance.destroy()
             }
         }
     }
 
     internal suspend fun onPlayerTrackEntity(player: Player, entity: Entity) {
-        val instance = mutex.withLock { entityToInstance[entity] } ?: return
+        val instance = state.withLock { it.entityToInstance[entity] } ?: return
         instance.render?.spawn(player)
     }
 
     internal suspend fun onPlayerUntrackEntity(player: Player, entity: Entity) {
-        val instance = mutex.withLock { entityToInstance[entity] } ?: return
+        val instance = state.withLock { it.entityToInstance[entity] } ?: return
         instance.render?.despawn(player)
     }
 }
