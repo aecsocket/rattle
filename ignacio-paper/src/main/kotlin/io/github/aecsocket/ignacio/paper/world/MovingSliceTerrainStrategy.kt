@@ -103,12 +103,14 @@ class MovingSliceTerrainStrategy(
     private val ySize = world.maxHeight - yStart
     private val numSlices = ySize / 16
     private val negativeYSlices = -yStart / 16
-    private val stepListener = StepListener { runBlocking { physicsStep() } }
+    private val stepListener = StepListener { runBlocking { onPhysicsStep() } }
     private val contactFilter = engine.contactFilter(engine.layers.terrain)
 
     private val cubeCache = HashMap<FVec3, Shape>()
+    private val cubeCacheMutex = Mutex()
     private val blockShape: Shape
     private val shapeCache = HashMap<BlockData, Shape?>()
+    private val shapeCacheMutex = Mutex()
     private val slicesMutex = Mutex()
     private val slices = HashMap<IVec3, Slice>()
     private val bodyToSlice = HashMap<PhysicsBody, Pair<Slice, TerrainLayer>>()
@@ -118,12 +120,30 @@ class MovingSliceTerrainStrategy(
 
     init {
         physics.onStep(stepListener)
-        blockShape = cubeShape(FVec3(0.5f))
+        blockShape = runBlocking { cubeShape(FVec3(0.5f)) }
+    }
+
+    private suspend fun cubeShape(halfExtents: FVec3): Shape {
+        return cubeCacheMutex.withLock {
+            cubeCache.computeIfAbsent(halfExtents) {
+                engine.shape(BoxGeometry(halfExtents))
+            }
+        }
     }
 
     override fun destroy() {
         destroyed.mark()
         physics.removeStepListener(stepListener)
+
+        runBlocking {
+            shapeCacheMutex.withLock {
+                shapeCache.forEach { (_, shape) ->
+                    shape?.destroy()
+                }
+                shapeCache.clear()
+            }
+        }
+
         synchronized(shapeCache) {
             shapeCache.forEach { (_, shape) ->
                 shape?.destroy()
@@ -151,14 +171,16 @@ class MovingSliceTerrainStrategy(
         val toSnapshot: Map<IVec2, Set<Int>>,
     )
 
-    private suspend fun physicsStep() {
+    private suspend fun onPhysicsStep() {
         // context: physics step; all bodies locked, cannot add or remove bodies
         if (!enabled) return
 
+        // make sets of which slice positions we need to snapshot, and which to remove
         val (toRemove, toSnapshot) = computeSlicePositionUpdates()
 
         engine.launchTask {
             // context: physics non-step; can add or remove bodies
+            // remove bodies for slices which we've marked as not needed
             removeSlices(toRemove)
         }
 
@@ -174,10 +196,10 @@ class MovingSliceTerrainStrategy(
         }
     }
 
-    private fun computeSlicePositionUpdates(): SlicePositionUpdates {
-        // make sets of which slice positions we need to snapshot, and which to remove
+    private suspend fun computeSlicePositionUpdates(): SlicePositionUpdates {
         // we want to make bodies for all slices which are intersected by a body
-        val toRemove = synchronized(slices) { slices.keys.toMutableSet() }
+        // and remove bodies for all slices which aren't intersected by any body
+        val toRemove = slicesMutex.withLock { slices.keys.toMutableSet() }
         // key by chunk x,z for easy task scheduling later
         val toSnapshot = HashMap<IVec2, MutableSet<Int>>()
         physics.bodies.active().forEach { bodyId ->
@@ -185,6 +207,8 @@ class MovingSliceTerrainStrategy(
                 // only create slices for moving objects
                 // TODO custom layer support: make this variable
                 if (body.contactFilter.layer != engine.layers.moving) return@readUnlocked
+
+                // TODO expand/shrink this bound by velocity and constant factor
                 val overlappingSlices = enclosedPoints(body.bounds / 16.0).toSet()
                 toRemove -= overlappingSlices
                 overlappingSlices.forEach { (sx, sy, sz) ->
@@ -199,10 +223,11 @@ class MovingSliceTerrainStrategy(
         val bodies = slicesMutex.withLock {
             slicePositions.flatMap { slices.remove(it)?.bodies() ?: emptyList() }
         }
+        // bulk-remove bodies to make it more efficient
         physics.bodies.removeAll(bodies)
     }
 
-    private fun computeSliceSnapshots(sx: Int, sz: Int, sys: Collection<Int>): List<Pair<IVec3, SliceSnapshot>> {
+    private suspend fun computeSliceSnapshots(sx: Int, sz: Int, sys: Collection<Int>): List<Pair<IVec3, SliceSnapshot>> {
         if (!world.isChunkLoaded(sx, sz)) return emptyList()
         val chunk = world.getChunkAt(sx, sz)
         val snapshot = chunk.getChunkSnapshot(false, false, false)
@@ -244,40 +269,34 @@ class MovingSliceTerrainStrategy(
         return toCreate
     }
 
-    private fun cubeShape(halfExtents: FVec3): Shape {
-        return synchronized(cubeCache) {
-            cubeCache.computeIfAbsent(halfExtents) {
-                engine.shape(BoxGeometry(halfExtents))
-            }
-        }
-    }
-
-    private fun blockShape(block: Block): Shape? {
-        // cache by block data instead of VoxelShapes, because it might be faster? idk
-        return synchronized(shapeCache) {
-            shapeCache.computeIfAbsent(block.blockData) {
-                // but otherwise, just fall back generating the shape ourselves
-                val boxes = block.collisionShape.boundingBoxes
-                when {
-                    boxes.isEmpty() -> null
-                    boxes.size == 1 && boxes.first().center == Vector(0.5, 0.5, 0.5) -> {
-                        val box = boxes.first()
+    private suspend fun blockShape(block: Block): Shape? {
+        return shapeCacheMutex.withLock {
+            // cache by block data instead of VoxelShapes, because it might be faster? idk
+            val blockData = block.blockData
+            // can't use computeIfAbsent because critical suspend point or something
+            shapeCache[blockData]?.let { return it }
+            // but otherwise, just fall back generating the shape ourselves
+            val boxes = block.collisionShape.boundingBoxes
+            val shape = when {
+                boxes.isEmpty() -> null
+                boxes.size == 1 && boxes.first().center == Vector(0.5, 0.5, 0.5) -> {
+                    val box = boxes.first()
+                    val halfExtent = (box.max.asKlam() - box.min.asKlam()) / 2.0
+                    cubeShape(FVec3(halfExtent))
+                }
+                else -> {
+                    val children = boxes.map { box ->
                         val halfExtent = (box.max.asKlam() - box.min.asKlam()) / 2.0
-                        cubeShape(FVec3(halfExtent))
+                        CompoundChild(
+                            shape = cubeShape(FVec3(halfExtent)),
+                            position = FVec3(box.center.asKlam()) - centerOffset,
+                            rotation = Quat.identity(),
+                        )
                     }
-                    else -> {
-                        val children = boxes.map { box ->
-                            val halfExtent = (box.max.asKlam() - box.min.asKlam()) / 2.0
-                            CompoundChild(
-                                shape = cubeShape(FVec3(halfExtent)),
-                                position = FVec3(box.center.asKlam()) - centerOffset,
-                                rotation = Quat.identity(),
-                            )
-                        }
-                        engine.shape(StaticCompoundGeometry(children))
-                    }
+                    engine.shape(StaticCompoundGeometry(children))
                 }
             }
+            shape.also { shapeCache[blockData] = it }
         }
     }
 

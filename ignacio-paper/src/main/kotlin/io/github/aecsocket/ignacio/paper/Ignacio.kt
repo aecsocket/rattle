@@ -156,12 +156,12 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
     }
 
     override fun onDisable() {
-        PacketEvents.getAPI().terminate()
         synchronized(worldMap) {
             worldMap.forEach { (_, world) ->
                 world.physics.destroy()
             }
         }
+        PacketEvents.getAPI().terminate()
         engine.destroy()
     }
 

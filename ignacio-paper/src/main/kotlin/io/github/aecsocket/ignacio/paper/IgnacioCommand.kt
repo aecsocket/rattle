@@ -438,7 +438,7 @@ internal class IgnacioCommand(
 
         bodyCreateStatic(
             location, count, spread, virtual,
-            ignacio.settings.bodyModels.box,
+            ignacio.settings.primitiveBodies.models.box,
             FVec3(halfExtent * 2.0f),
             BoxGeometry(FVec3(halfExtent)),
         )
@@ -460,7 +460,7 @@ internal class IgnacioCommand(
 
         bodyCreateStatic(
             location, count, spread, virtual,
-            ignacio.settings.bodyModels.sphere,
+            ignacio.settings.primitiveBodies.models.sphere,
             FVec3(radius * 2.0f),
             SphereGeometry(radius),
         )
@@ -511,7 +511,7 @@ internal class IgnacioCommand(
         bodyCreateMoving(
             location, count, spread, virtual,
             friction, restitution, mass,
-            ignacio.settings.bodyModels.box,
+            ignacio.settings.primitiveBodies.models.box,
             FVec3(halfExtent * 2.0f),
             BoxGeometry(FVec3(halfExtent), density = density),
         )
@@ -538,7 +538,7 @@ internal class IgnacioCommand(
         bodyCreateMoving(
             location, count, spread, virtual,
             friction, restitution, mass,
-            ignacio.settings.bodyModels.sphere,
+            ignacio.settings.primitiveBodies.models.sphere,
             FVec3(radius * 2.0f),
             SphereGeometry(radius, density = density),
         )

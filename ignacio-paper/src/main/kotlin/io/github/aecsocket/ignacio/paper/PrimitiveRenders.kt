@@ -1,5 +1,6 @@
 package io.github.aecsocket.ignacio.paper
 
+import io.github.aecsocket.alexandria.Mutexed
 import io.github.aecsocket.ignacio.Transform
 import io.github.aecsocket.ignacio.paper.render.*
 import io.github.aecsocket.klam.FVec3
@@ -42,12 +43,15 @@ class PrimitiveRenders internal constructor(private val ignacio: Ignacio) {
         }
     }
 
-    private val nextId = AtomicInteger(1)
-    private val mutex = Mutex()
-    private val instances = HashMap<Int, Instance>()
-    private val entityToInstance = HashMap<Entity, Instance>()
+    private data class State(
+        val instances: MutableMap<Int, Instance> = HashMap(),
+        val entityToInstance: MutableMap<Entity, Instance> = HashMap(),
+    )
 
-    val count get() = instances.size
+    private val nextId = AtomicInteger(1)
+    private val state = Mutexed(State())
+
+    val count get() = state.leak().instances.size
 
     fun create(world: World, transform: Transform, descriptor: RenderDescriptor): Int {
         val id = nextId.getAndIncrement()
@@ -57,9 +61,9 @@ class PrimitiveRenders internal constructor(private val ignacio: Ignacio) {
             val render = ignacio.renders.create(descriptor, marker.playerTracker(), transform)
             val instance = Instance(id, render, marker)
 
-            mutex.withLock {
-                instances[id] = instance
-                entityToInstance[marker] = instance
+            state.withLock { state ->
+                state.instances[id] = instance
+                state.entityToInstance[marker] = instance
             }
 
             ignacio.scheduling.onEntity(marker).launch {
@@ -70,9 +74,9 @@ class PrimitiveRenders internal constructor(private val ignacio: Ignacio) {
     }
 
     suspend fun destroy(id: Int): Boolean {
-        return mutex.withLock {
-            instances.remove(id)?.let { instance ->
-                entityToInstance -= instance.marker
+        return state.withLock { state ->
+            state.instances.remove(id)?.let { instance ->
+                state.entityToInstance -= instance.marker
                 instance.destroy()
                 true
             } ?: false
@@ -80,37 +84,36 @@ class PrimitiveRenders internal constructor(private val ignacio: Ignacio) {
     }
 
     suspend fun destroyAll() {
-        mutex.withLock {
-            instances.forEach { (_, instance) ->
+        state.withLock { state ->
+            state.instances.forEach { (_, instance) ->
                 instance.destroy()
             }
-            instances.clear()
-            entityToInstance.clear()
-
+            state.instances.clear()
+            state.entityToInstance.clear()
         }
     }
 
-    operator fun get(id: Int) = instances[id]
+    operator fun get(id: Int) = state.leak().instances[id]
 
     internal suspend fun onEntityRemove(entity: Entity) {
-        mutex.withLock {
-            entityToInstance.remove(entity)?.let { instance ->
-                instances -= instance.id
+        state.withLock { state ->
+            state.entityToInstance.remove(entity)?.let { instance ->
+                state.instances -= instance.id
                 instance.destroy()
             }
         }
     }
 
     internal suspend fun onPlayerTrackEntity(player: Player, entity: Entity) {
-        mutex.withLock {
-            val instance = entityToInstance[entity] ?: return
+        state.withLock { state ->
+            val instance = state.entityToInstance[entity] ?: return@withLock
             instance.render.spawn(player)
         }
     }
 
     internal suspend fun onPlayerUntrackEntity(player: Player, entity: Entity) {
-        mutex.withLock {
-            val instance = entityToInstance[entity] ?: return
+        state.withLock { state ->
+            val instance = state.entityToInstance[entity] ?: return@withLock
             instance.render.despawn(player)
         }
     }
