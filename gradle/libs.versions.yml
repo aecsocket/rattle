@@ -44,7 +44,7 @@ dependencies:
   cpuFeaturesJavaNativesMacosX86: { group: io.github.aecsocket, name: cpu-features-java-natives-macos-x86, version: { ref: cpuFeaturesJava } }
   joltJava: { group: io.github.aecsocket, name: jolt-java, version: { ref: joltJava } }
   joltJavaNativesLinuxX86: { group: io.github.aecsocket, name: jolt-java-natives-linux-x86, version: { ref: joltJava } }
-  joltJavaNativesWindowsX86: { group: io.github.aecsocket, name: jolt-java-natives-linux-x86, version: { ref: joltJava } }
+  joltJavaNativesWindowsX86: { group: io.github.aecsocket, name: jolt-java-natives-windows-x86, version: { ref: joltJava } }
   joltJavaNativesMacosX86: { group: io.github.aecsocket, name: jolt-java-natives-macos-x86, version: { ref: joltJava } }
   glossaApi: { group: io.github.aecsocket, name: glossa-api, version: { ref: glossa } }
   glossaConfigurate: { group: io.github.aecsocket, name: glossa-configurate, version: { ref: glossa } }
