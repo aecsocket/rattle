@@ -1,6 +1,7 @@
 package io.github.aecsocket.ignacio.jolt
 
 import io.github.aecsocket.ignacio.*
+import io.github.aecsocket.klam.DAabb3
 import io.github.aecsocket.klam.DRay3
 import io.github.aecsocket.klam.DVec3
 import io.github.aecsocket.klam.FVec3
@@ -252,6 +253,23 @@ class JtPhysicsSpace internal constructor(
         override fun rayCastBody(ray: DRay3, distance: Float, layerFilter: LayerFilter): PhysicsSpace.RayCast? {
             engine.assertThread()
             return rayCastBodies(ray, distance, layerFilter).firstOrNull()
+        }
+
+        override fun contactBox(box: DAabb3, layerFilter: LayerFilter): Collection<PhysicsBody> {
+            engine.assertThread()
+            layerFilter as JtLayerFilter
+            val result = ArrayList<PhysicsBody>()
+            pushArena { arena ->
+                handle.broadPhaseQuery.collideAABox(
+                    arena.asJoltF(box),
+                    CollideShapeBodyCollector.of(arena) { hit ->
+                        result += bodyOf(hit)
+                    },
+                    layerFilter.broad,
+                    layerFilter.objects,
+                )
+            }
+            return result
         }
 
         override fun contactSphere(

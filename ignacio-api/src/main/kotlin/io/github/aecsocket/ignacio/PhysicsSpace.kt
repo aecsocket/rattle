@@ -1,5 +1,6 @@
 package io.github.aecsocket.ignacio
 
+import io.github.aecsocket.klam.DAabb3
 import io.github.aecsocket.klam.DRay3
 import io.github.aecsocket.klam.DVec3
 import io.github.aecsocket.klam.FVec3
@@ -71,6 +72,8 @@ interface PhysicsSpace : Destroyable {
         fun rayCastBody(ray: DRay3, distance: Float, layerFilter: LayerFilter): RayCast?
 
         fun rayCastBodies(ray: DRay3, distance: Float, layerFilter: LayerFilter): Collection<RayCast>
+
+        fun contactBox(box: DAabb3, layerFilter: LayerFilter): Collection<PhysicsBody>
 
         fun contactSphere(position: DVec3, radius: Float, layerFilter: LayerFilter): Collection<PhysicsBody>
     }

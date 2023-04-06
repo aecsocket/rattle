@@ -2,9 +2,25 @@ package io.github.aecsocket.ignacio.paper.world
 
 import io.github.aecsocket.ignacio.*
 import io.github.aecsocket.ignacio.paper.Ignacio
+import io.github.aecsocket.ignacio.paper.position
+import io.github.aecsocket.klam.IVec3
 import org.bukkit.Chunk
 import org.bukkit.World
+import org.bukkit.block.Block
 
+sealed interface BlockUpdate {
+    val position: IVec3
+
+    data class Remove(
+        override val position: IVec3,
+    ) : BlockUpdate
+
+    data class Set(
+        val block: Block,
+    ) : BlockUpdate {
+        override val position = block.position()
+    }
+}
 
 interface TerrainStrategy : Destroyable {
      fun enable()
@@ -18,6 +34,8 @@ interface TerrainStrategy : Destroyable {
      fun onChunksLoad(chunks: Collection<Chunk>)
 
      fun onChunksUnload(chunks: Collection<Chunk>)
+
+     fun onBlockUpdate(update: BlockUpdate)
 }
 
 fun interface TerrainStrategyFactory {
@@ -38,6 +56,8 @@ object NoOpTerrainStrategy : TerrainStrategy {
     override fun onChunksLoad(chunks: Collection<Chunk>) {}
 
     override fun onChunksUnload(chunks: Collection<Chunk>) {}
+
+    override fun onBlockUpdate(update: BlockUpdate) {}
 }
 
 interface EntityStrategy : Destroyable {

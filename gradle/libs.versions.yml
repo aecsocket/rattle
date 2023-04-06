@@ -11,13 +11,13 @@ versions:
   indra: 3.0.1
   kotlin: 1.8.20-RC2
   kotlinxCoroutines: 1.6.4
-  klam: 0.1.1-SNAPSHOT
+  klam: 0.1.1
   adventure: 4.13.0
   configurate: 4.1.2
   cpuFeaturesJava: 2.0.1
   joltJava: 0.1.0-SNAPSHOT
   minecraft: 1.19.4
-  glossa: 1.0.2
+  glossa: 1.0.3
   cloud: 1.8.3
   alexandria: 0.1.0-SNAPSHOT
   packetEvents: 2.0.0-SNAPSHOT
