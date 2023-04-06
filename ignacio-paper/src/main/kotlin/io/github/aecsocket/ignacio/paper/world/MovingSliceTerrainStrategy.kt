@@ -5,7 +5,6 @@ import io.github.aecsocket.ignacio.*
 import io.github.aecsocket.ignacio.paper.Ignacio
 import io.github.aecsocket.ignacio.paper.asKlam
 import io.github.aecsocket.klam.*
-import kotlinx.coroutines.runBlocking
 import org.bukkit.Chunk
 import org.bukkit.ChunkSnapshot
 import org.bukkit.Material
@@ -131,7 +130,7 @@ class MovingSliceTerrainStrategy(
 
     init {
         physics.onStep(stepListener)
-        blockShape = runBlocking { cubeShape(FVec3(0.5f)) }
+        blockShape = cubeShape(FVec3(0.5f))
     }
 
     private fun cubeShape(halfExtents: FVec3): Shape {
