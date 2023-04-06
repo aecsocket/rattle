@@ -73,5 +73,29 @@ jolt:
     max-contact-constraints: 16384
     temp-allocator-size: 33554432 # 32 * 1024 * 1024
     collision-steps: 1
-    integration-sub-steps: 1
-  # physics: {...}
+    integration-sub-steps: 1 # max 4
+  physics:
+    max-in-flight-body-pairs: 16384
+    step-listeners-batch-size: 8
+    step-listener-batches-per-job: 1
+    baumgarte: 0.2
+    speculative-contact-distance: 0.02
+    penetration-slop: 0.02
+    linear-cast-threshold: 0.75
+    linear-cast-max-penetration: 0.25
+    manifold-tolerance-sq: 0.0000001 # 1.0e-6f
+    max-penetration-distance: 0.2
+    body-pair-cache-max-delta-position-sq: 0.00001 # 0.001f * 0.001f
+    body-pair-cache-cos-max-delta-rotation-div-2: 0.9998476951563913 # cos(radians(2.0f) / 2.0f)
+    contact-normal-cos-max-delta-rotation: 0.9961946980917455 # cos(radians(5.0f))
+    contact-point-preserve-lambda-max-dist-sq: 0.001 # 0.01f * 0.01f
+    num-velocity-steps: 10
+    num-position-steps: 2
+    min-velocity-for-restitution: 1.0
+    time-before-sleep: 0.5
+    point-velocity-sleep-threshold: 0.03
+    constraint-warm-start: true
+    use-body-pair-contact-cache: true
+    use-manifold-reduction: true
+    allow-sleeping: true
+    check-active-edges: true

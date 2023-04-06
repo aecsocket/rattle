@@ -54,7 +54,7 @@ enum class TerrainStrategies(
     private val factory: TerrainStrategyFactory,
 ) {
     NONE            ({ _, _, _ -> NoOpTerrainStrategy }),
-    MOVING_SLICE    ({ ignacio, world, physics -> MovingSliceTerrainStrategy(ignacio, world, physics) });
+    MOVING_SLICE    ({ ignacio, world, physics -> MovingSliceTerrainStrategy(ignacio, world, physics, MovingSliceTerrainStrategy.Settings()) });
 
     fun create(ignacio: Ignacio, world: World, physics: PhysicsSpace) = factory.create(ignacio, world, physics)
 }

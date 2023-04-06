@@ -13,6 +13,7 @@ import org.bukkit.World
 import org.bukkit.block.Block
 import org.bukkit.block.data.BlockData
 import org.bukkit.util.Vector
+import org.spongepowered.configurate.objectmapping.ConfigSerializable
 
 sealed interface TerrainLayer {
     val collidable: Boolean
@@ -84,7 +85,14 @@ class MovingSliceTerrainStrategy(
     private val ignacio: Ignacio,
     private val world: World,
     private val physics: PhysicsSpace,
+    private val settings: Settings,
 ) : TerrainStrategy {
+    @ConfigSerializable
+    data class Settings(
+        val boundsExpansionVelocityFactor: Double = 0.2,
+        val boundsExpansionConstant: DVec3 = DVec3(4.0, 4.0, 4.0),
+    )
+
     class SliceSnapshot(
         val blocks: ChunkSnapshot,
         val shapes: Array<Shape?>,
@@ -159,11 +167,6 @@ class MovingSliceTerrainStrategy(
         enabled = false
     }
 
-    private data class SlicePositionUpdates(
-        val toRemove: Set<IVec3>,
-        val toSnapshot: Map<IVec2, Set<Int>>,
-    )
-
     private fun onPhysicsStep() {
         // context: physics step; all bodies locked, cannot add or remove bodies
         if (!enabled) return
@@ -178,13 +181,22 @@ class MovingSliceTerrainStrategy(
         val toRemove = slices.synchronized { (slices) -> slices.keys.toMutableSet() }
         val toSnapshot = HashMap<IVec2, MutableSet<Int>>()
         physics.bodies.active().forEach { bodyId ->
-            bodyId.readUnlocked { body ->
+            bodyId.readUnlockedAs<PhysicsBody.MovingRead> { body ->
                 // only create slices for moving objects
                 // TODO custom layer support: make this variable
-                if (body.contactFilter.layer != engine.layers.moving) return@readUnlocked
+                if (body.contactFilter.layer != engine.layers.moving) return@readUnlockedAs
 
-                // TODO expand/shrink this bound by velocity and constant factor
-                val overlappingSlices = enclosedPoints(body.bounds / 16.0).toSet()
+                // expand bounds so that more potential blocks are included in the calculation
+                // this is a function of the body's velocity as well
+                val rawBounds = body.bounds
+                val velocityExpansion = DVec3(body.linearVelocity) * settings.boundsExpansionVelocityFactor
+                val expandedBounds = DAabb3(
+                    min(rawBounds.min, rawBounds.min + velocityExpansion),
+                    max(rawBounds.max, rawBounds.max + velocityExpansion)
+                )
+                val bounds = expand(expandedBounds, settings.boundsExpansionConstant)
+
+                val overlappingSlices = enclosedPoints(bounds / 16.0).toSet()
                 toRemove -= overlappingSlices
                 overlappingSlices.forEach { pos ->
                     toSnapshot.computeIfAbsent(pos.xz) { HashSet() } += pos.y
