@@ -13,9 +13,7 @@ interface TerrainStrategy : Destroyable {
 
      fun isTerrain(body: PhysicsBody.Read): Boolean
 
-     fun physicsUpdate(deltaTime: Float)
-
-     fun syncUpdate()
+     fun onPhysicsUpdate(deltaTime: Float)
 
      fun onChunksLoad(chunks: Collection<Chunk>)
 
@@ -35,9 +33,7 @@ object NoOpTerrainStrategy : TerrainStrategy {
 
     override fun isTerrain(body: PhysicsBody.Read) = false
 
-    override fun physicsUpdate(deltaTime: Float) {}
-
-    override fun syncUpdate() {}
+    override fun onPhysicsUpdate(deltaTime: Float) {}
 
     override fun onChunksLoad(chunks: Collection<Chunk>) {}
 
@@ -78,7 +74,7 @@ class PhysicsWorld(
     }
 
     fun joinPhysicsUpdate() {
+        terrain.onPhysicsUpdate(nextDeltaTime)
         physics.update(nextDeltaTime)
-        terrain.physicsUpdate(nextDeltaTime)
     }
 }
