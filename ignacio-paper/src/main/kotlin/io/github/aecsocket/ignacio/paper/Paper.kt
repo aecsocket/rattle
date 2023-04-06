@@ -24,7 +24,7 @@ fun DVec3.asPaper() = Vector(x, y, z)
 fun Location.position() = DVec3(x, y, z)
 fun DVec3.location(world: World, yaw: Float = 0.0f, pitch: Float = 0.0f) = Location(world, x, y, z, yaw, pitch)
 
-fun Block.position() = IVec3(Math.floorDiv(x, 16), Math.floorDiv(y, 16), Math.floorDiv(z, 16))
+fun Block.position() = IVec3(x, y, z)
 
 fun spawnMarkerEntity(location: Location, block: (Entity) -> Unit = {}): Entity {
     return location.world.spawnEntity(location, EntityType.ARMOR_STAND, CreatureSpawnEvent.SpawnReason.COMMAND) { entity ->

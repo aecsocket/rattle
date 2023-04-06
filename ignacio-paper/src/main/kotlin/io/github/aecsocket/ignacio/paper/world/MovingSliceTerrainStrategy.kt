@@ -433,7 +433,7 @@ class MovingSliceTerrainStrategy(
     override fun onChunksUnload(chunks: Collection<Chunk>) {}
 
     override fun onBlockUpdate(update: BlockUpdate) {
-        val slicePos = update.position / 16
+        val slicePos = update.position.map { Math.floorDiv(it, 16) }
         // update slice tile data
         val slice = slices.synchronized { it.slices[slicePos] } ?: return
         // TODO is Math.floorMod slow?
