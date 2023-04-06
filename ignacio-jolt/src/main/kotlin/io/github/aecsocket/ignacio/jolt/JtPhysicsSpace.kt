@@ -90,7 +90,7 @@ class JtPhysicsSpace internal constructor(
                 motionType,
                 (descriptor.contactFilter as JoltEngine.JtBodyContactFilter).id,
             )
-            bodySettings.isSensor = descriptor.trigger
+            bodySettings.isSensor = descriptor.isTrigger
             return bodySettings
         }
 
@@ -114,7 +114,7 @@ class JtPhysicsSpace internal constructor(
                     arena,
                     descriptor,
                     transform,
-                    if (descriptor.kinematic) MotionType.KINEMATIC else MotionType.DYNAMIC,
+                    if (descriptor.isKinematic) MotionType.KINEMATIC else MotionType.DYNAMIC,
                 )
                 when (val mass = descriptor.mass) {
                     is Mass.WithInertia -> {
@@ -151,7 +151,7 @@ class JtPhysicsSpace internal constructor(
         override fun destroy(body: PhysicsBody) {
             engine.assertThread()
             body as JtPhysicsBody
-            if (body.added)
+            if (body.isAdded)
                 throw IllegalStateException("Body $body is still added to physics space")
             if (body.destroyed.getAndSet(true))
                 throw IllegalStateException("Body $body is already destroyed")
@@ -165,7 +165,7 @@ class JtPhysicsSpace internal constructor(
             bodies as Collection<JtPhysicsBody>
             if (bodies.isEmpty()) return
             bodies.forEachIndexed { idx, body ->
-                if (body.added)
+                if (body.isAdded)
                     throw IllegalStateException("Body $body [$idx] is still added to physics space")
                 if (body.destroyed.getAndSet(true))
                     throw IllegalStateException("Body $body [$idx] is already destroyed")
@@ -179,7 +179,7 @@ class JtPhysicsSpace internal constructor(
             body as JtPhysicsBody
             if (body.destroyed.get())
                 throw IllegalStateException("Body $body is destroyed")
-            if (body.added)
+            if (body.isAdded)
                 throw IllegalStateException("Body $body is already added to physics space")
 
             handle.bodyInterface.addBody(body.id, Activation.DONT_ACTIVATE)
@@ -193,7 +193,7 @@ class JtPhysicsSpace internal constructor(
             bodies.forEachIndexed { idx, body ->
                 if (body.destroyed.get())
                     throw IllegalStateException("Body $body [$idx] is destroyed")
-                if (body.added)
+                if (body.isAdded)
                     throw IllegalStateException("Body $body [$idx] is already added to physics space")
             }
 
@@ -207,7 +207,7 @@ class JtPhysicsSpace internal constructor(
             body as JtPhysicsBody
             if (body.destroyed.get())
                 throw IllegalStateException("Body $body is destroyed")
-            if (!body.added)
+            if (!body.isAdded)
                 throw IllegalStateException("Body $body is not added to physics space")
 
             handle.bodyInterface.removeBody(body.id)
@@ -221,7 +221,7 @@ class JtPhysicsSpace internal constructor(
             bodies.forEachIndexed { idx, body ->
                 if (body.destroyed.get())
                     throw IllegalStateException("Body $body [$idx] is destroyed")
-                if (!body.added)
+                if (!body.isAdded)
                     throw IllegalStateException("Body $body [$idx] is not added to physics space")
             }
 

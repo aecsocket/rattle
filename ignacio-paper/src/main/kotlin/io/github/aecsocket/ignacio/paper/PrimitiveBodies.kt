@@ -1,6 +1,5 @@
 package io.github.aecsocket.ignacio.paper
 
-import io.github.aecsocket.alexandria.Mutexed
 import io.github.aecsocket.alexandria.Synchronized
 import io.github.aecsocket.ignacio.*
 import io.github.aecsocket.ignacio.paper.render.*
@@ -134,13 +133,13 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
     internal fun onPhysicsUpdate() {
         val toRemove = HashSet<Instance>()
         state.synchronized { it.instances.toMap() }.forEach { (_, instance) ->
-            if (!instance.marker.isValid || !instance.body.added) {
+            if (!instance.marker.isValid || !instance.body.isAdded) {
                 toRemove += instance
                 return@forEach
             }
 
             instance.body.read { body ->
-                if (!body.active) return@read
+                if (!body.isActive) return@read
                 val transform = body.transform
                 instance.location = transform.position.location(instance.marker.world)
                 instance.render?.transform = transform

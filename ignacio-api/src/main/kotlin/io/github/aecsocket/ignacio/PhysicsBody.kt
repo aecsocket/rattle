@@ -7,14 +7,14 @@ import java.util.function.Consumer
 sealed interface BodyDescriptor {
     val shape: Shape
     val contactFilter: BodyContactFilter
-    val trigger: Boolean
+    val isTrigger: Boolean
 }
 
 @ConfigSerializable
 data class StaticBodyDescriptor(
     override val shape: Shape,
     override val contactFilter: BodyContactFilter,
-    override val trigger: Boolean = false,
+    override val isTrigger: Boolean = false,
 ) : BodyDescriptor
 
 sealed interface Mass {
@@ -29,8 +29,8 @@ sealed interface Mass {
 data class MovingBodyDescriptor(
     override val shape: Shape,
     override val contactFilter: BodyContactFilter,
-    override val trigger: Boolean = false,
-    val kinematic: Boolean = false,
+    override val isTrigger: Boolean = false,
+    val isKinematic: Boolean = false,
     val mass: Mass = Mass.Calculate,
     val linearVelocity: FVec3 = FVec3(0.0f),
     val angularVelocity: FVec3 = FVec3(0.0f),
@@ -44,7 +44,7 @@ data class MovingBodyDescriptor(
 ) : BodyDescriptor
 
 interface PhysicsBody {
-    val added: Boolean
+    val isAdded: Boolean
 
     fun read(block: Consumer<Read>): Boolean
 
@@ -57,7 +57,7 @@ interface PhysicsBody {
     interface Access {
         val key: PhysicsBody
 
-        val active: Boolean
+        val isActive: Boolean
 
         val contactFilter: BodyContactFilter
 
@@ -71,7 +71,7 @@ interface PhysicsBody {
 
         val shape: Shape
 
-        val trigger: Boolean
+        val isTrigger: Boolean
 
         fun asDescriptor(): BodyDescriptor
     }
@@ -87,7 +87,7 @@ interface PhysicsBody {
 
         override var shape: Shape
 
-        override var trigger: Boolean
+        override var isTrigger: Boolean
     }
 
 
@@ -100,7 +100,7 @@ interface PhysicsBody {
     interface StaticWrite : StaticAccess, Write {}
 
     interface MovingAccess : Access {
-        val kinematic: Boolean
+        val isKinematic: Boolean
 
         val linearVelocity: FVec3
 
@@ -126,7 +126,7 @@ interface PhysicsBody {
     interface MovingRead : MovingAccess, Read
 
     interface MovingWrite : MovingAccess, Write {
-        override var kinematic: Boolean
+        override var isKinematic: Boolean
 
         override var linearVelocity: FVec3
 

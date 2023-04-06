@@ -23,13 +23,13 @@ data class JtPhysicsBody internal constructor(
     val id: Int,
 ) : PhysicsBody {
     val destroyed = AtomicBoolean(false)
-    override val added get() = physics.bodyInterface.isAdded(id)
+    override val isAdded get() = physics.bodyInterface.isAdded(id)
 
     private interface Access : PhysicsBody.Access {
         override val key: JtPhysicsBody
         val body: Body
 
-        override val active get() = body.isActive
+        override val isActive get() = body.isActive
 
         override val contactFilter get() = key.engine.JtBodyContactFilter(body.objectLayer)
 
@@ -63,7 +63,7 @@ data class JtPhysicsBody internal constructor(
 
         override val shape get(): Shape = JtShape(body.shape)
 
-        override val trigger get() = body.isSensor
+        override val isTrigger get() = body.isSensor
     }
 
     private interface Write : Access, PhysicsBody.Write {
@@ -100,8 +100,8 @@ data class JtPhysicsBody internal constructor(
                 key.physics.bodyInterfaceNoLock.setShape(key.id, value.handle, false, Activation.DONT_ACTIVATE)
             }
 
-        override var trigger: Boolean
-            get() = super.trigger
+        override var isTrigger: Boolean
+            get() = super.isTrigger
             set(value) { body.setIsSensor(value) }
     }
 
@@ -109,14 +109,14 @@ data class JtPhysicsBody internal constructor(
         override fun asDescriptor() = StaticBodyDescriptor(
             shape = shape,
             contactFilter = contactFilter,
-            trigger = trigger,
+            isTrigger = isTrigger,
         )
     }
 
     private interface StaticWrite : StaticAccess, Write, PhysicsBody.StaticWrite
 
     private interface MovingAccess : Access, PhysicsBody.MovingAccess {
-        override val kinematic: Boolean
+        override val isKinematic: Boolean
             get() = body.isKinematic
 
         override val linearVelocity: FVec3
@@ -153,8 +153,8 @@ data class JtPhysicsBody internal constructor(
         override fun asDescriptor() = MovingBodyDescriptor(
             shape = shape,
             contactFilter = contactFilter,
-            trigger = trigger,
-            kinematic = kinematic,
+            isTrigger = isTrigger,
+            isKinematic = isKinematic,
             mass = Mass.Calculate,
             linearVelocity = linearVelocity,
             angularVelocity = angularVelocity,
@@ -169,8 +169,8 @@ data class JtPhysicsBody internal constructor(
     }
 
     private interface MovingWrite : MovingAccess, Write, PhysicsBody.MovingWrite {
-        override var kinematic: Boolean
-            get() = super.kinematic
+        override var isKinematic: Boolean
+            get() = super.isKinematic
             set(value) { body.motionType = if (value) MotionType.KINEMATIC else MotionType.DYNAMIC }
 
         override var linearVelocity: FVec3

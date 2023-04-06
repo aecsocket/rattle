@@ -14,16 +14,16 @@ import org.bukkit.util.Vector
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 
 sealed interface TerrainLayer {
-    val collidable: Boolean
+    val isCollidable: Boolean
 
     object Solid : TerrainLayer {
-        override val collidable get() = true
+        override val isCollidable get() = true
     }
 
     data class Fluid(
         val density: Float,
     ) : TerrainLayer {
-        override val collidable get() = false
+        override val isCollidable get() = false
     }
 }
 
@@ -409,7 +409,7 @@ class MovingSliceTerrainStrategy(
                 physics.bodies.createStatic(StaticBodyDescriptor(
                     shape = shape,
                     contactFilter = contactFilter,
-                    trigger = !layer.collidable
+                    isTrigger = !layer.isCollidable
                 ), Transform(DVec3(pos) * 16.0))
             }
             val slice = Slice(snapshot.tiles, layerBodies)
