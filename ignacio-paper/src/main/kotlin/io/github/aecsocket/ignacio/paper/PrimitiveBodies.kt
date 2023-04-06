@@ -140,6 +140,7 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
             }
 
             instance.body.read { body ->
+                if (!body.active) return@read
                 val transform = body.transform
                 instance.location = transform.position.location(instance.marker.world)
                 instance.render?.transform = transform

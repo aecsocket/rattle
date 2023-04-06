@@ -196,7 +196,6 @@ class MovingSliceTerrainStrategy(
 
     override fun destroy() {
         destroyed.mark()
-        physics.removeStepListener(stepListener)
         shapeCache.synchronized { shapeCache ->
             shapeCache.forEach { (_, shape) ->
                 shape?.destroy()
