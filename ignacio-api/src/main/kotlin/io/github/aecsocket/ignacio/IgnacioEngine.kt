@@ -57,6 +57,8 @@ interface IgnacioEngine : Destroyable {
         // TODO fun forShape(test: )
     }
 
+    fun shutdown()
+
     fun runTask(block: Runnable)
 
     fun launchTask(block: suspend CoroutineScope.() -> Unit)

@@ -1,6 +1,7 @@
 package io.github.aecsocket.ignacio.paper
 
 import io.github.aecsocket.alexandria.Mutexed
+import io.github.aecsocket.alexandria.Synchronized
 import io.github.aecsocket.ignacio.*
 import io.github.aecsocket.ignacio.paper.render.*
 import io.github.aecsocket.klam.sqr
@@ -44,9 +45,10 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
     )
 
     private val nextId = AtomicInteger(1)
-    private val state = Mutexed(State())
+    private val state = Synchronized(State())
     private var teleportThresholdSq = 0.0
 
+    // safety: it's just reading a field on an immutable ref to an object
     val count get() = state.leak().instances.size
 
     internal fun load() {
@@ -73,7 +75,7 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
                 val render = createRender?.invoke(marker.playerTracker())
                 val instance = Instance(id, physics, body, render, marker, location)
 
-                state.withLock { state ->
+                state.synchronized { state ->
                     state.instances[id] = instance
                     state.entityToInstance[marker] = instance
                     state.bodyToInstance.computeIfAbsent(world) { HashMap() }[body] = instance
@@ -106,8 +108,8 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
         state.bodyToInstance[instance.marker.world]?.remove(instance.body)
     }
 
-    suspend fun destroy(id: Int): Boolean {
-        return state.withLock { state ->
+    fun destroy(id: Int): Boolean {
+        return state.synchronized { state ->
             state.instances.remove(id)?.let { instance ->
                 removeMapping(state, instance)
                 instance.destroyed
@@ -116,8 +118,8 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
         }
     }
 
-    suspend fun destroyAll() {
-        state.withLock { state ->
+    fun destroyAll() {
+        state.synchronized { state ->
             state.instances.forEach { (_, instance) ->
                 instance.destroy()
             }
@@ -129,9 +131,9 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
 
     operator fun get(id: Int) = state.leak().instances[id]
 
-    internal suspend fun onPhysicsUpdate() {
+    internal fun onPhysicsUpdate() {
         val toRemove = HashSet<Instance>()
-        state.withLock { it.instances.toMap() }.forEach { (_, instance) ->
+        state.synchronized { it.instances.toMap() }.forEach { (_, instance) ->
             if (!instance.marker.isValid || !instance.body.added) {
                 toRemove += instance
                 return@forEach
@@ -145,7 +147,7 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
         }
 
         if (toRemove.isNotEmpty()) {
-            state.withLock { state ->
+            state.synchronized { state ->
                 toRemove.forEach { instance ->
                     removeMapping(state, instance)
                     instance.destroy()
@@ -154,9 +156,9 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
         }
     }
 
-    internal suspend fun onWorldUnload(world: World) {
+    internal fun onWorldUnload(world: World) {
         // keep the lock held because of `removeMapping`
-        state.withLock { state ->
+        state.synchronized { state ->
             state.bodyToInstance.remove(world)?.forEach { (_, instance) ->
                 removeMapping(state, instance)
                 instance.destroy()
@@ -164,9 +166,9 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
         }
     }
 
-    internal suspend fun onEntityRemove(entity: Entity) {
+    internal fun onEntityRemove(entity: Entity) {
         // keep the lock held because of `removeMapping`
-        state.withLock { state ->
+        state.synchronized { state ->
             state.entityToInstance.remove(entity)?.let { instance ->
                 removeMapping(state, instance)
                 instance.destroy()
@@ -174,13 +176,13 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
         }
     }
 
-    internal suspend fun onPlayerTrackEntity(player: Player, entity: Entity) {
-        val instance = state.withLock { it.entityToInstance[entity] } ?: return
+    internal fun onPlayerTrackEntity(player: Player, entity: Entity) {
+        val instance = state.synchronized { it.entityToInstance[entity] } ?: return
         instance.render?.spawn(player)
     }
 
-    internal suspend fun onPlayerUntrackEntity(player: Player, entity: Entity) {
-        val instance = state.withLock { it.entityToInstance[entity] } ?: return
+    internal fun onPlayerUntrackEntity(player: Player, entity: Entity) {
+        val instance = state.synchronized { it.entityToInstance[entity] } ?: return
         instance.render?.despawn(player)
     }
 }

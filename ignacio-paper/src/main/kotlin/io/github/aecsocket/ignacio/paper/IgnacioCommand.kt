@@ -305,7 +305,7 @@ internal class IgnacioCommand(
         ).sendTo(sender)
     }
 
-    private suspend fun renderDestroyOne(ctx: Context) {
+    private fun renderDestroyOne(ctx: Context) {
         val sender = ctx.sender
         val messages = ignacio.messages.forAudience(sender)
         val id = ctx.get<Int>(ID)
@@ -321,7 +321,7 @@ internal class IgnacioCommand(
         }
     }
 
-    private suspend fun renderDestroyAll(ctx: Context) {
+    private fun renderDestroyAll(ctx: Context) {
         val sender = ctx.sender
         val messages = ignacio.messages.forAudience(sender)
 
@@ -549,7 +549,7 @@ internal class IgnacioCommand(
         ).sendTo(sender)
     }
 
-    private suspend fun bodyDestroyAll(ctx: Context) {
+    private fun bodyDestroyAll(ctx: Context) {
         val sender = ctx.sender
         val messages = ignacio.messages.forAudience(sender)
 

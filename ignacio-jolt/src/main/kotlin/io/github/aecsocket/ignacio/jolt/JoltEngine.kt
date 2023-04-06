@@ -20,12 +20,12 @@ import jolt.physics.collision.shape.Shape
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import java.lang.foreign.MemorySession
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.logging.Logger
 import kotlin.math.cos
@@ -156,6 +156,7 @@ class JoltEngine internal constructor(
         override val flags get() = emptySet<BodyFlag>()
     }
 
+    private val shutdown = AtomicBoolean(false)
     private val destroyed = DestroyFlag()
     override val build: String
     private val arena: MemorySession
@@ -211,8 +212,9 @@ class JoltEngine internal constructor(
         }
     }
 
-    override fun destroy() {
-        destroyed.mark()
+    override fun shutdown() {
+        if (shutdown.getAndSet(true)) return
+
         executor.shutdown()
         logger.info("Waiting ${settings.jobs.threadTerminateTime}s for worker threads")
         try {
@@ -223,7 +225,11 @@ class JoltEngine internal constructor(
             executor.shutdownNow()
             logger.warning("Could not wait for worker threads")
         }
+    }
 
+    override fun destroy() {
+        destroyed.mark()
+        shutdown()
         arena.close()
         jobSystem.delete()
         Jolt.destroyFactory()
@@ -250,10 +256,7 @@ class JoltEngine internal constructor(
 
     override fun launchTask(block: suspend CoroutineScope.() -> Unit) {
         if (destroyed.marked()) return
-        executor.execute {
-            runBlocking(block = block)
-        }
-        //executorScope.launch(block = block)
+        executorScope.launch(block = block)
     }
 
     fun assertThread() {

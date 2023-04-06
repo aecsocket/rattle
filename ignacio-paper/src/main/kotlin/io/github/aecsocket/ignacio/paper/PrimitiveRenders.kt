@@ -1,12 +1,9 @@
 package io.github.aecsocket.ignacio.paper
 
-import io.github.aecsocket.alexandria.Mutexed
+import io.github.aecsocket.alexandria.Synchronized
 import io.github.aecsocket.ignacio.Transform
 import io.github.aecsocket.ignacio.paper.render.*
 import io.github.aecsocket.klam.FVec3
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import org.bukkit.Bukkit
 import org.bukkit.World
 import org.bukkit.entity.Entity
 import org.bukkit.entity.Player
@@ -49,7 +46,7 @@ class PrimitiveRenders internal constructor(private val ignacio: Ignacio) {
     )
 
     private val nextId = AtomicInteger(1)
-    private val state = Mutexed(State())
+    private val state = Synchronized(State())
 
     val count get() = state.leak().instances.size
 
@@ -61,7 +58,7 @@ class PrimitiveRenders internal constructor(private val ignacio: Ignacio) {
             val render = ignacio.renders.create(descriptor, marker.playerTracker(), transform)
             val instance = Instance(id, render, marker)
 
-            state.withLock { state ->
+            state.synchronized { state ->
                 state.instances[id] = instance
                 state.entityToInstance[marker] = instance
             }
@@ -73,8 +70,8 @@ class PrimitiveRenders internal constructor(private val ignacio: Ignacio) {
         return id
     }
 
-    suspend fun destroy(id: Int): Boolean {
-        return state.withLock { state ->
+    fun destroy(id: Int): Boolean {
+        return state.synchronized { state ->
             state.instances.remove(id)?.let { instance ->
                 state.entityToInstance -= instance.marker
                 instance.destroy()
@@ -83,8 +80,8 @@ class PrimitiveRenders internal constructor(private val ignacio: Ignacio) {
         }
     }
 
-    suspend fun destroyAll() {
-        state.withLock { state ->
+    fun destroyAll() {
+        state.synchronized { state ->
             state.instances.forEach { (_, instance) ->
                 instance.destroy()
             }
@@ -95,8 +92,8 @@ class PrimitiveRenders internal constructor(private val ignacio: Ignacio) {
 
     operator fun get(id: Int) = state.leak().instances[id]
 
-    internal suspend fun onEntityRemove(entity: Entity) {
-        state.withLock { state ->
+    fun onEntityRemove(entity: Entity) {
+        state.synchronized { state ->
             state.entityToInstance.remove(entity)?.let { instance ->
                 state.instances -= instance.id
                 instance.destroy()
@@ -104,16 +101,16 @@ class PrimitiveRenders internal constructor(private val ignacio: Ignacio) {
         }
     }
 
-    internal suspend fun onPlayerTrackEntity(player: Player, entity: Entity) {
-        state.withLock { state ->
-            val instance = state.entityToInstance[entity] ?: return@withLock
+    internal fun onPlayerTrackEntity(player: Player, entity: Entity) {
+        state.synchronized { state ->
+            val instance = state.entityToInstance[entity] ?: return@synchronized
             instance.render.spawn(player)
         }
     }
 
-    internal suspend fun onPlayerUntrackEntity(player: Player, entity: Entity) {
-        state.withLock { state ->
-            val instance = state.entityToInstance[entity] ?: return@withLock
+    internal fun onPlayerUntrackEntity(player: Player, entity: Entity) {
+        state.synchronized { state ->
+            val instance = state.entityToInstance[entity] ?: return@synchronized
             instance.render.despawn(player)
         }
     }

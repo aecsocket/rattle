@@ -5,6 +5,7 @@ import com.github.retrooper.packetevents.wrapper.PacketWrapper
 import io.github.aecsocket.alexandria.BossBarDescriptor
 import io.github.aecsocket.alexandria.Logging
 import io.github.aecsocket.alexandria.LoggingList
+import io.github.aecsocket.alexandria.Synchronized
 import io.github.aecsocket.alexandria.paper.AlexandriaPlugin
 import io.github.aecsocket.alexandria.paper.ItemDescriptor
 import io.github.aecsocket.alexandria.paper.extension.registerEvents
@@ -122,7 +123,7 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
     lateinit var messages: MessageProxy<IgnacioMessages> private set
     private var worldDeltaTime = 0f
     private val players = ConcurrentHashMap<Player, IgnacioPlayer>()
-    private val worldMap = HashMap<World, PhysicsWorld>()
+    private val worldMap = Synchronized(HashMap<World, PhysicsWorld>())
     val renders: Renders = DisplayRenders()
     val primitiveBodies = PrimitiveBodies(this)
     val primitiveRenders = PrimitiveRenders(this)
@@ -156,12 +157,15 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
     }
 
     override fun onDisable() {
-        synchronized(worldMap) {
+        PacketEvents.getAPI().terminate()
+        // shutdown -> remove -> destroy, since we need to make sure no worker/phys threads are working while we destroy
+        engine.shutdown()
+        worldMap.synchronized { worldMap ->
             worldMap.forEach { (_, world) ->
                 world.physics.destroy()
             }
+            worldMap.clear()
         }
-        PacketEvents.getAPI().terminate()
         engine.destroy()
     }
 
@@ -197,9 +201,9 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
         }
     }
 
-    private suspend fun onPhysicsUpdate() {
+    private fun onPhysicsUpdate() {
         primitiveBodies.onPhysicsUpdate()
-        val worldMap = synchronized(worldMap) { worldMap.toMap() }
+        val worldMap = worldMap.synchronized { it.toMap() }
         worldMap.forEach { (_, world) ->
             world.startPhysicsUpdate(worldDeltaTime)
         }
@@ -222,13 +226,14 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
 
     val worlds = Worlds()
     inner class Worlds {
-        val count get() = synchronized(worldMap) { worldMap.size }
+        // safety: it's just a field read
+        val count get() = worldMap.leak().size
 
-        operator fun contains(world: World) = synchronized(worldMap) { worldMap.containsKey(world) }
+        operator fun contains(world: World) = worldMap.synchronized { it.containsKey(world) }
 
-        operator fun get(world: World) = synchronized(worldMap) { worldMap[world] }
+        operator fun get(world: World) = worldMap.synchronized { it[world] }
 
-        fun getOrCreate(world: World) = synchronized(worldMap) {
+        fun getOrCreate(world: World) = worldMap.synchronized { worldMap ->
             worldMap.computeIfAbsent(world) {
                 val physics = engine.space(settings.worlds.space)
                 PhysicsWorld(
@@ -240,11 +245,11 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
             }
         }
 
-        fun destroy(world: World) = synchronized(worldMap) {
+        fun destroy(world: World) = worldMap.synchronized { worldMap ->
             worldMap.remove(world)?.destroy()
         }
 
-        fun all() = synchronized(worldMap) { worldMap.toMap() }
+        fun all() = worldMap.synchronized { it.toMap() }
     }
 }
 

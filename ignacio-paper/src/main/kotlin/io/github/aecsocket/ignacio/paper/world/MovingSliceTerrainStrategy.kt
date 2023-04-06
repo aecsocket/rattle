@@ -107,11 +107,7 @@ class MovingSliceTerrainStrategy(
     private val ySize = world.maxHeight - yStart
     private val numSlices = ySize / 16
     private val negativeYSlices = -yStart / 16
-    private val stepListener = StepListener {
-        println("== STEP START")
-        runBlocking { onPhysicsStep() }
-        println("== STEP STOP")
-    }
+    private val stepListener = StepListener { runBlocking { onPhysicsStep() } }
     private val contactFilter = engine.contactFilter(engine.layers.terrain)
 
     private val cubeCache = Mutexed(HashMap<FVec3, Shape>())
@@ -168,10 +164,6 @@ class MovingSliceTerrainStrategy(
         val toSnapshot: Map<IVec2, Set<Int>>,
     )
 
-    private fun println(msg: String) {
-        kotlin.io.println("[${Thread.currentThread().name}] $msg")
-    }
-
     private suspend fun onPhysicsStep() {
         // context: physics step; all bodies locked, cannot add or remove bodies
         if (!enabled) return
@@ -202,6 +194,10 @@ class MovingSliceTerrainStrategy(
                 }
             }
         }
+    }
+
+    internal suspend fun onPhysicsUpdate() {
+
     }
 
     private suspend fun computeSlicePositionUpdates(): SlicePositionUpdates {
