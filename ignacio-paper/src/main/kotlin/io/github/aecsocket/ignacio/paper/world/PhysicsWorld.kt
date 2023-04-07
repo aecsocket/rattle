@@ -7,6 +7,7 @@ import io.github.aecsocket.klam.IVec3
 import org.bukkit.Chunk
 import org.bukkit.World
 import org.bukkit.block.Block
+import org.bukkit.entity.Entity
 
 sealed interface BlockUpdate {
     val position: IVec3
@@ -61,7 +62,17 @@ object NoOpTerrainStrategy : TerrainStrategy {
 }
 
 interface EntityStrategy : Destroyable {
+    fun enable()
 
+    fun disable()
+
+    fun entityOf(body: PhysicsBody): Entity?
+
+    fun onPhysicsUpdate(deltaTime: Float)
+
+    fun onEntityAdd(entity: Entity)
+
+    fun onEntityRemove(entity: Entity)
 }
 
 fun interface EntityStrategyFactory {
@@ -70,6 +81,18 @@ fun interface EntityStrategyFactory {
 
 object NoOpEntityStrategy : EntityStrategy {
     override fun destroy() {}
+
+    override fun enable() {}
+
+    override fun disable() {}
+
+    override fun entityOf(body: PhysicsBody) = null
+
+    override fun onPhysicsUpdate(deltaTime: Float) {}
+
+    override fun onEntityAdd(entity: Entity) {}
+
+    override fun onEntityRemove(entity: Entity) {}
 }
 
 class PhysicsWorld(
@@ -95,6 +118,7 @@ class PhysicsWorld(
 
     fun joinPhysicsUpdate() {
         terrain.onPhysicsUpdate(nextDeltaTime)
+        entities.onPhysicsUpdate(nextDeltaTime)
         physics.update(nextDeltaTime)
     }
 }

@@ -8,6 +8,8 @@ sealed interface BodyDescriptor {
     val shape: Shape
     val contactFilter: BodyContactFilter
     val isTrigger: Boolean
+    val friction: Float
+    val restitution: Float
 }
 
 @ConfigSerializable
@@ -15,6 +17,8 @@ data class StaticBodyDescriptor(
     override val shape: Shape,
     override val contactFilter: BodyContactFilter,
     override val isTrigger: Boolean = false,
+    override val friction: Float = 0.2f,
+    override val restitution: Float = 0.0f,
 ) : BodyDescriptor
 
 sealed interface Mass {
@@ -34,9 +38,10 @@ data class MovingBodyDescriptor(
     val mass: Mass = Mass.Calculate,
     val linearVelocity: FVec3 = FVec3(0.0f),
     val angularVelocity: FVec3 = FVec3(0.0f),
-    val friction: Float = 0.2f,
-    val restitution: Float = 0.0f,
+    override val friction: Float = 0.2f,
+    override val restitution: Float = 0.0f,
     val gravityFactor: Float = 1.0f,
+    val canDeactivate: Boolean = true,
     val linearDamping: Float = 0.05f,
     val angularDamping: Float = 0.05f,
     val maxLinearVelocity: Float = 500.0f,
@@ -161,6 +166,8 @@ interface PhysicsBody {
         fun applyTorque(torque: FVec3)
 
         fun applyAngularImpulse(impulse: FVec3)
+
+        fun moveTo(to: Transform, deltaTime: Float)
     }
 }
 

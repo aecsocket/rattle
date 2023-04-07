@@ -246,6 +246,10 @@ data class JtPhysicsBody internal constructor(
         override fun applyAngularImpulse(impulse: FVec3) = pushArena { arena ->
             body.addAngularImpulse(arena.asJolt(impulse))
         }
+
+        override fun moveTo(to: Transform, deltaTime: Float) = pushArena { arena ->
+            body.moveKinematic(arena.asJolt(to.position), arena.asJolt(to.rotation), deltaTime)
+        }
     }
 
     private inner class StaticReadImpl(override val body: Body) : StaticAccess, PhysicsBody.StaticRead {

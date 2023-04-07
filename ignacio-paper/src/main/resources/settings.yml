@@ -20,8 +20,8 @@ worlds:
   # (none, moving_slice): moving_slice
   terrain-strategy: moving_slice
   # Which method to use for managing bodies for entities.
-  # (none): none
-  entity-strategy: none
+  # (none, default): default
+  entity-strategy: default
 
 # Settings for bodies spawned with `/ignacio body create`.
 primitive-bodies:

@@ -54,6 +54,7 @@ enum class TerrainStrategies(
     private val factory: TerrainStrategyFactory,
 ) {
     NONE            ({ _, _, _ -> NoOpTerrainStrategy }),
+    // TODO deserialize settings
     MOVING_SLICE    ({ ignacio, world, physics -> MovingSliceTerrainStrategy(ignacio, world, physics, MovingSliceTerrainStrategy.Settings()) });
 
     fun create(ignacio: Ignacio, world: World, physics: PhysicsSpace) = factory.create(ignacio, world, physics)
@@ -62,7 +63,8 @@ enum class TerrainStrategies(
 enum class EntityStrategies(
     private val factory: EntityStrategyFactory,
 ) {
-    NONE    ({ _, _, _ -> NoOpEntityStrategy });
+    NONE    ({ _, _, _ -> NoOpEntityStrategy }),
+    DEFAULT ({ ignacio, _, physics -> DefaultEntityStrategy(ignacio, physics) });
 
     fun create(ignacio: Ignacio, world: World, physics: PhysicsSpace) = factory.create(ignacio, world, physics)
 }
@@ -94,7 +96,7 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
             val space: PhysicsSpace.Settings = PhysicsSpace.Settings(),
             val deltaTimeMultiplier: Float = 1.0f,
             val terrainStrategy: TerrainStrategies = TerrainStrategies.MOVING_SLICE,
-            val entityStrategy: EntityStrategies = EntityStrategies.NONE,
+            val entityStrategy: EntityStrategies = EntityStrategies.DEFAULT,
         )
 
         @ConfigSerializable
@@ -241,7 +243,13 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
                     physics,
                     settings.worlds.terrainStrategy.create(this@Ignacio, world, physics),
                     settings.worlds.entityStrategy.create(this@Ignacio, world, physics),
-                )
+                ).also { physicsWorld ->
+                    world.entities.forEach { entity ->
+                        scheduling.onEntity(entity).launch {
+                            physicsWorld.entities.onEntityAdd(entity)
+                        }
+                    }
+                }
             }
         }
 

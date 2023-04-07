@@ -1,5 +1,6 @@
 package io.github.aecsocket.ignacio.paper
 
+import com.destroystokyo.paper.event.entity.EntityAddToWorldEvent
 import com.destroystokyo.paper.event.entity.EntityRemoveFromWorldEvent
 import io.github.aecsocket.ignacio.paper.world.BlockUpdate
 import io.papermc.paper.event.player.PlayerTrackEntityEvent
@@ -32,8 +33,12 @@ internal class IgnacioListener(private val ignacio: Ignacio) : Listener {
 
     @EventHandler
     fun on(event: EntityRemoveFromWorldEvent) {
-        ignacio.primitiveBodies.onEntityRemove(event.entity)
-        ignacio.primitiveRenders.onEntityRemove(event.entity)
+        val entity = event.entity
+        ignacio.primitiveBodies.onEntityRemove(entity)
+        ignacio.primitiveRenders.onEntityRemove(entity)
+
+        val world = ignacio.worlds[entity.world] ?: return
+        world.entities.onEntityRemove(entity)
     }
 
     @EventHandler
@@ -59,4 +64,11 @@ internal class IgnacioListener(private val ignacio: Ignacio) : Listener {
 
     @EventHandler
     fun on(event: BlockPlaceEvent) { onBlock(event, BlockUpdate.Set(event.block)) }
+
+    @EventHandler
+    fun on(event: EntityAddToWorldEvent) {
+        val entity = event.entity
+        val world = ignacio.worlds[entity.world] ?: return
+        world.entities.onEntityAdd(entity)
+    }
 }

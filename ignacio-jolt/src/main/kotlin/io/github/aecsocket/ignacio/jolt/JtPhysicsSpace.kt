@@ -91,6 +91,8 @@ class JtPhysicsSpace internal constructor(
                 (descriptor.contactFilter as JoltEngine.JtBodyContactFilter).id,
             )
             bodySettings.isSensor = descriptor.isTrigger
+            bodySettings.friction = descriptor.friction
+            bodySettings.restitution = descriptor.restitution
             return bodySettings
         }
 
@@ -137,9 +139,8 @@ class JtPhysicsSpace internal constructor(
                 }
                 bodySettings.linearVelocity = arena.asJolt(descriptor.linearVelocity)
                 bodySettings.angularVelocity = arena.asJolt(descriptor.angularVelocity)
-                bodySettings.friction = descriptor.friction
-                bodySettings.restitution = descriptor.restitution
                 bodySettings.gravityFactor = descriptor.gravityFactor
+                bodySettings.allowSleeping = descriptor.canDeactivate
                 bodySettings.linearDamping = descriptor.linearDamping
                 bodySettings.angularDamping = descriptor.angularDamping
                 bodySettings.maxLinearVelocity = descriptor.maxLinearVelocity

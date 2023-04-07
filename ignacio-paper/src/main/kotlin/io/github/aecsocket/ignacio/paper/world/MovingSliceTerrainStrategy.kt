@@ -1,6 +1,7 @@
 package io.github.aecsocket.ignacio.paper.world
 
 import io.github.aecsocket.alexandria.Synchronized
+import io.github.aecsocket.alexandria.paper.extension.registerEvents
 import io.github.aecsocket.ignacio.*
 import io.github.aecsocket.ignacio.paper.Ignacio
 import io.github.aecsocket.ignacio.paper.asKlam
@@ -181,17 +182,17 @@ class MovingSliceTerrainStrategy(
     var enabled = true
         private set
 
-    init {
-        physics.onStep(stepListener)
-        blockShape = cubeShape(FVec3(0.5f))
-    }
-
     private fun cubeShape(halfExtents: FVec3): Shape {
         return cubeCache.synchronized { cubeCache ->
             cubeCache.computeIfAbsent(halfExtents) {
                 engine.shape(BoxGeometry(halfExtents))
             }
         }
+    }
+
+    init {
+        physics.onStep(stepListener)
+        blockShape = cubeShape(FVec3(0.5f))
     }
 
     override fun destroy() {
