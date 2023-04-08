@@ -1,8 +1,7 @@
 package io.github.aecsocket.ignacio.jolt
 
 import io.github.aecsocket.ignacio.*
-import io.github.aecsocket.klam.clamp
-import io.github.aecsocket.klam.radians
+import io.github.aecsocket.klam.*
 import jolt.Deletable
 import jolt.Jolt
 import jolt.core.JobSystem
@@ -29,6 +28,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.logging.Logger
 import kotlin.math.cos
+import kotlin.math.min
 
 private const val BP_LAYER_STATIC: Byte = 0
 private const val BP_LAYER_MOVING: Byte = 1
@@ -217,13 +217,9 @@ class JoltEngine internal constructor(
 
         executor.shutdown()
         logger.info("Waiting ${settings.jobs.threadTerminateTime}s for worker threads")
-        try {
-            if (!executor.awaitTermination((settings.jobs.threadTerminateTime * 1000).toLong(), TimeUnit.MILLISECONDS)) {
-                executor.shutdownNow()
-            }
-        } catch (ex: InterruptedException) {
+        if (!executor.awaitTermination((settings.jobs.threadTerminateTime * 1000).toLong(), TimeUnit.MILLISECONDS)) {
             executor.shutdownNow()
-            logger.warning("Could not wait for worker threads")
+            logger.warning("Could not wait for worker threads, the worker pool has potentially blocked shutdown")
         }
     }
 
@@ -281,53 +277,39 @@ class JoltEngine internal constructor(
     }
 
     override fun shape(geom: Geometry) = JtShape(pushArena { arena ->
-        fun CompoundShapeSettings.addChild(child: CompoundChild) {
-            addShape(
-                arena.asJolt(child.position),
-                arena.asJolt(child.rotation),
-                (child.shape as JtShape).handle,
-                0,
-            )
-        }
-
-        val handle: Shape = when (geom) {
-            // convex
-            is SphereGeometry -> SphereShapeSettings.of(geom.radius).use { settings ->
-                settings.density = geom.density
-                settings.create(arena).orThrow()
-            }
-            is BoxGeometry -> BoxShapeSettings.of(arena.asJolt(geom.halfExtent), geom.convexRadius).use { settings ->
-                settings.density = geom.density
-                settings.create(arena).orThrow()
-            }
-            is CapsuleGeometry -> CapsuleShapeSettings.of(geom.halfHeight, geom.radius).use { settings ->
-                settings.density = geom.density
-                settings.create(arena).orThrow()
-            }
-            is TaperedCapsuleGeometry -> TaperedCapsuleShapeSettings.of(geom.halfHeight, geom.topRadius, geom.bottomRadius).use { settings ->
-                settings.density = geom.density
-                settings.create(arena).orThrow()
-            }
-            is CylinderGeometry -> CylinderShapeSettings.of(geom.halfHeight, geom.radius, geom.convexRadius).use { settings ->
-                settings.density = geom.density
-                settings.create(arena).orThrow()
-            }
-
-            // compound
-            is StaticCompoundGeometry -> StaticCompoundShapeSettings.of().use { settings ->
-                geom.children.forEach { child ->
-                    settings.addChild(child)
+        val handle: ShapeSettings = when (geom) {
+            is ConvexGeometry -> {
+                when (geom) {
+                    is SphereGeometry -> SphereShapeSettings.of(geom.radius)
+                    is BoxGeometry -> {
+                        // ensure that our convex radius is always valid
+                        val convexRadius = clamp(geom.convexRadius, 0.0f, minComponent(geom.halfExtent) - EPSILON_F)
+                        BoxShapeSettings.of(arena.asJolt(geom.halfExtent), convexRadius)
+                    }
+                    is CapsuleGeometry -> CapsuleShapeSettings.of(geom.halfHeight, geom.radius)
+                    is TaperedCapsuleGeometry -> TaperedCapsuleShapeSettings.of(geom.halfHeight, geom.topRadius, geom.bottomRadius)
+                    is CylinderGeometry -> CylinderShapeSettings.of(geom.halfHeight, geom.radius, geom.convexRadius)
+                }.apply {
+                    density = geom.density
                 }
-                settings.create(arena).orThrow()
             }
-            is MutableCompoundGeometry -> MutableCompoundShapeSettings.of().use { settings ->
-                geom.children.forEach { child ->
-                    settings.addChild(child)
+            is CompoundGeometry -> {
+                when (geom) {
+                    is StaticCompoundGeometry -> StaticCompoundShapeSettings.of()
+                    is MutableCompoundGeometry -> MutableCompoundShapeSettings.of()
+                }.apply {
+                    geom.children.forEach { child ->
+                        addShape(
+                            arena.asJolt(child.position),
+                            arena.asJolt(child.rotation),
+                            (child.shape as JtShape).handle,
+                            0,
+                        )
+                    }
                 }
-                settings.create(arena).orThrow()
             }
         }
-        handle
+        handle.create(arena).orThrow()
     })
 
     override fun space(settings: PhysicsSpace.Settings): PhysicsSpace {

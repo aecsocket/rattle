@@ -3,7 +3,11 @@ package io.github.aecsocket.ignacio.paper.world
 import io.github.aecsocket.alexandria.Synchronized
 import io.github.aecsocket.ignacio.*
 import io.github.aecsocket.ignacio.paper.Ignacio
+import io.github.aecsocket.ignacio.paper.location
+import io.github.aecsocket.ignacio.paper.position
 import io.github.aecsocket.klam.*
+import net.kyori.adventure.text.Component
+import org.bukkit.Particle
 import org.bukkit.entity.Entity
 import org.bukkit.entity.EntityType
 import org.bukkit.entity.Player
@@ -19,6 +23,7 @@ class DefaultEntityStrategy(
     private val destroyed = DestroyFlag()
     private val stepListener = StepListener { onPhysicsStep() }
     private val contactFilter = engine.contactFilter(engine.layers.entity)
+    private val collisionLayerFilter = engine.filters.anyLayer // TODO
 
     private inner class EntityData(
         val entity: Entity,
@@ -73,6 +78,40 @@ class DefaultEntityStrategy(
     private fun onPhysicsStep() {
         if (!enabled) return
 
+        if (true) return
+        // todo this code is broken
+        val entityMap = state.synchronized { it.entityToBody.toMap() }
+        entityMap.forEach { (entity, data) ->
+            // handle player collisions
+            if (entity !is Player) return@forEach
+
+            val playerBodyKey = data.body
+            playerBodyKey.readUnlocked { playerBody ->
+                val baseOffset = playerBody.transform.position
+                physics.broadQuery.contactSphere(
+                    entity.location.position(),
+                    8.0f, // TODO
+                    collisionLayerFilter,
+                ).forEach contact@ { testBodyKey ->
+                    // don't need to collide with ourselves
+                    if (testBodyKey == playerBodyKey) return@contact
+                    testBodyKey.readUnlocked readTest@ { testBody ->
+                        val (closestA, closestB, distanceSq) = playerBody.closestPoints(testBody) ?: return@readTest
+                        entity.spawnParticle(
+                            Particle.FLAME,
+                            (baseOffset + DVec3(closestA)).location(entity.world),
+                            0,
+                        )
+                        entity.spawnParticle(
+                            Particle.SOUL_FIRE_FLAME,
+                            (baseOffset + DVec3(closestB)).location(entity.world),
+                            0,
+                        )
+                        entity.sendActionBar(Component.text("dist sq = $distanceSq"))
+                    }
+                }
+            }
+        }
     }
 
     override fun onPhysicsUpdate(deltaTime: Float) {

@@ -5,9 +5,13 @@ import io.github.aecsocket.klam.DAabb3
 import io.github.aecsocket.klam.DVec3
 import io.github.aecsocket.klam.FVec3
 import io.github.aecsocket.klam.plus
+import jolt.geometry.GJKClosestPoint
 import jolt.physics.Activation
 import jolt.physics.PhysicsSystem
 import jolt.physics.body.*
+import jolt.physics.collision.shape.ConvexShape
+import jolt.physics.collision.shape.ConvexShape.SupportBuffer
+import jolt.physics.collision.shape.ShapeType
 import java.util.Objects
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.function.Consumer
@@ -64,6 +68,55 @@ data class JtPhysicsBody internal constructor(
         override val shape get(): Shape = JtShape(body.shape)
 
         override val isTrigger get() = body.isSensor
+
+        override fun closestPoints(bodyB: PhysicsBody.Access) = pushArena { arena ->
+            bodyB as Access
+            if (body.shape.type != ShapeType.CONVEX)
+                return@pushArena null
+                //TODO throw IllegalStateException("Body A shape must be convex")
+            if (bodyB.body.shape.type != ShapeType.CONVEX)
+                return@pushArena null
+                //TODO throw IllegalStateException("Body B shape must be convex")
+
+            val shapeA = ConvexShape.at(body.shape.address())
+            val bufferA = SupportBuffer.of(arena)
+            val supportA = shapeA.getSupportFunction(
+                ConvexShape.SupportMode.EXCLUDE_CONVEX_RADIUS,
+                bufferA,
+                arena.asJolt(FVec3(1.0f)),
+            )
+
+            println("support A = $supportA")
+
+            val shapeB = ConvexShape.at(bodyB.body.shape.address())
+            val bufferB = SupportBuffer.of(arena)
+            val supportB = shapeB.getSupportFunction(
+                ConvexShape.SupportMode.EXCLUDE_CONVEX_RADIUS,
+                bufferB,
+                arena.asJolt(FVec3(1.0f)),
+            )
+
+            println("support B = $supportB")
+
+            val gjk = GJKClosestPoint.of(arena)
+            val pointA = arena.FVec3()
+            val pointB = arena.FVec3()
+            val distanceSq = gjk.getClosestPoints(
+                supportA,
+                supportB,
+                1.0e-4f,
+                64.0f, // TODO square of the detection radius I guess?
+                arena.asJolt(FVec3(1.0f, 0.0f, 0.0f)),
+                pointA,
+                pointB,
+            )
+            if (distanceSq >= Float.MAX_VALUE) null
+            else PhysicsBody.ClosestPoints(
+                pointA.asIgnacio(),
+                pointB.asIgnacio(),
+                distanceSq,
+            )
+        }
     }
 
     private interface Write : Access, PhysicsBody.Write {

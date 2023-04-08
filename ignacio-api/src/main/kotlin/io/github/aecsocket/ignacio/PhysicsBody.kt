@@ -22,9 +22,17 @@ data class StaticBodyDescriptor(
 ) : BodyDescriptor
 
 sealed interface Mass {
-    data class WithInertia(val mass: Float, val inertia: FMat4) : Mass
+    data class WithInertia(val mass: Float, val inertia: FMat4) : Mass {
+        init {
+            assertGt("mass", 0.0f, mass)
+        }
+    }
 
-    data class Constant(val mass: Float) : Mass
+    data class Constant(val mass: Float) : Mass {
+        init {
+            assertGt("mass", 0.0f, mass)
+        }
+    }
 
     object Calculate : Mass
 }
@@ -45,7 +53,7 @@ data class MovingBodyDescriptor(
     val linearDamping: Float = 0.05f,
     val angularDamping: Float = 0.05f,
     val maxLinearVelocity: Float = 500.0f,
-    val maxAngularVelocity: Float = 0.25f * FPI * 60.0f,
+    val maxAngularVelocity: Float = 0.25f * PI_F * 60.0f,
 ) : BodyDescriptor
 
 interface PhysicsBody {
@@ -58,6 +66,12 @@ interface PhysicsBody {
     fun write(block: Consumer<Write>): Boolean
 
     fun writeUnlocked(block: Consumer<Write>): Boolean
+
+    data class ClosestPoints(
+        val a: FVec3,
+        val b: FVec3,
+        val distanceSq: Float,
+    )
 
     interface Access {
         val key: PhysicsBody
@@ -79,6 +93,8 @@ interface PhysicsBody {
         val isTrigger: Boolean
 
         fun asDescriptor(): BodyDescriptor
+
+        fun closestPoints(bodyB: Access): ClosestPoints?
     }
 
     interface Read : Access
