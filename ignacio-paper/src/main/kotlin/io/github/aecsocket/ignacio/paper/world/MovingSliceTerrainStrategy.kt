@@ -113,6 +113,8 @@ class MovingSliceTerrainStrategy(
     data class Settings(
         val boundsExpansionVelocityFactor: Double = 0.2,
         val boundsExpansionConstant: DVec3 = DVec3(4.0, 4.0, 4.0),
+        val friction: Float = 0.5f,
+        val restitution: Float = 0.1f,
     )
 
     data class TileSnapshot(
@@ -410,7 +412,9 @@ class MovingSliceTerrainStrategy(
                 physics.bodies.createStatic(StaticBodyDescriptor(
                     shape = shape,
                     contactFilter = contactFilter,
-                    isTrigger = !layer.isCollidable
+                    isTrigger = !layer.isCollidable,
+                    friction = settings.friction,
+                    restitution = settings.restitution,
                 ), Transform(DVec3(pos) * 16.0))
             }
             val slice = Slice(snapshot.tiles, layerBodies)

@@ -10,6 +10,7 @@ import org.bukkit.event.Listener
 import org.bukkit.event.block.BlockBreakEvent
 import org.bukkit.event.block.BlockEvent
 import org.bukkit.event.block.BlockPlaceEvent
+import org.bukkit.event.player.PlayerGameModeChangeEvent
 import org.bukkit.event.player.PlayerLocaleChangeEvent
 import org.bukkit.event.player.PlayerQuitEvent
 import org.bukkit.event.world.WorldUnloadEvent
@@ -70,5 +71,11 @@ internal class IgnacioListener(private val ignacio: Ignacio) : Listener {
         val entity = event.entity
         val world = ignacio.worlds[entity.world] ?: return
         world.entities.onEntityAdd(entity)
+    }
+
+    @EventHandler
+    fun on(event: PlayerGameModeChangeEvent) {
+        val world = ignacio.worlds[event.player.world] ?: return
+        world.entities.onPlayerGameModeChange(event.player, event.newGameMode)
     }
 }

@@ -5,9 +5,11 @@ import io.github.aecsocket.ignacio.paper.Ignacio
 import io.github.aecsocket.ignacio.paper.position
 import io.github.aecsocket.klam.IVec3
 import org.bukkit.Chunk
+import org.bukkit.GameMode
 import org.bukkit.World
 import org.bukkit.block.Block
 import org.bukkit.entity.Entity
+import org.bukkit.entity.Player
 
 sealed interface BlockUpdate {
     val position: IVec3
@@ -73,6 +75,8 @@ interface EntityStrategy : Destroyable {
     fun onEntityAdd(entity: Entity)
 
     fun onEntityRemove(entity: Entity)
+
+    fun onPlayerGameModeChange(player: Player, newGameMode: GameMode)
 }
 
 fun interface EntityStrategyFactory {
@@ -93,6 +97,8 @@ object NoOpEntityStrategy : EntityStrategy {
     override fun onEntityAdd(entity: Entity) {}
 
     override fun onEntityRemove(entity: Entity) {}
+
+    override fun onPlayerGameModeChange(player: Player, newGameMode: GameMode) {}
 }
 
 class PhysicsWorld(

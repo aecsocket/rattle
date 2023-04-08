@@ -54,8 +54,7 @@ enum class TerrainStrategies(
     private val factory: TerrainStrategyFactory,
 ) {
     NONE            ({ _, _, _ -> NoOpTerrainStrategy }),
-    // TODO deserialize settings
-    MOVING_SLICE    ({ ignacio, world, physics -> MovingSliceTerrainStrategy(ignacio, world, physics, MovingSliceTerrainStrategy.Settings()) });
+    MOVING_SLICE    ({ ignacio, world, physics -> MovingSliceTerrainStrategy(ignacio, world, physics, ignacio.settings.worlds.terrainStrategyMovingSlice) });
 
     fun create(ignacio: Ignacio, world: World, physics: PhysicsSpace) = factory.create(ignacio, world, physics)
 }
@@ -96,6 +95,7 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
             val space: PhysicsSpace.Settings = PhysicsSpace.Settings(),
             val deltaTimeMultiplier: Float = 1.0f,
             val terrainStrategy: TerrainStrategies = TerrainStrategies.MOVING_SLICE,
+            val terrainStrategyMovingSlice: MovingSliceTerrainStrategy.Settings = MovingSliceTerrainStrategy.Settings(),
             val entityStrategy: EntityStrategies = EntityStrategies.DEFAULT,
         )
 

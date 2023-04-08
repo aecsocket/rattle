@@ -19,6 +19,23 @@ worlds:
   # Which method to use for managing bodies for block terrain.
   # (none, moving_slice): moving_slice
   terrain-strategy: moving_slice
+  # Settings for the moving_slice terrain strategy.
+  terrain-strategy-moving-slice:
+    # When calculating what terrain around a body should be calculated, an axis-aligned box is used,
+    # which is based on the body's world-space coordinates.
+    # This box is expanded in the direction of the body's current velocity.
+    # The velocity is multiplied by this factor to determine the expansion.
+    # decimal: 0.2
+    bounds-expansion-velocity-factor: 0.2
+    # A constant amount of padding which is added on all sides of the bounding box. (metres)
+    # 3D decimal vector: [ 4.0, 4.0, 4.0 ]
+    bounds-expansion-constant: [ 4.0, 4.0, 4.0 ]
+    # Friction constant of the terrain body.
+    # decimal: 0.5
+    friction: 0.5
+    # Restitution constant of the terrain body.
+    # decimal: 0.1
+    restitution: 0.1
   # Which method to use for managing bodies for entities.
   # (none, default): default
   entity-strategy: default

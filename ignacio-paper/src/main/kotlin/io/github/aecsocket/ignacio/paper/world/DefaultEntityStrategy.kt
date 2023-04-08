@@ -7,6 +7,7 @@ import io.github.aecsocket.ignacio.paper.location
 import io.github.aecsocket.ignacio.paper.position
 import io.github.aecsocket.klam.*
 import net.kyori.adventure.text.Component
+import org.bukkit.GameMode
 import org.bukkit.Particle
 import org.bukkit.entity.Entity
 import org.bukkit.entity.EntityType
@@ -75,6 +76,17 @@ class DefaultEntityStrategy(
         }
     }
 
+    private fun hasCollision(gameMode: GameMode): Boolean {
+        return gameMode != GameMode.SPECTATOR
+    }
+
+    private fun hasCollision(entity: Entity): Boolean {
+        return when (entity) {
+            is Player -> hasCollision(entity.gameMode)
+            else -> true
+        }
+    }
+
     private fun onPhysicsStep() {
         if (!enabled) return
 
@@ -130,10 +142,12 @@ class DefaultEntityStrategy(
 
         val shape = entityShape(entity) ?: return
         val transform = bodyTransform(entity)
+        val hasCollision = hasCollision(entity)
         engine.launchTask {
             val bodyKey = physics.bodies.create(MovingBodyDescriptor(
                 shape = shape,
                 contactFilter = contactFilter,
+                isTrigger = !hasCollision,
                 isKinematic = true,
                 mass = Mass.Constant(60.0f), // TODO
                 canDeactivate = false,
@@ -198,6 +212,20 @@ class DefaultEntityStrategy(
         engine.launchTask {
             physics.bodies.remove(body)
             physics.bodies.destroy(body)
+        }
+    }
+
+    override fun onPlayerGameModeChange(player: Player, newGameMode: GameMode) {
+        if (!enabled) return
+
+        val bodyKey = state.synchronized { state ->
+            state.entityToBody[player]
+        }?.body ?: return
+        val hasCollision = hasCollision(newGameMode)
+        engine.launchTask {
+            bodyKey.write { body ->
+                body.isTrigger = !hasCollision
+            }
         }
     }
 }
