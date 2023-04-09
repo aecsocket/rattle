@@ -27,7 +27,7 @@ data class JtPhysicsBody internal constructor(
     val id: Int,
 ) : PhysicsBody {
     val destroyed = AtomicBoolean(false)
-    override val isAdded get() = physics.bodyInterface.isAdded(id)
+    override val isAdded get() = !physics.isDeleted && physics.bodyInterface.isAdded(id)
 
     private interface Access : PhysicsBody.Access {
         override val key: JtPhysicsBody

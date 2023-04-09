@@ -114,6 +114,7 @@ class PhysicsWorld(
         destroyed.mark()
         terrain.destroy()
         entities.destroy()
+        physics.destroy()
     }
 
     operator fun component1() = physics

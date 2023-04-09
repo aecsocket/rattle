@@ -253,6 +253,7 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
         }
 
         fun destroy(world: World) = worldMap.synchronized { worldMap ->
+            primitiveBodies.onPhysicsDestroy(world)
             worldMap.remove(world)?.destroy()
         }
 

@@ -1,7 +1,6 @@
 package io.github.aecsocket.ignacio.paper.world
 
 import io.github.aecsocket.alexandria.Synchronized
-import io.github.aecsocket.alexandria.paper.extension.registerEvents
 import io.github.aecsocket.ignacio.*
 import io.github.aecsocket.ignacio.paper.Ignacio
 import io.github.aecsocket.ignacio.paper.asKlam
@@ -172,6 +171,7 @@ class MovingSliceTerrainStrategy(
     private val contactFilter = engine.contactFilter(engine.layers.terrain)
     private val movingLayerFilter = engine.filters.anyLayer // TODO
 
+    private val uniqueShapes = ArrayList<Shape>()
     private val cubeCache = Synchronized(HashMap<FVec3, Shape>())
     private val blockShape: Shape
     private val shapeCache = Synchronized(HashMap<BlockData, Shape?>())
@@ -184,10 +184,14 @@ class MovingSliceTerrainStrategy(
     var enabled = true
         private set
 
+    private fun shape(geom: Geometry): Shape {
+        return engine.shape(geom).also { uniqueShapes += it }
+    }
+
     private fun cubeShape(halfExtents: FVec3): Shape {
         return cubeCache.synchronized { cubeCache ->
             cubeCache.computeIfAbsent(halfExtents) {
-                engine.shape(BoxGeometry(halfExtents))
+                shape(BoxGeometry(halfExtents))
             }
         }
     }
@@ -199,16 +203,15 @@ class MovingSliceTerrainStrategy(
 
     override fun destroy() {
         destroyed.mark()
+
+        uniqueShapes.forEach { shape ->
+            shape.destroy()
+        }
+        uniqueShapes.clear()
         shapeCache.synchronized { shapeCache ->
-            shapeCache.forEach { (_, shape) ->
-                shape?.destroy()
-            }
             shapeCache.clear()
         }
         cubeCache.synchronized { cubeCache ->
-            cubeCache.forEach { (_, shape) ->
-                shape.destroy()
-            }
             cubeCache.clear()
         }
     }
@@ -395,7 +398,7 @@ class MovingSliceTerrainStrategy(
                             rotation = Quat.identity(),
                         )
                     }
-                    engine.shape(StaticCompoundGeometry(children))
+                    shape(StaticCompoundGeometry(children))
                 }
             }
             shape.also { shapeCache[blockData] = it }

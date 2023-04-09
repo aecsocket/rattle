@@ -8,11 +8,15 @@ interface Destroyable {
 
 class DestroyFlag {
     private val marked = AtomicBoolean(false)
+//    private var destroyedAt: Array<StackTraceElement>? = null
 
     fun marked() = marked.get()
 
     fun mark() {
-        if (marked.getAndSet(true))
+        if (marked.getAndSet(true)) {
+//            destroyedAt?.forEach { println(it) }
             throw IllegalStateException("Object is already destroyed")
+        }
+//        destroyedAt = Thread.currentThread().stackTrace
     }
 }

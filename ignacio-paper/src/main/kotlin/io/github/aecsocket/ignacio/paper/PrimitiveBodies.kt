@@ -185,4 +185,13 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
         val instance = state.synchronized { it.entityToInstance[entity] } ?: return
         instance.render?.despawn(player)
     }
+
+    internal fun onPhysicsDestroy(world: World) {
+        state.synchronized { state ->
+            state.bodyToInstance.remove(world)?.forEach { (_, instance) ->
+                removeMapping(state, instance)
+                instance.destroy()
+            }
+        }
+    }
 }
