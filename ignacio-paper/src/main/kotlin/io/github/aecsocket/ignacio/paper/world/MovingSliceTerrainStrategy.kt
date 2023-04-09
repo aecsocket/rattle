@@ -1,9 +1,9 @@
 package io.github.aecsocket.ignacio.paper.world
 
 import io.github.aecsocket.alexandria.Synchronized
+import io.github.aecsocket.alexandria.paper.extension.asKlam
 import io.github.aecsocket.ignacio.*
 import io.github.aecsocket.ignacio.paper.Ignacio
-import io.github.aecsocket.ignacio.paper.asKlam
 import io.github.aecsocket.klam.*
 import org.bukkit.Chunk
 import org.bukkit.Material

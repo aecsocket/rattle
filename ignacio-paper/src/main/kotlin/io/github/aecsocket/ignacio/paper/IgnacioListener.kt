@@ -2,6 +2,7 @@ package io.github.aecsocket.ignacio.paper
 
 import com.destroystokyo.paper.event.entity.EntityAddToWorldEvent
 import com.destroystokyo.paper.event.entity.EntityRemoveFromWorldEvent
+import io.github.aecsocket.alexandria.paper.extension.position
 import io.github.aecsocket.ignacio.paper.world.BlockUpdate
 import io.papermc.paper.event.player.PlayerTrackEntityEvent
 import io.papermc.paper.event.player.PlayerUntrackEntityEvent

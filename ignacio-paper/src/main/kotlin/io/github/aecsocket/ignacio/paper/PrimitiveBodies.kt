@@ -1,6 +1,7 @@
 package io.github.aecsocket.ignacio.paper
 
 import io.github.aecsocket.alexandria.Synchronized
+import io.github.aecsocket.alexandria.paper.extension.location
 import io.github.aecsocket.alexandria.paper.render.*
 import io.github.aecsocket.ignacio.*
 import io.github.aecsocket.klam.sqr

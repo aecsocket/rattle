@@ -1,8 +1,8 @@
 package io.github.aecsocket.ignacio.paper.world
 
+import io.github.aecsocket.alexandria.paper.extension.position
 import io.github.aecsocket.ignacio.*
 import io.github.aecsocket.ignacio.paper.Ignacio
-import io.github.aecsocket.ignacio.paper.position
 import io.github.aecsocket.klam.IVec3
 import org.bukkit.Chunk
 import org.bukkit.GameMode

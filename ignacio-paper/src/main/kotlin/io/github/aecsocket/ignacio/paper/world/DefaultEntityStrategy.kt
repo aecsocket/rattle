@@ -1,10 +1,10 @@
 package io.github.aecsocket.ignacio.paper.world
 
 import io.github.aecsocket.alexandria.Synchronized
+import io.github.aecsocket.alexandria.paper.extension.location
+import io.github.aecsocket.alexandria.paper.extension.position
 import io.github.aecsocket.ignacio.*
 import io.github.aecsocket.ignacio.paper.Ignacio
-import io.github.aecsocket.ignacio.paper.location
-import io.github.aecsocket.ignacio.paper.position
 import io.github.aecsocket.klam.*
 import net.kyori.adventure.text.Component
 import org.bukkit.GameMode

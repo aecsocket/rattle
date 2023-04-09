@@ -10,6 +10,7 @@ import io.github.aecsocket.alexandria.extension.hasFlag
 import io.github.aecsocket.alexandria.paper.BaseCommand
 import io.github.aecsocket.alexandria.paper.Context
 import io.github.aecsocket.alexandria.paper.ItemDescriptor
+import io.github.aecsocket.alexandria.paper.extension.position
 import io.github.aecsocket.alexandria.paper.render.ModelDescriptor
 import io.github.aecsocket.glossa.messageProxy
 import io.github.aecsocket.ignacio.*
