@@ -1,5 +1,7 @@
 package io.github.aecsocket.ignacio
 
+import io.github.aecsocket.alexandria.assertGt
+import io.github.aecsocket.alexandria.assertGtEq
 import io.github.aecsocket.klam.FVec3
 import io.github.aecsocket.klam.minComponent
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
