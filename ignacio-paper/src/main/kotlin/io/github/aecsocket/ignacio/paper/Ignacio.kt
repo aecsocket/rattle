@@ -120,7 +120,7 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
     private var worldDeltaTime = 0f
     private val players = ConcurrentHashMap<Player, IgnacioPlayer>()
     private val worldMap = Synchronized(HashMap<World, PhysicsWorld>())
-    lateinit var renders: Renders
+    lateinit var renders: Renders private set
     val primitiveBodies = PrimitiveBodies(this)
     private val updatingPhysics = AtomicBoolean(false)
     private val mEngineTimings = timestampedList<Long>(0)
