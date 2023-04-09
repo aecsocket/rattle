@@ -5,6 +5,7 @@ import io.github.aecsocket.alexandria.BossBarDescriptor
 import io.github.aecsocket.alexandria.Logging
 import io.github.aecsocket.alexandria.LoggingList
 import io.github.aecsocket.alexandria.Synchronized
+import io.github.aecsocket.alexandria.extension.registerExact
 import io.github.aecsocket.alexandria.paper.AlexandriaPlugin
 import io.github.aecsocket.alexandria.paper.ItemDescriptor
 import io.github.aecsocket.alexandria.paper.extension.registerEvents
@@ -13,6 +14,7 @@ import io.github.aecsocket.alexandria.paper.render.DisplayRenders
 import io.github.aecsocket.alexandria.paper.render.Renders
 import io.github.aecsocket.alexandria.paper.seralizer.alexandriaPaperSerializers
 import io.github.aecsocket.glossa.MessageProxy
+import io.github.aecsocket.glossa.configurate.LocaleSerializer
 import io.github.aecsocket.glossa.messageProxy
 import io.github.aecsocket.ignacio.IgnacioEngine
 import io.github.aecsocket.ignacio.PhysicsSpace
@@ -20,8 +22,10 @@ import io.github.aecsocket.ignacio.TimestampedList
 import io.github.aecsocket.ignacio.jolt.JoltEngine
 import io.github.aecsocket.ignacio.paper.world.*
 import io.github.aecsocket.ignacio.timestampedList
+import io.github.aecsocket.klam.configurate.klamSerializers
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder
 import io.papermc.paper.util.Tick
+import net.kyori.adventure.serializer.configurate4.ConfigurateComponentSerializer
 import net.kyori.adventure.text.format.TextColor
 import org.bukkit.Material
 import org.bukkit.World
@@ -39,15 +43,6 @@ import kotlin.collections.HashMap
 
 private lateinit var instance: Ignacio
 val IgnacioAPI get() = instance
-
-private val configOptions: ConfigurationOptions = ConfigurationOptions.defaults()
-    .serializers { it
-        .registerAll(alexandriaPaperSerializers)
-        .registerAnnotatedObjects(ObjectMapper.factoryBuilder()
-            .addDiscoverer(dataClassFieldDiscoverer())
-            .build()
-        )
-    }
 
 enum class TerrainStrategies(
     private val factory: TerrainStrategyFactory,
@@ -131,6 +126,17 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
     private val mEngineTimings = timestampedList<Long>(0)
     val engineTimings: TimestampedList<Long> get() = mEngineTimings
 
+    override val configOptions: ConfigurationOptions = ConfigurationOptions.defaults().serializers { it
+        .registerAll(ConfigurateComponentSerializer.configurate().serializers())
+        .registerExact(LocaleSerializer)
+        .registerAll(klamSerializers)
+        .registerAll(alexandriaPaperSerializers)
+        .registerAnnotatedObjects(ObjectMapper.factoryBuilder()
+            .addDiscoverer(dataClassFieldDiscoverer())
+            .build()
+        )
+    }
+
     init {
         instance = this
     }
@@ -169,8 +175,6 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
         }
         engine.destroy()
     }
-
-    override fun configOptions() = configOptions
 
     override fun loadSettings(node: ConfigurationNode?) {
         settings = node?.get() ?: Settings()

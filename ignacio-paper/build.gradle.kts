@@ -25,6 +25,7 @@ dependencies {
     paperweight.foliaDevBundle("$minecraft-R0.1-SNAPSHOT")
     implementation(libs.kotlinxCoroutinesCore)
     implementation(libs.klam)
+    implementation(libs.klamConfigurate)
     implementation(libs.adventureSerializerConfigurate)
     implementation(libs.cloudCore)
     implementation(libs.cloudPaper)
