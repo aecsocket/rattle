@@ -1,8 +1,10 @@
 package io.github.aecsocket.ignacio.paper
 
 import io.github.aecsocket.alexandria.Synchronized
+import io.github.aecsocket.alexandria.paper.render.PaperRender
+import io.github.aecsocket.alexandria.paper.render.RenderDescriptor
+import io.github.aecsocket.alexandria.paper.render.playerTracker
 import io.github.aecsocket.ignacio.Transform
-import io.github.aecsocket.ignacio.paper.render.*
 import io.github.aecsocket.klam.FVec3
 import org.bukkit.World
 import org.bukkit.entity.Entity
@@ -13,7 +15,7 @@ import java.util.concurrent.atomic.AtomicInteger
 class PrimitiveRenders internal constructor(private val ignacio: Ignacio) {
     inner class Instance(
         internal val id: Int,
-        internal val render: Render,
+        internal val render: PaperRender,
         internal val marker: Entity,
     ) {
         val destroyed = AtomicBoolean()

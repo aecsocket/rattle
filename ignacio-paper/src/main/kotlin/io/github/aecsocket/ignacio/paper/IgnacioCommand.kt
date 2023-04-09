@@ -14,11 +14,11 @@ import io.github.aecsocket.alexandria.extension.hasFlag
 import io.github.aecsocket.alexandria.paper.BaseCommand
 import io.github.aecsocket.alexandria.paper.Context
 import io.github.aecsocket.alexandria.paper.ItemDescriptor
+import io.github.aecsocket.alexandria.paper.render.ModelDescriptor
+import io.github.aecsocket.alexandria.paper.render.RenderDescriptor
+import io.github.aecsocket.alexandria.paper.render.TextDescriptor
 import io.github.aecsocket.glossa.messageProxy
 import io.github.aecsocket.ignacio.*
-import io.github.aecsocket.ignacio.paper.render.ModelDescriptor
-import io.github.aecsocket.ignacio.paper.render.RenderDescriptor
-import io.github.aecsocket.ignacio.paper.render.TextDescriptor
 import io.github.aecsocket.klam.*
 import net.kyori.adventure.text.minimessage.MiniMessage
 import org.bukkit.Location

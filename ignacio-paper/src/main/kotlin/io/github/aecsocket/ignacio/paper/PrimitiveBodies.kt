@@ -1,8 +1,8 @@
 package io.github.aecsocket.ignacio.paper
 
 import io.github.aecsocket.alexandria.Synchronized
+import io.github.aecsocket.alexandria.paper.render.*
 import io.github.aecsocket.ignacio.*
-import io.github.aecsocket.ignacio.paper.render.*
 import io.github.aecsocket.klam.sqr
 import org.bukkit.Location
 import org.bukkit.World
@@ -16,7 +16,7 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
         internal val id: Int,
         internal val physics: PhysicsSpace,
         internal val body: PhysicsBody,
-        internal val render: Render?,
+        internal val render: PaperRender?,
         internal val marker: Entity,
         internal var location: Location,
     ) {
@@ -58,7 +58,7 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
         world: World,
         transform: Transform,
         createBody: (physics: PhysicsSpace) -> PhysicsBody,
-        createRender: ((tracker: PlayerTracker) -> Render)?,
+        createRender: ((tracker: PlayerTracker) -> PaperRender)?,
     ): Int {
         val id = nextId.getAndIncrement()
         val location = transform.position.location(world)

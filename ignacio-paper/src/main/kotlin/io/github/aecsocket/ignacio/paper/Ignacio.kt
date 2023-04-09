@@ -10,6 +10,8 @@ import io.github.aecsocket.alexandria.paper.AlexandriaPlugin
 import io.github.aecsocket.alexandria.paper.ItemDescriptor
 import io.github.aecsocket.alexandria.paper.extension.registerEvents
 import io.github.aecsocket.alexandria.paper.fallbackLocale
+import io.github.aecsocket.alexandria.paper.render.DisplayRenders
+import io.github.aecsocket.alexandria.paper.render.Renders
 import io.github.aecsocket.alexandria.paper.seralizer.alexandriaPaperSerializers
 import io.github.aecsocket.glossa.MessageProxy
 import io.github.aecsocket.glossa.messageProxy
@@ -17,8 +19,6 @@ import io.github.aecsocket.ignacio.IgnacioEngine
 import io.github.aecsocket.ignacio.PhysicsSpace
 import io.github.aecsocket.ignacio.TimestampedList
 import io.github.aecsocket.ignacio.jolt.JoltEngine
-import io.github.aecsocket.ignacio.paper.render.DisplayRenders
-import io.github.aecsocket.ignacio.paper.render.Renders
 import io.github.aecsocket.ignacio.paper.world.*
 import io.github.aecsocket.ignacio.timestampedList
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder
@@ -126,7 +126,7 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
     private var worldDeltaTime = 0f
     private val players = ConcurrentHashMap<Player, IgnacioPlayer>()
     private val worldMap = Synchronized(HashMap<World, PhysicsWorld>())
-    val renders: Renders = DisplayRenders()
+    lateinit var renders: Renders
     val primitiveBodies = PrimitiveBodies(this)
     val primitiveRenders = PrimitiveRenders(this)
     private val updatingPhysics = AtomicBoolean(false)
@@ -149,6 +149,7 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
         // TODO other plugins should be able to use this builder
         engine = JoltEngine.Builder(settings.jolt, logger).build()
         logger.info("${ProcessHandle.current().pid()}: Loaded ${engine::class.simpleName} ${engine.build}")
+        renders = DisplayRenders(PacketEvents.getAPI())
     }
 
     override fun onEnable() {
@@ -260,6 +261,3 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
         fun all() = worldMap.synchronized { it.toMap() }
     }
 }
-
-fun Player.sendPacket(packet: PacketWrapper<*>) =
-    PacketEvents.getAPI().playerManager.sendPacket(this, packet)
