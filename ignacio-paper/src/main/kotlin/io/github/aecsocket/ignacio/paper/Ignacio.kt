@@ -1,7 +1,6 @@
 package io.github.aecsocket.ignacio.paper
 
 import com.github.retrooper.packetevents.PacketEvents
-import com.github.retrooper.packetevents.wrapper.PacketWrapper
 import io.github.aecsocket.alexandria.BossBarDescriptor
 import io.github.aecsocket.alexandria.Logging
 import io.github.aecsocket.alexandria.LoggingList
@@ -128,7 +127,6 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
     private val worldMap = Synchronized(HashMap<World, PhysicsWorld>())
     lateinit var renders: Renders
     val primitiveBodies = PrimitiveBodies(this)
-    val primitiveRenders = PrimitiveRenders(this)
     private val updatingPhysics = AtomicBoolean(false)
     private val mEngineTimings = timestampedList<Long>(0)
     val engineTimings: TimestampedList<Long> get() = mEngineTimings

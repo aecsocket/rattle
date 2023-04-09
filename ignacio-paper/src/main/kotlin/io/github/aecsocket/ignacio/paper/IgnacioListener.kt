@@ -36,7 +36,6 @@ internal class IgnacioListener(private val ignacio: Ignacio) : Listener {
     fun on(event: EntityRemoveFromWorldEvent) {
         val entity = event.entity
         ignacio.primitiveBodies.onEntityRemove(entity)
-        ignacio.primitiveRenders.onEntityRemove(entity)
 
         val world = ignacio.worlds[entity.world] ?: return
         world.entities.onEntityRemove(entity)
@@ -45,13 +44,11 @@ internal class IgnacioListener(private val ignacio: Ignacio) : Listener {
     @EventHandler
     fun on(event: PlayerTrackEntityEvent) {
         ignacio.primitiveBodies.onPlayerTrackEntity(event.player, event.entity)
-        ignacio.primitiveRenders.onPlayerTrackEntity(event.player, event.entity)
     }
 
     @EventHandler
     fun on(event: PlayerUntrackEntityEvent) {
         ignacio.primitiveBodies.onPlayerUntrackEntity(event.player, event.entity)
-        ignacio.primitiveRenders.onPlayerUntrackEntity(event.player, event.entity)
     }
 
     private fun onBlock(event: BlockEvent, update: BlockUpdate) {

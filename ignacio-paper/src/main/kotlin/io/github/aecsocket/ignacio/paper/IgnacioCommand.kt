@@ -1,12 +1,8 @@
 package io.github.aecsocket.ignacio.paper
 
 import cloud.commandframework.arguments.standard.DoubleArgument
-import cloud.commandframework.arguments.standard.EnumArgument
 import cloud.commandframework.arguments.standard.FloatArgument
 import cloud.commandframework.arguments.standard.IntegerArgument
-import cloud.commandframework.arguments.standard.StringArgument
-import cloud.commandframework.bukkit.data.ProtoItemStack
-import cloud.commandframework.bukkit.parsers.ItemStackArgument
 import cloud.commandframework.bukkit.parsers.WorldArgument
 import cloud.commandframework.bukkit.parsers.location.LocationArgument
 import io.github.aecsocket.alexandria.extension.flag
@@ -15,16 +11,12 @@ import io.github.aecsocket.alexandria.paper.BaseCommand
 import io.github.aecsocket.alexandria.paper.Context
 import io.github.aecsocket.alexandria.paper.ItemDescriptor
 import io.github.aecsocket.alexandria.paper.render.ModelDescriptor
-import io.github.aecsocket.alexandria.paper.render.RenderDescriptor
-import io.github.aecsocket.alexandria.paper.render.TextDescriptor
 import io.github.aecsocket.glossa.messageProxy
 import io.github.aecsocket.ignacio.*
 import io.github.aecsocket.klam.*
-import net.kyori.adventure.text.minimessage.MiniMessage
 import org.bukkit.Location
 import org.bukkit.World
 import org.bukkit.command.CommandSender
-import org.bukkit.entity.Display.Billboard
 import org.bukkit.entity.Player
 import kotlin.random.Random
 
@@ -67,65 +59,6 @@ internal class IgnacioCommand(
                     .alexandriaHandler(::spaceDestroy)
                 )
             }
-
-        root.literal("render").let { render ->
-            render.literal("create")
-                .alexandriaPermission("render.create")
-                .argument(LocationArgument.of(LOCATION))
-                .flag(manager.flagBuilder(SCALE)
-                    .withAliases("s")
-                    .withArgument(FloatArgument.of<CommandSender>(SCALE))
-                )
-                .let { create ->
-                    manager.command(create
-                        .literal("model")
-                        .argument(ItemStackArgument.of(ITEM))
-                        .alexandriaHandler(::renderCreateModel)
-                    )
-                    manager.command(create
-                        .literal("text")
-                        .argument(StringArgument.quoted(TEXT))
-                        .flag(manager.flagBuilder(BILLBOARD)
-                            .withAliases("b")
-                            .withArgument(EnumArgument.of<CommandSender, Billboard>(Billboard::class.java, BILLBOARD))
-                        )
-                        .alexandriaHandler(::renderCreateText)
-                    )
-                }
-
-            render.literal("destroy")
-                .alexandriaPermission("render.destroy").let { destroy ->
-                    manager.command(destroy
-                        .argument(IntegerArgument.of(ID))
-                        .alexandriaHandler(::renderDestroyOne)
-                    )
-                    manager.command(destroy
-                        .literal("all")
-                        .alexandriaHandler(::renderDestroyAll)
-                    )
-                }
-
-            render.literal("edit")
-                .alexandriaPermission("render.edit")
-                .argument(IntegerArgument.of(ID)).let { edit ->
-                    manager.command(edit
-                        .literal("position")
-                        .argument(LocationArgument.of(TO))
-                        .alexandriaHandler(::renderEditPosition)
-                    )
-                    manager.command(edit
-                        .literal("rotation")
-                        .argument(EnumArgument.of(EulerOrder::class.java, ORDER))
-                        .argumentFVec3(ANGLES)
-                        .alexandriaHandler(::renderEditRotation)
-                    )
-                    manager.command(edit
-                        .literal("scale")
-                        .argumentFVec3(SCALE)
-                        .alexandriaHandler(::renderEditScale)
-                    )
-                }
-        }
 
         root.literal("body").let { body ->
             body.literal("create")
@@ -252,133 +185,6 @@ internal class IgnacioCommand(
         messages.command.space.destroy(
             world = world.name,
         ).sendTo(sender)
-    }
-
-    private fun renderCreate(
-        location: Location,
-        descriptor: RenderDescriptor,
-    ): Int {
-        return ignacio.primitiveRenders.create(
-            location.world,
-            Transform(location.position()),
-            descriptor,
-        )
-    }
-
-    private fun renderCreateModel(ctx: Context) {
-        val sender = ctx.sender
-        val messages = ignacio.messages.forAudience(sender)
-        val location = ctx.get<Location>(LOCATION)
-        val item = ctx.get<ProtoItemStack>(ITEM).createItemStack(1, false)
-        val scale = ctx.flag(SCALE) ?: 1.0f
-        val billboard = ctx.flag(BILLBOARD) ?: Billboard.FIXED
-
-        val renderId = renderCreate(location, ModelDescriptor(
-            scale = FVec3(scale),
-            billboard = billboard,
-            item = item,
-        ))
-
-        messages.command.render.create.model(
-            id = renderId,
-            locationX = location.x, locationY = location.y, locationZ = location.z,
-        ).sendTo(sender)
-    }
-
-    private fun renderCreateText(ctx: Context) {
-        val sender = ctx.sender
-        val messages = ignacio.messages.forAudience(sender)
-        val location = ctx.get<Location>(LOCATION)
-        val text = MiniMessage.miniMessage().deserialize(ctx.get(TEXT))
-        val scale = ctx.flag(SCALE) ?: 1.0f
-        val billboard = ctx.flag(BILLBOARD) ?: Billboard.CENTER
-
-        val renderId = renderCreate(location, TextDescriptor(
-            scale = FVec3(scale),
-            billboard = billboard,
-            text = text,
-        ))
-
-        messages.command.render.create.text(
-            id = renderId,
-            locationX = location.x, locationY = location.y, locationZ = location.z,
-        ).sendTo(sender)
-    }
-
-    private fun renderDestroyOne(ctx: Context) {
-        val sender = ctx.sender
-        val messages = ignacio.messages.forAudience(sender)
-        val id = ctx.get<Int>(ID)
-
-        if (ignacio.primitiveRenders.destroy(id)) {
-            messages.command.render.destroy.one(
-                id = id,
-            ).sendTo(sender)
-        } else {
-            messages.error.render.doesNotExist(
-                id = id,
-            ).sendTo(sender)
-        }
-    }
-
-    private fun renderDestroyAll(ctx: Context) {
-        val sender = ctx.sender
-        val messages = ignacio.messages.forAudience(sender)
-
-        val count = ignacio.primitiveRenders.count
-        ignacio.primitiveRenders.destroyAll()
-
-        messages.command.render.destroy.all(
-            count = count,
-        ).sendTo(sender)
-    }
-
-    private fun renderEditPosition(ctx: Context) {
-        val sender = ctx.sender
-        val messages = ignacio.messages.forAudience(sender)
-        val id = ctx.get<Int>(ID)
-        val to = ctx.get<Location>(TO)
-
-        val render = ignacio.primitiveRenders[id] ?: run {
-            messages.error.render.doesNotExist(
-                id = id,
-            ).sendTo(sender)
-            return
-        }
-
-        render.transform = Transform(to.position(), render.transform.rotation)
-    }
-
-    private fun renderEditRotation(ctx: Context) {
-        val sender = ctx.sender
-        val messages = ignacio.messages.forAudience(sender)
-        val id = ctx.get<Int>(ID)
-        val rotation = asQuat(ctx.get<FVec3>(ANGLES), ctx.get(ORDER))
-
-        val render = ignacio.primitiveRenders[id] ?: run {
-            messages.error.render.doesNotExist(
-                id = id,
-            ).sendTo(sender)
-            return
-        }
-
-        render.transform = Transform(render.transform.position, rotation)
-    }
-
-    private fun renderEditScale(ctx: Context) {
-        val sender = ctx.sender
-        val messages = ignacio.messages.forAudience(sender)
-        val id = ctx.get<Int>(ID)
-        val scale = ctx.get<FVec3>(SCALE)
-
-        val render = ignacio.primitiveRenders[id] ?: run {
-            messages.error.render.doesNotExist(
-                id = id,
-            ).sendTo(sender)
-            return
-        }
-
-        render.scale = scale
     }
 
     private fun bodyCreate(
