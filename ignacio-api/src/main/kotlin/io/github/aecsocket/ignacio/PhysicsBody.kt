@@ -1,5 +1,6 @@
 package io.github.aecsocket.ignacio
 
+import io.github.aecsocket.alexandria.assertGt
 import io.github.aecsocket.klam.*
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import java.util.function.Consumer
