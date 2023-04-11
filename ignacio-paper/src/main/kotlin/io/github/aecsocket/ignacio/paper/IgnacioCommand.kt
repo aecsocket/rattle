@@ -21,24 +21,16 @@ import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 import kotlin.random.Random
 
-private const val ANGLES = "angles"
-private const val BILLBOARD = "billboard"
 private const val COUNT = "count"
 private const val DENSITY = "density"
 private const val FRICTION = "friction"
 private const val HALF_EXTENT = "half-extent"
-private const val ID = "id"
-private const val ITEM = "item"
 private const val LOCATION = "location"
 private const val MASS = "mass"
-private const val ORDER = "order"
 private const val RADIUS = "radius"
 private const val RESTITUTION = "restitution"
-private const val SCALE = "scale"
 private const val SHOW_TIMINGS = "show-timings"
 private const val SPREAD = "spread"
-private const val TEXT = "text"
-private const val TO = "to"
 private const val VIRTUAL = "virtual"
 private const val WORLD = "world"
 
