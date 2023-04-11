@@ -122,7 +122,7 @@ class MovingSliceTerrainStrategy(
     )
 
     @JvmInline
-    value class TileSnapshots(val tiles: Array<TileSnapshot?>) {
+    value class TileSnapshots(private val tiles: Array<TileSnapshot?>) {
         operator fun get(index: Int) = tiles[index]
 
         operator fun set(index: Int, value: TileSnapshot?) { tiles[index] = value }
@@ -138,7 +138,7 @@ class MovingSliceTerrainStrategy(
                 layers[terrainLayerToIndex[tile.layer]!!] += CompoundChild(
                     shape = tile.shape,
                     position = FVec3(lx + 0.5f, ly + 0.5f, lz + 0.5f),
-                    rotation = Quat.identity(),
+                    rotation = FQuat.identity(),
                 )
             }
             return layers
@@ -395,7 +395,7 @@ class MovingSliceTerrainStrategy(
                         CompoundChild(
                             shape = cubeShape(FVec3(halfExtent)),
                             position = FVec3(box.center.asKlam()) - centerOffset,
-                            rotation = Quat.identity(),
+                            rotation = FQuat.identity(),
                         )
                     }
                     shape(StaticCompoundGeometry(children))
@@ -418,7 +418,7 @@ class MovingSliceTerrainStrategy(
                     isTrigger = !layer.isCollidable,
                     friction = settings.friction,
                     restitution = settings.restitution,
-                ), Transform(DVec3(pos) * 16.0))
+                ), DVec3(pos) * 16.0, FQuat.identity())
             }
             val slice = Slice(snapshot.tiles, layerBodies)
 

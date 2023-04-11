@@ -1,10 +1,7 @@
 package io.github.aecsocket.ignacio.jolt
 
 import io.github.aecsocket.ignacio.*
-import io.github.aecsocket.klam.DAabb3
-import io.github.aecsocket.klam.DRay3
-import io.github.aecsocket.klam.DVec3
-import io.github.aecsocket.klam.FVec3
+import io.github.aecsocket.klam.*
 import jolt.core.TempAllocator
 import jolt.physics.Activation
 import jolt.physics.PhysicsStepListener
@@ -80,13 +77,14 @@ class JtPhysicsSpace internal constructor(
         private fun createBodySettings(
             mem: MemorySession,
             descriptor: BodyDescriptor,
-            transform: Transform,
+            position: DVec3,
+            rotation: FQuat,
             motionType: MotionType
         ): BodyCreationSettings {
             val bodySettings = BodyCreationSettings.of(mem,
                 (descriptor.shape as JtShape).handle,
-                mem.asJolt(transform.position),
-                mem.asJolt(transform.rotation),
+                mem.asJolt(position),
+                mem.asJolt(rotation),
                 motionType,
                 (descriptor.contactFilter as JoltEngine.JtBodyContactFilter).id,
             )
@@ -101,21 +99,22 @@ class JtPhysicsSpace internal constructor(
             return bodyOf(body.id)
         }
 
-        override fun createStatic(descriptor: StaticBodyDescriptor, transform: Transform): PhysicsBody {
+        override fun createStatic(descriptor: StaticBodyDescriptor, position: DVec3, rotation: FQuat): PhysicsBody {
             engine.assertThread()
             return pushArena { arena ->
-                val bodySettings = createBodySettings(arena, descriptor, transform, MotionType.STATIC)
+                val bodySettings = createBodySettings(arena, descriptor, position, rotation, MotionType.STATIC)
                 createBody(bodySettings)
             }
         }
 
-        override fun createMoving(descriptor: MovingBodyDescriptor, transform: Transform): PhysicsBody {
+        override fun createMoving(descriptor: MovingBodyDescriptor, position: DVec3, rotation: FQuat): PhysicsBody {
             engine.assertThread()
             return pushArena { arena ->
                 val bodySettings = createBodySettings(
                     arena,
                     descriptor,
-                    transform,
+                    position,
+                    rotation,
                     if (descriptor.isKinematic) MotionType.KINEMATIC else MotionType.DYNAMIC,
                 )
                 when (val mass = descriptor.mass) {

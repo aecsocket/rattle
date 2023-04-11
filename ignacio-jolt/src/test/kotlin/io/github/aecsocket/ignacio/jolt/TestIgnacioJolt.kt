@@ -2,6 +2,7 @@ package io.github.aecsocket.ignacio.jolt
 
 import io.github.aecsocket.ignacio.*
 import io.github.aecsocket.klam.DVec3
+import io.github.aecsocket.klam.FQuat
 import io.github.aecsocket.klam.FVec3
 import java.util.logging.Logger
 import kotlin.test.Test
@@ -18,7 +19,7 @@ class TestIgnacioJolt {
         val floorBody = physics.bodies.addStatic(StaticBodyDescriptor(
             shape = floorShape,
             contactFilter = engine.contactFilter(engine.layers.static),
-        ), Transform())
+        ), DVec3(0.0), FQuat.identity())
 
         val ballShape = engine.shape(SphereGeometry(1.0f))
         val ballBody = physics.bodies.addMovingBody(MovingBodyDescriptor(
@@ -26,7 +27,7 @@ class TestIgnacioJolt {
             contactFilter = engine.contactFilter(engine.layers.moving),
             linearVelocity = FVec3(0.0f, 2.0f, 0.0f),
             restitution = 0.5f,
-        ), Transform(DVec3(0.0, 5.0, 0.0)))
+        ), DVec3(0.0, 5.0, 0.0), FQuat.identity())
 
         ballBody.writeAs<PhysicsBody.MovingWrite> { ball ->
             ball.activate()

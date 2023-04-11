@@ -4,7 +4,7 @@ import io.github.aecsocket.alexandria.Synchronized
 import io.github.aecsocket.alexandria.paper.extension.location
 import io.github.aecsocket.alexandria.paper.render.*
 import io.github.aecsocket.ignacio.*
-import io.github.aecsocket.klam.sqr
+import io.github.aecsocket.klam.*
 import org.bukkit.Location
 import org.bukkit.World
 import org.bukkit.entity.Entity
@@ -57,12 +57,12 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
 
     fun create(
         world: World,
-        transform: Transform,
+        position: DVec3,
         createBody: (physics: PhysicsSpace) -> PhysicsBody,
         createRender: ((tracker: PlayerTracker) -> PaperRender)?,
     ): Int {
         val id = nextId.getAndIncrement()
-        val location = transform.position.location(world)
+        val location = position.location(world)
         ignacio.scheduling.onChunk(location).launch {
             val marker = spawnMarkerEntity(location)
             val (physics) = ignacio.worlds.getOrCreate(world)
@@ -141,9 +141,17 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
 
             instance.body.read { body ->
                 if (!body.isActive) return@read
-                val transform = body.transform
-                instance.location = transform.position.location(instance.marker.world)
-                instance.render?.transform = transform
+                val position = body.position
+                val rotation = body.rotation
+                instance.location = position.location(instance.marker.world)
+                instance.render?.let { render ->
+                    render.basePosition = position
+                    render.transform = FAffine3(
+                        FVec3(0.0f),
+                        rotation,
+                        render.transform.scale,
+                    )
+                }
             }
         }
 

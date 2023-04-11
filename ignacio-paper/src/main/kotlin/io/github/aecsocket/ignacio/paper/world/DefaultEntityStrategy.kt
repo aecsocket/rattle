@@ -1,14 +1,10 @@
 package io.github.aecsocket.ignacio.paper.world
 
 import io.github.aecsocket.alexandria.Synchronized
-import io.github.aecsocket.alexandria.paper.extension.location
-import io.github.aecsocket.alexandria.paper.extension.position
 import io.github.aecsocket.ignacio.*
 import io.github.aecsocket.ignacio.paper.Ignacio
 import io.github.aecsocket.klam.*
-import net.kyori.adventure.text.Component
 import org.bukkit.GameMode
-import org.bukkit.Particle
 import org.bukkit.entity.Entity
 import org.bukkit.entity.EntityType
 import org.bukkit.entity.Player
@@ -29,7 +25,8 @@ class DefaultEntityStrategy(
     private inner class EntityData(
         val entity: Entity,
         val body: PhysicsBody,
-        var transform: Transform,
+        var position: DVec3,
+        var rotation: FQuat,
     ) {
         val destroyed = AtomicBoolean(false)
 
@@ -92,6 +89,7 @@ class DefaultEntityStrategy(
 
         if (true) return
         // todo this code is broken
+        /*
         val entityMap = state.synchronized { it.entityToBody.toMap() }
         entityMap.forEach { (entity, data) ->
             // handle player collisions
@@ -123,7 +121,7 @@ class DefaultEntityStrategy(
                     }
                 }
             }
-        }
+        }*/
     }
 
     override fun onPhysicsUpdate(deltaTime: Float) {
@@ -132,7 +130,7 @@ class DefaultEntityStrategy(
         val entityMap = state.synchronized { it.entityToBody.toMap() }
         entityMap.forEach { (_, data) ->
             data.body.writeAs<PhysicsBody.MovingWrite> { body ->
-                body.moveTo(data.transform, deltaTime)
+                body.moveTo(data.position, data.rotation, deltaTime)
             }
         }
     }
@@ -141,7 +139,7 @@ class DefaultEntityStrategy(
         if (!enabled) return
 
         val shape = entityShape(entity) ?: return
-        val transform = bodyTransform(entity)
+        val (position, rotation) = bodyAttitude(entity)
         val hasCollision = hasCollision(entity)
         engine.launchTask {
             val bodyKey = physics.bodies.create(MovingBodyDescriptor(
@@ -151,12 +149,12 @@ class DefaultEntityStrategy(
                 isKinematic = true,
                 mass = Mass.Constant(60.0f), // TODO
                 canDeactivate = false,
-            ), transform)
+            ), position, rotation)
             physics.bodies.add(bodyKey)
             bodyKey.writeAs<PhysicsBody.MovingWrite> { body ->
                 body.activate()
             }
-            val entityData = EntityData(entity, bodyKey, transform)
+            val entityData = EntityData(entity, bodyKey, position, rotation)
             state.synchronized { state ->
                 state.entityToBody[entity] = entityData
                 state.bodyToEntity[bodyKey] = entityData
@@ -167,7 +165,9 @@ class DefaultEntityStrategy(
                     task.cancel()
                     return@runRepeating
                 }
-                entityData.transform = bodyTransform(entity)
+                val (nPosition, nRotation) = bodyAttitude(entity)
+                entityData.position = nPosition
+                entityData.rotation = nRotation
             }
         }
     }
@@ -195,12 +195,10 @@ class DefaultEntityStrategy(
         }
     }
 
-    private fun bodyTransform(entity: Entity): Transform {
+    private fun bodyAttitude(entity: Entity): Pair<DVec3, FQuat> {
         val location = entity.location
-        return Transform(
-            DVec3(location.x, location.y + entity.height / 2, location.z),
-            asQuat(FVec3(0.0f, radians(location.yaw), 0.0f), EulerOrder.XYZ),
-        )
+        return DVec3(location.x, location.y + entity.height / 2, location.z) to
+                asQuat(FVec3(0.0f, radians(location.yaw), 0.0f), EulerOrder.XYZ)
     }
 
     override fun onEntityRemove(entity: Entity) {

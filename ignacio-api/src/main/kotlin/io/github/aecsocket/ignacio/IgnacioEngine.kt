@@ -1,10 +1,6 @@
 package io.github.aecsocket.ignacio
 
-import io.github.aecsocket.klam.*
 import kotlinx.coroutines.CoroutineScope
-
-typealias Quat = FQuat
-typealias Transform = DAffine3
 
 interface BodyLayer
 

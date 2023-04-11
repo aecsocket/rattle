@@ -11,7 +11,7 @@ versions:
   indra: 3.0.1
   kotlin: 1.8.20-RC2
   kotlinxCoroutines: 1.6.4
-  klam: 0.1.2
+  klam: 0.1.3
   adventure: 4.13.0
   configurate: 4.1.2
   cpuFeaturesJava: 2.0.1

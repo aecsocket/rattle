@@ -1,10 +1,7 @@
 package io.github.aecsocket.ignacio.jolt
 
 import io.github.aecsocket.ignacio.*
-import io.github.aecsocket.klam.DAabb3
-import io.github.aecsocket.klam.DVec3
-import io.github.aecsocket.klam.FVec3
-import io.github.aecsocket.klam.plus
+import io.github.aecsocket.klam.*
 import jolt.geometry.GJKClosestPoint
 import jolt.physics.Activation
 import jolt.physics.PhysicsSystem
@@ -43,12 +40,6 @@ data class JtPhysicsBody internal constructor(
 
         override val rotation get() = pushArena { arena ->
             arena.Quat().also { body.getRotation(it) }.asIgnacio()
-        }
-
-        override val transform get() = pushArena { arena ->
-            val position = arena.DVec3().also { body.getPosition(it) }.asIgnacio()
-            val rotation = arena.Quat().also { body.getRotation(it) }.asIgnacio()
-            Transform(position, rotation)
         }
 
         override val bounds get() = pushArena { arena ->
@@ -128,21 +119,10 @@ data class JtPhysicsBody internal constructor(
                 key.physics.bodyInterfaceNoLock.setPosition(key.id, arena.asJolt(value), Activation.DONT_ACTIVATE)
             }
 
-        override var rotation: Quat
+        override var rotation: FQuat
             get() = super.rotation
             set(value) = pushArena { arena ->
                 key.physics.bodyInterfaceNoLock.setRotation(key.id, arena.asJolt(value), Activation.DONT_ACTIVATE)
-            }
-
-        override var transform: Transform
-            get() = super.transform
-            set(value) = pushArena { arena ->
-                key.physics.bodyInterfaceNoLock.setPositionAndRotation(
-                    key.id,
-                    arena.asJolt(value.position),
-                    arena.asJolt(value.rotation),
-                    Activation.DONT_ACTIVATE
-                )
             }
 
         override var shape: Shape
@@ -300,8 +280,8 @@ data class JtPhysicsBody internal constructor(
             body.addAngularImpulse(arena.asJolt(impulse))
         }
 
-        override fun moveTo(to: Transform, deltaTime: Float) = pushArena { arena ->
-            body.moveKinematic(arena.asJolt(to.position), arena.asJolt(to.rotation), deltaTime)
+        override fun moveTo(position: DVec3, rotation: FQuat, deltaTime: Float) = pushArena { arena ->
+            body.moveKinematic(arena.asJolt(position), arena.asJolt(rotation), deltaTime)
         }
     }
 

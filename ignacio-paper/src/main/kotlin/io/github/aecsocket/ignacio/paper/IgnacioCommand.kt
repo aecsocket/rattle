@@ -195,21 +195,22 @@ internal class IgnacioCommand(
         virtual: Boolean,
         model: ItemDescriptor,
         scale: FVec3,
-        createBody: (physics: PhysicsSpace, transform: Transform) -> PhysicsBody,
+        createBody: (physics: PhysicsSpace, position: DVec3, rotation: FQuat) -> PhysicsBody,
     ) {
         val item = model.create()
         repeat(count) {
-            val transform = Transform(location.position() - spread + Random.nextDVec3() * (spread * 2))
+            val position = location.position() - spread + Random.nextDVec3() * (spread * 2)
             ignacio.primitiveBodies.create(
                 location.world,
-                transform,
-                { physics -> createBody(physics, transform) },
+                position,
+                { physics -> createBody(physics, position, FQuat.identity()) },
                 if (virtual) null else {
                     { tracker ->
                         ignacio.renders.create(ModelDescriptor(
                             item = item,
-                            scale = scale,
-                        ), tracker, transform)
+                            tracker = tracker,
+                            interpolationDuration = 2,
+                        ), position, FAffine3(scale = scale))
                     }
                 }
             )
@@ -229,8 +230,8 @@ internal class IgnacioCommand(
             shape = ignacio.engine.shape(geometry),
             contactFilter = ignacio.engine.contactFilter(ignacio.engine.layers.moving),
         )
-        bodyCreate(location, count, spread, virtual, model, scale) { physics, transform ->
-            physics.bodies.createStatic(descriptor, transform)
+        bodyCreate(location, count, spread, virtual, model, scale) { physics, position, rotation ->
+            physics.bodies.createStatic(descriptor, position, rotation)
         }
     }
 
@@ -297,8 +298,8 @@ internal class IgnacioCommand(
             restitution = restitution,
             mass = mass?.let { Mass.Constant(it) } ?: Mass.Calculate,
         )
-        bodyCreate(location, count, spread, virtual, model, scale) { physics, transform ->
-            physics.bodies.createMoving(descriptor, transform)
+        bodyCreate(location, count, spread, virtual, model, scale) { physics, position, rotation ->
+            physics.bodies.createMoving(descriptor, position, rotation)
         }
     }
 

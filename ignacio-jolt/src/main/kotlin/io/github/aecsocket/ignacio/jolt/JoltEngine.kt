@@ -15,7 +15,6 @@ import jolt.physics.collision.broadphase.BroadPhaseLayerInterface
 import jolt.physics.collision.broadphase.BroadPhaseLayerInterfaceFn
 import jolt.physics.collision.broadphase.ObjectVsBroadPhaseLayerFilter
 import jolt.physics.collision.shape.*
-import jolt.physics.collision.shape.Shape
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
@@ -28,7 +27,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.logging.Logger
 import kotlin.math.cos
-import kotlin.math.min
 
 private const val BP_LAYER_STATIC: Byte = 0
 private const val BP_LAYER_MOVING: Byte = 1

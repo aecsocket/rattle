@@ -2,6 +2,7 @@ package io.github.aecsocket.ignacio
 
 import io.github.aecsocket.alexandria.assertGt
 import io.github.aecsocket.alexandria.assertGtEq
+import io.github.aecsocket.klam.FQuat
 import io.github.aecsocket.klam.FVec3
 import io.github.aecsocket.klam.minComponent
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
@@ -85,7 +86,7 @@ data class CylinderGeometry(
 data class CompoundChild(
     val shape: Shape,
     val position: FVec3,
-    val rotation: Quat,
+    val rotation: FQuat,
 )
 
 sealed interface CompoundGeometry : Geometry {

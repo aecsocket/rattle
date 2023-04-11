@@ -83,9 +83,7 @@ interface PhysicsBody {
 
         val position: DVec3
 
-        val rotation: Quat
-
-        val transform: Transform
+        val rotation: FQuat
 
         val bounds: DAabb3
 
@@ -103,9 +101,7 @@ interface PhysicsBody {
     interface Write : Access {
         override var position: DVec3
 
-        override var rotation: Quat
-
-        override var transform: Transform
+        override var rotation: FQuat
 
         override var shape: Shape
 
@@ -184,7 +180,7 @@ interface PhysicsBody {
 
         fun applyAngularImpulse(impulse: FVec3)
 
-        fun moveTo(to: Transform, deltaTime: Float)
+        fun moveTo(position: DVec3, rotation: FQuat, deltaTime: Float)
     }
 }
 

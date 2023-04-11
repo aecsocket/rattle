@@ -1,6 +1,5 @@
 package io.github.aecsocket.ignacio.jolt
 
-import io.github.aecsocket.ignacio.Quat
 import io.github.aecsocket.klam.*
 import jolt.geometry.AABox
 import jolt.math.DMat44
@@ -30,8 +29,8 @@ fun MemorySession.asJolt(v: DVec3): JtDVec3 = JtDVec3.of(this, v.x, v.y, v.z)
 fun JtDVec3.asIgnacio() = DVec3(x, y, z)
 
 fun MemorySession.Quat() = JtQuat.of(this)
-fun MemorySession.asJolt(q: Quat): JtQuat = JtQuat.of(this, q.x, q.y, q.z, q.w)
-fun JtQuat.asIgnacio() = Quat(x, y, z, w)
+fun MemorySession.asJolt(q: FQuat): JtQuat = JtQuat.of(this, q.x, q.y, q.z, q.w)
+fun JtQuat.asIgnacio() = FQuat(x, y, z, w)
 
 fun MemorySession.FMat44() = FMat44.of(this)
 fun MemorySession.asJolt(m: FMat4): FMat44 = FMat44.of(this,

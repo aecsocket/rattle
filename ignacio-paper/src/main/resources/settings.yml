@@ -13,8 +13,8 @@ worlds:
     # The gravity vector - acceleration to apply to all moving bodies. (m/s^2)
     # 3D decimal vector: [ 0.0, -9.81, 0.0 ]
     gravity: [ 0.0, -9.81, 0.0 ]
-  # decimal: 1.0
   # Multiplier for the physics time step - decreasing will make the simulation slower (slow-motion).
+  # decimal: 1.0
   delta-time-multiplier: 1.0
   # Which method to use for managing bodies for block terrain.
   # (none, moving_slice): moving_slice

@@ -1,9 +1,6 @@
 package io.github.aecsocket.ignacio
 
-import io.github.aecsocket.klam.DAabb3
-import io.github.aecsocket.klam.DRay3
-import io.github.aecsocket.klam.DVec3
-import io.github.aecsocket.klam.FVec3
+import io.github.aecsocket.klam.*
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 
 fun interface StepListener {
@@ -28,13 +25,13 @@ interface PhysicsSpace : Destroyable {
 
         fun active(): Collection<PhysicsBody>
 
-        fun createStatic(descriptor: StaticBodyDescriptor, transform: Transform): PhysicsBody
+        fun createStatic(descriptor: StaticBodyDescriptor, position: DVec3, rotation: FQuat): PhysicsBody
 
-        fun createMoving(descriptor: MovingBodyDescriptor, transform: Transform): PhysicsBody
+        fun createMoving(descriptor: MovingBodyDescriptor, position: DVec3, rotation: FQuat): PhysicsBody
 
-        fun create(descriptor: BodyDescriptor, transform: Transform) = when (descriptor) {
-            is StaticBodyDescriptor -> createStatic(descriptor, transform)
-            is MovingBodyDescriptor -> createMoving(descriptor, transform)
+        fun create(descriptor: BodyDescriptor, position: DVec3, rotation: FQuat) = when (descriptor) {
+            is StaticBodyDescriptor -> createStatic(descriptor, position, rotation)
+            is MovingBodyDescriptor -> createMoving(descriptor, position, rotation)
         }
 
         fun destroy(body: PhysicsBody)
@@ -43,14 +40,14 @@ interface PhysicsSpace : Destroyable {
 
         fun add(body: PhysicsBody)
 
-        fun addStatic(descriptor: StaticBodyDescriptor, transform: Transform): PhysicsBody {
-            return createStatic(descriptor, transform).also {
+        fun addStatic(descriptor: StaticBodyDescriptor, position: DVec3, rotation: FQuat): PhysicsBody {
+            return createStatic(descriptor, position, rotation).also {
                 add(it)
             }
         }
 
-        fun addMovingBody(descriptor: MovingBodyDescriptor, transform: Transform): PhysicsBody {
-            return createMoving(descriptor, transform).also {
+        fun addMovingBody(descriptor: MovingBodyDescriptor, position: DVec3, rotation: FQuat): PhysicsBody {
+            return createMoving(descriptor, position, rotation).also {
                 add(it)
             }
         }
