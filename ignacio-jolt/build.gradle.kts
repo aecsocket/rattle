@@ -4,10 +4,7 @@ plugins {
 }
 
 dependencies {
-    implementation(projects.ignacioApi)
-    implementation(libs.kotlinxCoroutinesCore)
-    implementation(libs.klam)
-    implementation(libs.configurateCore)
+    api(projects.ignacioApi)
     implementation(libs.joltJava)
 
     testRuntimeOnly(libs.cpuFeaturesJavaNativesLinuxX86)
