@@ -21,7 +21,7 @@ dependencies {
     runtimeOnly(libs.cpuFeaturesJavaNativesWindowsX86)
     runtimeOnly(libs.cpuFeaturesJavaNativesMacosX86)
     runtimeOnly(libs.joltJavaNativesLinuxX86)
-    //runtimeOnly(libs.joltJavaNativesWindowsX86)
+    runtimeOnly(libs.joltJavaNativesWindowsX86)
     //runtimeOnly(libs.joltJavaNativesMacosX86)
 }
 
