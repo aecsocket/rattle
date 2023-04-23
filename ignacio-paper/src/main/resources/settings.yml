@@ -90,7 +90,7 @@ jolt:
     max-contact-constraints: 16384
     temp-allocator-size: 33554432 # 32 * 1024 * 1024
     collision-steps: 1
-    integration-sub-steps: 1 # max 4
+    integration-sub-steps: 3 # max 4
   physics:
     max-in-flight-body-pairs: 16384
     step-listeners-batch-size: 8
