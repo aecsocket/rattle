@@ -23,10 +23,10 @@ data class JtPhysicsBody internal constructor(
     val physics: PhysicsSystem,
     val id: Int,
 ) : PhysicsBody {
-    val destroyed = AtomicBoolean(false)
+    val isDestroyed = AtomicBoolean(false)
     override val isAdded get() = !physics.isDeleted && physics.bodyInterface.isAdded(id)
 
-    private interface Access : PhysicsBody.Access {
+    internal interface Access : PhysicsBody.Access {
         override val key: JtPhysicsBody
         val body: Body
 
@@ -110,7 +110,7 @@ data class JtPhysicsBody internal constructor(
         }
     }
 
-    private interface Write : Access, PhysicsBody.Write {
+    internal interface Write : Access, PhysicsBody.Write {
         override val body: MutableBody
 
         override var position: DVec3
@@ -138,7 +138,7 @@ data class JtPhysicsBody internal constructor(
             set(value) { body.setIsSensor(value) }
     }
 
-    private interface StaticAccess : Access, PhysicsBody.StaticAccess {
+    internal interface StaticAccess : Access, PhysicsBody.StaticAccess {
         override fun asDescriptor() = StaticBodyDescriptor(
             shape = shape,
             contactFilter = contactFilter,
@@ -146,9 +146,9 @@ data class JtPhysicsBody internal constructor(
         )
     }
 
-    private interface StaticWrite : StaticAccess, Write, PhysicsBody.StaticWrite
+    internal interface StaticWrite : StaticAccess, Write, PhysicsBody.StaticWrite
 
-    private interface MovingAccess : Access, PhysicsBody.MovingAccess {
+    internal interface MovingAccess : Access, PhysicsBody.MovingAccess {
         override val isKinematic: Boolean
             get() = body.isKinematic
 
@@ -201,7 +201,7 @@ data class JtPhysicsBody internal constructor(
         )
     }
 
-    private interface MovingWrite : MovingAccess, Write, PhysicsBody.MovingWrite {
+    internal interface MovingWrite : MovingAccess, Write, PhysicsBody.MovingWrite {
         override var isKinematic: Boolean
             get() = super.isKinematic
             set(value) { body.motionType = if (value) MotionType.KINEMATIC else MotionType.DYNAMIC }

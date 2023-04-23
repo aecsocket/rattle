@@ -63,7 +63,7 @@ interface IgnacioEngine : Destroyable {
 
     fun contactFilter(layer: BodyLayer, vararg flags: BodyFlag) = contactFilter(layer, setOf(*flags))
 
-    fun shape(geom: Geometry): Shape
+    fun shape(descriptor: ShapeDescriptor): Shape
 
     fun space(settings: PhysicsSpace.Settings): PhysicsSpace
 

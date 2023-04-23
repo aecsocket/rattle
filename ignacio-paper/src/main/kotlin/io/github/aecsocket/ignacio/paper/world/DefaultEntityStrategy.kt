@@ -177,7 +177,7 @@ class DefaultEntityStrategy(
             entityShapes.computeIfAbsent(entity.type) {
                 when (entity) {
                     // player: 0.6 x 1.8 x 0.6
-                    is Player -> engine.shape(CapsuleGeometry(0.9f, 0.3f))
+                    is Player -> engine.shape(CapsuleDescriptor(0.9f, 0.3f))
                     else -> {
                         val halfWidth = (entity.width / 2).toFloat()
                         val halfHeight = (entity.height / 2).toFloat()
@@ -187,7 +187,7 @@ class DefaultEntityStrategy(
                             // marker armor stand or similar?
                             null
                         } else {
-                            engine.shape(BoxGeometry(FVec3(halfWidth, halfHeight, halfWidth)))
+                            engine.shape(BoxDescriptor(FVec3(halfWidth, halfHeight, halfWidth)))
                         }
                     }
                 }

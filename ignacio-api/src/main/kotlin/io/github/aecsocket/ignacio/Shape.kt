@@ -10,17 +10,17 @@ import org.spongepowered.configurate.objectmapping.ConfigSerializable
 const val DEFAULT_CONVEX_RADIUS = 0.05f
 const val DEFAULT_DENSITY = 1000.0f
 
-sealed interface Geometry
+sealed interface ShapeDescriptor
 
-sealed interface ConvexGeometry : Geometry {
+sealed interface ConvexDescriptor : ShapeDescriptor {
     val density: Float
 }
 
 @ConfigSerializable
-data class SphereGeometry(
+data class SphereDescriptor(
     val radius: Float,
     override val density: Float = DEFAULT_DENSITY,
-) : ConvexGeometry {
+) : ConvexDescriptor {
     init {
         assertGt("radius", 0.0f, radius)
         assertGt("density", 0.0f, density)
@@ -28,11 +28,11 @@ data class SphereGeometry(
 }
 
 @ConfigSerializable
-data class BoxGeometry(
+data class BoxDescriptor(
     val halfExtent: FVec3,
     val convexRadius: Float = DEFAULT_CONVEX_RADIUS,
     override val density: Float = DEFAULT_DENSITY,
-) : ConvexGeometry {
+) : ConvexDescriptor {
     init {
         assertGt("minComponent(halfExtent)", 0.0f, minComponent(halfExtent))
         assertGtEq("convexRadius", 0.0f, convexRadius)
@@ -41,11 +41,11 @@ data class BoxGeometry(
 }
 
 @ConfigSerializable
-data class CapsuleGeometry(
+data class CapsuleDescriptor(
     val halfHeight: Float,
     val radius: Float,
     override val density: Float = DEFAULT_DENSITY,
-) : ConvexGeometry {
+) : ConvexDescriptor {
     init {
         assertGt("halfHeight", 0.0f, halfHeight)
         assertGt("radius", 0.0f, radius)
@@ -54,12 +54,12 @@ data class CapsuleGeometry(
 }
 
 @ConfigSerializable
-data class TaperedCapsuleGeometry(
+data class TaperedCapsuleDescriptor(
     val halfHeight: Float,
     val topRadius: Float,
     val bottomRadius: Float,
     override val density: Float = DEFAULT_DENSITY,
-) : ConvexGeometry {
+) : ConvexDescriptor {
     init {
         assertGt("halfHeight", 0.0f, halfHeight)
         assertGt("topRadius", 0.0f, topRadius)
@@ -69,12 +69,12 @@ data class TaperedCapsuleGeometry(
 }
 
 @ConfigSerializable
-data class CylinderGeometry(
+data class CylinderDescriptor(
     val halfHeight: Float,
     val radius: Float,
     val convexRadius: Float,
     override val density: Float = DEFAULT_DENSITY,
-) : ConvexGeometry {
+) : ConvexDescriptor {
     init {
         assertGt("halfHeight", 0.0f, halfHeight)
         assertGt("radius", 0.0f, radius)
@@ -89,16 +89,16 @@ data class CompoundChild(
     val rotation: FQuat,
 )
 
-sealed interface CompoundGeometry : Geometry {
+sealed interface CompoundDescriptor : ShapeDescriptor {
     val children: Collection<CompoundChild>
 }
 
-data class StaticCompoundGeometry(
+data class StaticCompoundDescriptor(
     override val children: Collection<CompoundChild>,
-) : CompoundGeometry
+) : CompoundDescriptor
 
-data class MutableCompoundGeometry(
+data class MutableCompoundDescriptor(
     override val children: Collection<CompoundChild>,
-) : CompoundGeometry
+) : CompoundDescriptor
 
 interface Shape : Destroyable

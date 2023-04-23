@@ -216,10 +216,10 @@ internal class IgnacioCommand(
         virtual: Boolean,
         model: ItemDescriptor,
         scale: FVec3,
-        geometry: Geometry,
+        shape: ShapeDescriptor,
     ) {
         val descriptor = StaticBodyDescriptor(
-            shape = ignacio.engine.shape(geometry),
+            shape = ignacio.engine.shape(shape),
             contactFilter = ignacio.engine.contactFilter(ignacio.engine.layers.moving),
         )
         bodyCreate(location, count, spread, virtual, model, scale) { physics, position, rotation ->
@@ -240,7 +240,7 @@ internal class IgnacioCommand(
             location, count, spread, virtual,
             ignacio.settings.primitiveBodies.models.box,
             FVec3(halfExtent * 2.0f),
-            BoxGeometry(FVec3(halfExtent)),
+            BoxDescriptor(FVec3(halfExtent)),
         )
 
         messages.command.body.create.static.box(
@@ -262,7 +262,7 @@ internal class IgnacioCommand(
             location, count, spread, virtual,
             ignacio.settings.primitiveBodies.models.sphere,
             FVec3(radius * 2.0f),
-            SphereGeometry(radius),
+            SphereDescriptor(radius),
         )
 
         messages.command.body.create.static.sphere(
@@ -281,10 +281,10 @@ internal class IgnacioCommand(
         mass: Float?,
         model: ItemDescriptor,
         scale: FVec3,
-        geometry: Geometry,
+        shape: ShapeDescriptor,
     ) {
         val descriptor = MovingBodyDescriptor(
-            shape = ignacio.engine.shape(geometry),
+            shape = ignacio.engine.shape(shape),
             contactFilter = ignacio.engine.contactFilter(ignacio.engine.layers.moving),
             friction = friction,
             restitution = restitution,
@@ -313,7 +313,7 @@ internal class IgnacioCommand(
             friction, restitution, mass,
             ignacio.settings.primitiveBodies.models.box,
             FVec3(halfExtent * 2.0f),
-            BoxGeometry(FVec3(halfExtent), density = density),
+            BoxDescriptor(FVec3(halfExtent), density = density),
         )
 
         messages.command.body.create.moving.box(
@@ -340,7 +340,7 @@ internal class IgnacioCommand(
             friction, restitution, mass,
             ignacio.settings.primitiveBodies.models.sphere,
             FVec3(radius * 2.0f),
-            SphereGeometry(radius, density = density),
+            SphereDescriptor(radius, density = density),
         )
 
         messages.command.body.create.moving.sphere(

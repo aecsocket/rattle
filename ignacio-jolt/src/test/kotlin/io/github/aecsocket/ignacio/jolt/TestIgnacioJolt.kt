@@ -15,13 +15,13 @@ class TestIgnacioJolt {
 
         val physics = engine.space(PhysicsSpace.Settings())
 
-        val floorShape = engine.shape(BoxGeometry(FVec3(100.0f, 0.5f, 100.0f)))
+        val floorShape = engine.shape(BoxDescriptor(FVec3(100.0f, 0.5f, 100.0f)))
         val floorBody = physics.bodies.addStatic(StaticBodyDescriptor(
             shape = floorShape,
             contactFilter = engine.contactFilter(engine.layers.static),
         ), DVec3(0.0), FQuat.identity())
 
-        val ballShape = engine.shape(SphereGeometry(1.0f))
+        val ballShape = engine.shape(SphereDescriptor(1.0f))
         val ballBody = physics.bodies.addMovingBody(MovingBodyDescriptor(
             shape = ballShape,
             contactFilter = engine.contactFilter(engine.layers.moving),

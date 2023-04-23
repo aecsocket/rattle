@@ -15,6 +15,7 @@ import jolt.physics.collision.broadphase.BroadPhaseLayerInterface
 import jolt.physics.collision.broadphase.BroadPhaseLayerInterfaceFn
 import jolt.physics.collision.broadphase.ObjectVsBroadPhaseLayerFilter
 import jolt.physics.collision.shape.*
+import jolt.physics.constraint.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
@@ -274,29 +275,29 @@ class JoltEngine internal constructor(
         return JtBodyContactFilter(layer.id)
     }
 
-    override fun shape(geom: Geometry) = JtShape(pushArena { arena ->
-        val handle: ShapeSettings = when (geom) {
-            is ConvexGeometry -> {
-                when (geom) {
-                    is SphereGeometry -> SphereShapeSettings.of(geom.radius)
-                    is BoxGeometry -> {
+    override fun shape(descriptor: ShapeDescriptor) = JtShape(pushArena { arena ->
+        val handle: ShapeSettings = when (descriptor) {
+            is ConvexDescriptor -> {
+                when (descriptor) {
+                    is SphereDescriptor -> SphereShapeSettings.of(descriptor.radius)
+                    is BoxDescriptor -> {
                         // ensure that our convex radius is always valid
-                        val convexRadius = clamp(geom.convexRadius, 0.0f, minComponent(geom.halfExtent) - EPSILON_F)
-                        BoxShapeSettings.of(arena.asJolt(geom.halfExtent), convexRadius)
+                        val convexRadius = clamp(descriptor.convexRadius, 0.0f, minComponent(descriptor.halfExtent) - EPSILON_F)
+                        BoxShapeSettings.of(arena.asJolt(descriptor.halfExtent), convexRadius)
                     }
-                    is CapsuleGeometry -> CapsuleShapeSettings.of(geom.halfHeight, geom.radius)
-                    is TaperedCapsuleGeometry -> TaperedCapsuleShapeSettings.of(geom.halfHeight, geom.topRadius, geom.bottomRadius)
-                    is CylinderGeometry -> CylinderShapeSettings.of(geom.halfHeight, geom.radius, geom.convexRadius)
+                    is CapsuleDescriptor -> CapsuleShapeSettings.of(descriptor.halfHeight, descriptor.radius)
+                    is TaperedCapsuleDescriptor -> TaperedCapsuleShapeSettings.of(descriptor.halfHeight, descriptor.topRadius, descriptor.bottomRadius)
+                    is CylinderDescriptor -> CylinderShapeSettings.of(descriptor.halfHeight, descriptor.radius, descriptor.convexRadius)
                 }.apply {
-                    density = geom.density
+                    density = descriptor.density
                 }
             }
-            is CompoundGeometry -> {
-                when (geom) {
-                    is StaticCompoundGeometry -> StaticCompoundShapeSettings.of()
-                    is MutableCompoundGeometry -> MutableCompoundShapeSettings.of()
+            is CompoundDescriptor -> {
+                when (descriptor) {
+                    is StaticCompoundDescriptor -> StaticCompoundShapeSettings.of()
+                    is MutableCompoundDescriptor -> MutableCompoundShapeSettings.of()
                 }.apply {
-                    geom.children.forEach { child ->
+                    descriptor.children.forEach { child ->
                         addShape(
                             arena.asJolt(child.position),
                             arena.asJolt(child.rotation),

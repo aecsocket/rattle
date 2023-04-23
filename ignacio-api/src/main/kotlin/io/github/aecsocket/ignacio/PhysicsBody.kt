@@ -98,7 +98,7 @@ interface PhysicsBody {
 
     interface Read : Access
 
-    interface Write : Access {
+    interface Write : Access, ConstraintTarget {
         override var position: DVec3
 
         override var rotation: FQuat

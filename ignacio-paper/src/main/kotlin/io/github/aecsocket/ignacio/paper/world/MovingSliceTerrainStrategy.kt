@@ -184,14 +184,14 @@ class MovingSliceTerrainStrategy(
     var enabled = true
         private set
 
-    private fun shape(geom: Geometry): Shape {
-        return engine.shape(geom).also { uniqueShapes += it }
+    private fun shape(descriptor: ShapeDescriptor): Shape {
+        return engine.shape(descriptor).also { uniqueShapes += it }
     }
 
     private fun cubeShape(halfExtents: FVec3): Shape {
         return cubeCache.synchronized { cubeCache ->
             cubeCache.computeIfAbsent(halfExtents) {
-                shape(BoxGeometry(halfExtents))
+                shape(BoxDescriptor(halfExtents))
             }
         }
     }
@@ -304,7 +304,7 @@ class MovingSliceTerrainStrategy(
             val layerChildren = slice.tiles.createCompoundChildren()
             terrainLayers.forEachIndexed { layerIdx, _ ->
                 val children = layerChildren[layerIdx].ifEmpty { return@forEachIndexed }
-                val shape = engine.shape(StaticCompoundGeometry(children))
+                val shape = engine.shape(StaticCompoundDescriptor(children))
                 // TODO this will not create a new body if one doesn't exist for this layer
                 // e.g. if a new water block is placed in a slice which didn't have one before,
                 // this will do nothing (bad!)
@@ -398,7 +398,7 @@ class MovingSliceTerrainStrategy(
                             rotation = FQuat.identity(),
                         )
                     }
-                    shape(StaticCompoundGeometry(children))
+                    shape(StaticCompoundDescriptor(children))
                 }
             }
             shape.also { shapeCache[blockData] = it }
@@ -411,7 +411,7 @@ class MovingSliceTerrainStrategy(
             val layerBodies = terrainLayers.mapIndexed { layerIdx, layer ->
                 val children = layerChildren[layerIdx].ifEmpty { return@mapIndexed null }
 
-                val shape = engine.shape(StaticCompoundGeometry(children))
+                val shape = engine.shape(StaticCompoundDescriptor(children))
                 physics.bodies.createStatic(StaticBodyDescriptor(
                     shape = shape,
                     contactFilter = contactFilter,

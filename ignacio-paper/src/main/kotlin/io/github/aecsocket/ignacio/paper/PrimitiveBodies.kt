@@ -71,6 +71,13 @@ class PrimitiveBodies internal constructor(private val ignacio: Ignacio) {
                 physics.bodies.add(body)
                 body.writeAs<PhysicsBody.MovingWrite> { moving ->
                     moving.activate()
+                    physics.constraints.add(
+                        descriptor = FixedJointDescriptor(
+                            pointB = DVec3(0.0, 128.0, 0.0),
+                        ),
+                        targetA = moving,
+                        targetB = ConstraintTarget.World,
+                    )
                 }
                 val render = createRender?.invoke(marker.playerTracker())
                 val instance = Instance(id, physics, body, render, marker, location)

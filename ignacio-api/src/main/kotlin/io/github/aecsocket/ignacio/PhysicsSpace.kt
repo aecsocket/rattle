@@ -59,6 +59,26 @@ interface PhysicsSpace : Destroyable {
         fun removeAll(bodies: Collection<PhysicsBody>)
     }
 
+    val constraints: Constraints
+    interface Constraints {
+        fun create(descriptor: ConstraintDescriptor, targetA: ConstraintTarget, targetB: ConstraintTarget): Constraint
+
+        fun destroy(constraint: Constraint)
+
+        fun destroyAll(constraints: Collection<Constraint>)
+
+        fun add(constraint: Constraint)
+
+        fun addAll(constraints: Collection<Constraint>)
+
+        fun remove(constraint: Constraint)
+
+        fun removeAll(constraints: Collection<Constraint>)
+
+        fun add(descriptor: ConstraintDescriptor, targetA: ConstraintTarget, targetB: ConstraintTarget): Constraint =
+            create(descriptor, targetA, targetB).also { add(it) }
+    }
+
     data class RayCast(
         val body: PhysicsBody,
         val hitFraction: Float,
