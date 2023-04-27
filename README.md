@@ -4,6 +4,8 @@
 [![License](https://img.shields.io/github/license/aecsocket/ignacio)](LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/aecsocket/ignacio/build.yml)](https://github.com/aecsocket/ignacio/actions/workflows/build.yml)
 
+<img src="static/banner.png" height="240"/>
+
 API abstraction layer for physics engines for Minecraft servers
 
 ### [GitHub](https://github.com/aecsocket/ignacio) · [Docs](https://aecsocket.github.io/ignacio)
