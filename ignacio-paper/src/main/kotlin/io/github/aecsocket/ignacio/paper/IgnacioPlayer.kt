@@ -30,7 +30,7 @@ class IgnacioPlayer internal constructor(
             val bar = ignacio.settings.engineTimings.bar.create(Component.empty())
             player.showBossBar(bar)
             timingsBar = bar
-        } else {
+        } else if (!newFlags.showTimings && debugFlags.showTimings) {
             timingsBar?.let { bar ->
                 player.hideBossBar(bar)
                 timingsBar = null

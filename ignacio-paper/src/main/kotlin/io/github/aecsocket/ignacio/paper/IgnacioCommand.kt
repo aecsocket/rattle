@@ -195,7 +195,7 @@ internal class IgnacioCommand(
             ignacio.primitiveBodies.create(
                 location.world,
                 position,
-                { physics -> createBody(physics, position, FQuat.identity()) },
+                { physics -> createBody(physics, position, FQuat.Identity) },
                 if (virtual) null else {
                     { tracker ->
                         ignacio.renders.create(ModelDescriptor(

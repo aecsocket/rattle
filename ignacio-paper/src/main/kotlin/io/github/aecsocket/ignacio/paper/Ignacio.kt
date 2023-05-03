@@ -208,12 +208,13 @@ class Ignacio : AlexandriaPlugin(Manifest("ignacio",
 
     private fun onPhysicsUpdate() {
         primitiveBodies.onPhysicsUpdate()
-        val worldMap = worldMap.synchronized { it.toMap() }
-        worldMap.forEach { (_, world) ->
-            world.startPhysicsUpdate(worldDeltaTime)
-        }
-        worldMap.forEach { (_, world) ->
-            world.joinPhysicsUpdate()
+        worldMap.synchronized { worldMap ->
+            worldMap.forEach { (_, world) ->
+                world.startPhysicsUpdate(worldDeltaTime)
+            }
+            worldMap.forEach { (_, world) ->
+                world.joinPhysicsUpdate()
+            }
         }
     }
 

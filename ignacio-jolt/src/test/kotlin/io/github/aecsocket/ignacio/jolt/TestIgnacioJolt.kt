@@ -19,7 +19,7 @@ class TestIgnacioJolt {
         val floorBody = physics.bodies.addStatic(StaticBodyDescriptor(
             shape = floorShape,
             contactFilter = engine.contactFilter(engine.layers.static),
-        ), DVec3(0.0), FQuat.identity())
+        ), DVec3(0.0), FQuat.Identity)
 
         val ballShape = engine.shape(SphereDescriptor(1.0f))
         val ballBody = physics.bodies.addMovingBody(MovingBodyDescriptor(
@@ -27,7 +27,7 @@ class TestIgnacioJolt {
             contactFilter = engine.contactFilter(engine.layers.moving),
             linearVelocity = FVec3(0.0f, 2.0f, 0.0f),
             restitution = 0.5f,
-        ), DVec3(0.0, 5.0, 0.0), FQuat.identity())
+        ), DVec3(0.0, 5.0, 0.0), FQuat.Identity)
 
         ballBody.writeAs<PhysicsBody.MovingWrite> { ball ->
             ball.activate()
