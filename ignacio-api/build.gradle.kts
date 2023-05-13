@@ -4,5 +4,9 @@ plugins {
 }
 
 dependencies {
-    api(libs.alexandriaApi)
+    api(libs.klam)
+    api(libs.configurate.core)
+
+    testImplementation(projects.ignacioRapier)
+    testRuntimeOnly(libs.rapier.linux.x86)
 }

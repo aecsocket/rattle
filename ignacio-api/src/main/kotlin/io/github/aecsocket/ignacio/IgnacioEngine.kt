@@ -1,78 +1,38 @@
 package io.github.aecsocket.ignacio
 
-import kotlinx.coroutines.CoroutineScope
+import io.github.aecsocket.klam.*
+import kotlin.math.max
 
-interface BodyLayer
+typealias Real = Double
+typealias Vec = DVec3
+typealias Quat = DQuat
+typealias Mat3 = DMat3
+typealias Iso = DIsometry3
+typealias Affine = DAffine3
 
-enum class BodyLayerType {
-    STATIC,
-    MOVING,
-    TERRAIN,
+const val DEFAULT_FRICTION: Real = 0.5
+const val DEFAULT_RESTITUTION: Real = 0.0
+const val DEFAULT_LINEAR_DAMPING: Real = 0.05
+const val DEFAULT_ANGULAR_DAMPING: Real = 0.05
+
+interface Destroyable {
+    fun destroy()
 }
 
-interface BodyFlag
+interface RefCounted {
+    val refCount: Long
 
-interface BodyContactFilter {
-    val layer: BodyLayer
-    val flags: Set<BodyFlag>
+    fun increment()
+
+    fun decrement()
 }
-
-interface LayerFilter : Destroyable
-
-interface BodyFilter : Destroyable
-
-interface ShapeFilter : Destroyable
 
 interface IgnacioEngine : Destroyable {
-    val build: String
+    fun createShape(geom: Geometry): Shape
 
-    val layers: Layers
-    interface Layers {
-        val static: BodyLayer
+    fun createSpace(settings: PhysicsSpace.Settings): PhysicsSpace
+}
 
-        val moving: BodyLayer
-
-        val terrain: BodyLayer
-
-        val entity: BodyLayer
-    }
-
-    val filters: Filters
-    interface Filters {
-        val anyLayer: LayerFilter
-
-        val anyBody: BodyFilter
-
-        val anyShape: ShapeFilter
-
-        // TODO
-//        fun forLayer(layer: Filter<BodyLayer>, flag: Filter<BodyFlag>): LayerFilter
-//
-//        fun forBody(test: Predicate<PhysicsBody.Read>): BodyFilter
-
-        // TODO fun forShape(test: )
-    }
-
-    fun shutdown()
-
-    fun runTask(block: Runnable)
-
-    fun launchTask(block: suspend CoroutineScope.() -> Unit)
-
-    fun contactFilter(layer: BodyLayer, flags: Set<BodyFlag>): BodyContactFilter
-
-    fun contactFilter(layer: BodyLayer, vararg flags: BodyFlag) = contactFilter(layer, setOf(*flags))
-
-    fun shape(descriptor: ShapeDescriptor): Shape
-
-    fun space(settings: PhysicsSpace.Settings): PhysicsSpace
-
-    interface Builder {
-        // TODO
-//        fun defineBodyLayer(type: BodyLayerType): BodyLayer
-//
-//        fun defineBodyFlag(): BodyFlag
-
-        fun build(): IgnacioEngine
-    }
+fun numThreads(raw: Int) = if (raw > 0) raw else {
+    max(Runtime.getRuntime().availableProcessors() - 2, 1)
 }

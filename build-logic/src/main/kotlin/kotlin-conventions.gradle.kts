@@ -5,6 +5,9 @@ plugins {
 
 kotlin {
     jvmToolchain(indra.javaVersions().target().get())
+    compilerOptions {
+        freeCompilerArgs.add("-Xcontext-receivers")
+    }
 }
 
 dependencies {

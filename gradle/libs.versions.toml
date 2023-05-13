@@ -1,0 +1,31 @@
+[versions]
+indra = "3.0.1"
+kotlin = "1.9.0-Beta-104"
+klam = "0.2.0-SNAPSHOT"
+configurate = "4.1.2"
+alexandria = "0.1.1-SNAPSHOT"
+rapier = "0.1.0-SNAPSHOT"
+physx = "2.0.5"
+minecraft = "1.19.4"
+
+[libraries]
+indra-common = { group = "net.kyori", name = "indra-common", version.ref = "indra" }
+indra-publishing-sonatype = { group = "net.kyori", name = "indra-publishing-sonatype", version.ref = "indra" }
+kotlin = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version.ref = "kotlin" }
+klam = { group = "io.github.aecsocket", name = "klam", version.ref = "klam" }
+configurate-core = { group = "org.spongepowered", name = "configurate-core", version.ref = "configurate" }
+rapier = { group = "io.github.aecsocket", name = "rapier-java-dim3-f64", version.ref = "rapier" }
+rapier-linux-x86 = { group = "io.github.aecsocket", name = "rapier-java-dim3-f64-linux-x86", version.ref = "rapier" }
+rapier-windows-x86 = { group = "io.github.aecsocket", name = "rapier-java-dim3-f64-windows-x86", version.ref = "rapier" }
+rapier-macos-x86 = { group = "io.github.aecsocket", name = "rapier-java-dim3-f64-macos-x86", version.ref = "rapier" }
+physx = { group = "de.fabmax", name = "physx-jni", version.ref = "physx" }
+alexandria-api = { group = "io.github.aecsocket", name = "alexandria-api", version.ref = "alexandria" }
+alexandria-paper = { group = "io.github.aecsocket", name = "alexandria-paper", version.ref = "alexandria" }
+alexandria-fabric = { group = "io.github.aecsocket", name = "alexandria-fabric", version.ref = "alexandria" }
+minecraft = { group = "com.mojang", name = "minecraft", version.ref = "minecraft" }
+
+[plugins]
+shadow = { id = "com.github.johnrengelman.shadow", version = "8.1.1" }
+paperweight-userdev = { id = "io.papermc.paperweight.userdev", version = "1.5.5" }
+run-paper = { id = "xyz.jpenilla.run-paper", version = "2.0.1" }
+fabric-loom = { id = "fabric-loom", version = "1.1-SNAPSHOT" }

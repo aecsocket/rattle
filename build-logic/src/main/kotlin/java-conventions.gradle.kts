@@ -1,3 +1,5 @@
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+
 plugins {
     id("base-conventions")
     id("java-library")
@@ -6,7 +8,8 @@ plugins {
 
 indra {
     javaVersions {
-        target(19)
+        target(20)
+        previewFeaturesEnabled(true)
     }
 }
 
@@ -14,10 +17,11 @@ repositories {
     if (!ci.get()) mavenLocal()
     mavenCentral()
     sonatype.s01Snapshots()
+    maven("https://maven.pkg.jetbrains.space/kotlin/p/kotlin/dev") // Kotlin Beta
 }
 
-afterEvaluate {
-    tasks.processResources {
+tasks {
+    processResources {
         filesMatching("**/*.yml") {
             expand(
                 "version" to project.version,
@@ -25,5 +29,13 @@ afterEvaluate {
                 "description" to project.description
             )
         }
+    }
+
+    test {
+        jvmArgs(
+            "--enable-preview",
+            "--enable-native-access=ALL-UNNAMED",
+        )
+        testLogging.exceptionFormat = TestExceptionFormat.FULL
     }
 }

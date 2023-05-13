@@ -4,10 +4,11 @@ plugins {
 
 repositories {
     gradlePluginPortal()
+    maven("https://maven.pkg.jetbrains.space/kotlin/p/kotlin/dev") // Kotlin Beta
 }
 
 dependencies {
-    implementation(libs.indraCommon)
-    implementation(libs.indraPublishingSonatype)
+    implementation(libs.indra.common)
+    implementation(libs.indra.publishing.sonatype)
     implementation(libs.kotlin)
 }
