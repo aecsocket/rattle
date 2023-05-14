@@ -1,18 +1,62 @@
 package io.github.aecsocket.ignacio.rapier
 
 import io.github.aecsocket.ignacio.*
+import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import rapier.Rapier
+import rapier.geometry.CoefficientCombineRule
 import rapier.shape.SharedShape
 
-class RapierEngine : IgnacioEngine {
+class RapierEngine(val settings: Settings) : PhysicsEngine {
+    @ConfigSerializable
+    data class Settings(
+        val integration: Integration = Integration(),
+    ) {
+        @ConfigSerializable
+        data class Integration(
+            val minCcdDtMultiplier: Real = 0.01,
+            val erp: Real = 0.8,
+            val dampingRatio: Real = 0.25,
+            val jointErp: Real = 1.0,
+            val jointDampingRatio: Real = 1.0,
+            val allowedLinearError: Real = 0.001,
+            val maxPenetrationCorrection: Real = Real.MAX_VALUE,
+            val predictionDistance: Real = 0.002,
+            val maxVelocityIterations: Long = 4,
+            val maxVelocityFrictionIterations: Long = 8,
+            val maxStabilizationIterations: Long = 1,
+            val interleaveRestitutionAndFrictionResolution: Boolean = true,
+            val minIslandSize: Long = 128,
+            val maxCcdSubsteps: Long = 1,
+        )
+    }
+
     private val destroyed = DestroyFlag()
+    override lateinit var version: String
+        private set
 
     init {
         Rapier.load()
+        version = Rapier.VERSION
     }
 
     override fun destroy() {
         destroyed()
+    }
+
+    override fun createMaterial(desc: PhysicsMaterialDesc): PhysicsMaterial {
+        fun CoeffCombineRule.asRapier() = when (this) {
+            CoeffCombineRule.AVERAGE -> CoefficientCombineRule.AVERAGE
+            CoeffCombineRule.MIN -> CoefficientCombineRule.MIN
+            CoeffCombineRule.MULTIPLY -> CoefficientCombineRule.MULTIPLY
+            CoeffCombineRule.MAX -> CoefficientCombineRule.MAX
+        }
+
+        return RapierMaterial(
+            desc.friction,
+            desc.restitution,
+            desc.frictionCombine.asRapier(),
+            desc.restitutionCombine.asRapier(),
+        )
     }
 
     override fun createShape(geom: Geometry): Shape {
@@ -41,6 +85,6 @@ class RapierEngine : IgnacioEngine {
     }
 
     override fun createSpace(settings: PhysicsSpace.Settings): PhysicsSpace {
-        return RapierSpace(settings)
+        return RapierSpace(this, settings)
     }
 }

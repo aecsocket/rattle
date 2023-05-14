@@ -9,10 +9,13 @@ class RapierShape internal constructor(
     override val refCount: Long
         get() = shape.strongCount()
 
-    override fun increment() {
+    override fun acquire(): RapierShape {
+        shape.acquire()
+        return this
     }
 
-    override fun decrement() {
-
+    override fun release(): RapierShape {
+        shape.release()
+        return this
     }
 }

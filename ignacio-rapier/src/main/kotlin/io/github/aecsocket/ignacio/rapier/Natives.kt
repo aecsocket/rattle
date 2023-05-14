@@ -15,6 +15,11 @@ fun <R> pushArena(block: (arena: Arena) -> R): R =
 
 fun Vec.asVector(alloc: SegmentAllocator) = Vector.of(alloc, x, y, z)
 fun Vector.asVec() = Vec(x, y, z)
+fun Vector.copyFrom(v: Vec) {
+    x = v.x
+    y = v.y
+    z = v.z
+}
 
 fun Vec.asAngVector(alloc: SegmentAllocator) = AngVector.of(alloc, x, y, z)
 fun AngVector.asVec() = Vec(x, y, z)
@@ -22,5 +27,5 @@ fun AngVector.asVec() = Vec(x, y, z)
 fun Quat.asRotation(alloc: SegmentAllocator) = Rotation.of(alloc, x, y, z, w)
 fun Rotation.asQuat() = Quat(x, y, z, w)
 
-fun Iso.asIsometry(alloc: SegmentAllocator) = Isometry.of(alloc, rotation.asRotation(alloc), position.asVector(alloc))
+fun Iso.asIsometry(alloc: SegmentAllocator) = Isometry.of(alloc, rotation.asRotation(alloc), translation.asVector(alloc))
 fun Isometry.asIso() = Iso(translation.asVec(), rotation.asQuat())

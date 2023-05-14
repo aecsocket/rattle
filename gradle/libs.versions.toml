@@ -5,6 +5,7 @@ klam = "0.2.0-SNAPSHOT"
 configurate = "4.1.2"
 alexandria = "0.1.1-SNAPSHOT"
 rapier = "0.1.0-SNAPSHOT"
+jolt = "0.1.0-SNAPSHOT"
 physx = "2.0.5"
 minecraft = "1.19.4"
 
@@ -12,12 +13,17 @@ minecraft = "1.19.4"
 indra-common = { group = "net.kyori", name = "indra-common", version.ref = "indra" }
 indra-publishing-sonatype = { group = "net.kyori", name = "indra-publishing-sonatype", version.ref = "indra" }
 kotlin = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version.ref = "kotlin" }
+kotlin-reflect = { group = "org.jetbrains.kotlin", name = "kotlin-reflect", version.ref = "kotlin" }
 klam = { group = "io.github.aecsocket", name = "klam", version.ref = "klam" }
 configurate-core = { group = "org.spongepowered", name = "configurate-core", version.ref = "configurate" }
 rapier = { group = "io.github.aecsocket", name = "rapier-java-dim3-f64", version.ref = "rapier" }
 rapier-linux-x86 = { group = "io.github.aecsocket", name = "rapier-java-dim3-f64-linux-x86", version.ref = "rapier" }
 rapier-windows-x86 = { group = "io.github.aecsocket", name = "rapier-java-dim3-f64-windows-x86", version.ref = "rapier" }
 rapier-macos-x86 = { group = "io.github.aecsocket", name = "rapier-java-dim3-f64-macos-x86", version.ref = "rapier" }
+jolt = { group = "io.github.aecsocket", name = "jolt-java", version.ref = "jolt" }
+jolt-linux-x86 = { group = "io.github.aecsocket", name = "jolt-java-natives-linux-x86", version.ref = "jolt" }
+jolt-windows-x86 = { group = "io.github.aecsocket", name = "jolt-java-natives-windows-x86", version.ref = "jolt" }
+jolt-macos-x86 = { group = "io.github.aecsocket", name = "jolt-java-natives-macos-x86", version.ref = "jolt" }
 physx = { group = "de.fabmax", name = "physx-jni", version.ref = "physx" }
 alexandria-api = { group = "io.github.aecsocket", name = "alexandria-api", version.ref = "alexandria" }
 alexandria-paper = { group = "io.github.aecsocket", name = "alexandria-paper", version.ref = "alexandria" }

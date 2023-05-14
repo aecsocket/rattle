@@ -9,11 +9,13 @@ class PhysxShape internal constructor(
     override val refCount: Long
         get() = shape.referenceCount.toLong()
 
-    override fun increment() {
+    override fun acquire(): PhysxShape {
         shape.acquireReference()
+        return this
     }
 
-    override fun decrement() {
+    override fun release(): PhysxShape {
         shape.release()
+        return this
     }
 }

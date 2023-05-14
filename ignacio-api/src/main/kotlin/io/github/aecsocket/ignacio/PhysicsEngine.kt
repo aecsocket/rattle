@@ -7,7 +7,7 @@ typealias Real = Double
 typealias Vec = DVec3
 typealias Quat = DQuat
 typealias Mat3 = DMat3
-typealias Iso = DIsometry3
+typealias Iso = DIso3
 typealias Affine = DAffine3
 
 const val DEFAULT_FRICTION: Real = 0.5
@@ -22,13 +22,19 @@ interface Destroyable {
 interface RefCounted {
     val refCount: Long
 
-    fun increment()
+    fun acquire(): Any
 
-    fun decrement()
+    fun release(): Any
 }
 
-interface IgnacioEngine : Destroyable {
+interface PhysicsEngine : Destroyable {
+    val version: String
+
+    fun createMaterial(desc: PhysicsMaterialDesc): PhysicsMaterial
+
     fun createShape(geom: Geometry): Shape
+
+    fun <CR : Collider<CR, CW>, CW : CR> createCollider(desc: ColliderDesc): Collider<CR, CW>
 
     fun createSpace(settings: PhysicsSpace.Settings): PhysicsSpace
 }

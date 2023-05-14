@@ -4,9 +4,10 @@ plugins {
 }
 
 dependencies {
+    api(libs.kotlin.reflect)
     api(libs.klam)
     api(libs.configurate.core)
 
     testImplementation(projects.ignacioRapier)
-    testRuntimeOnly(libs.rapier.linux.x86)
+    testImplementation(projects.ignacioPhysx)
 }
