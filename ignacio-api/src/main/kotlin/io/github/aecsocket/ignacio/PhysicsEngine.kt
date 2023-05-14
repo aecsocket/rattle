@@ -19,22 +19,17 @@ interface Destroyable {
     fun destroy()
 }
 
-interface RefCounted {
-    val refCount: Long
-
-    fun acquire(): Any
-
-    fun release(): Any
-}
-
 interface PhysicsEngine : Destroyable {
     val version: String
 
-    fun createMaterial(desc: PhysicsMaterialDesc): PhysicsMaterial
+    fun createMaterial(
+        friction: Real = DEFAULT_FRICTION,
+        restitution: Real = DEFAULT_RESTITUTION,
+        frictionCombine: CoeffCombineRule = CoeffCombineRule.AVERAGE,
+        restitutionCombine: CoeffCombineRule = CoeffCombineRule.AVERAGE,
+    ): PhysicsMaterial
 
     fun createShape(geom: Geometry): Shape
-
-    fun <CR : Collider<CR, CW>, CW : CR> createCollider(desc: ColliderDesc): Collider<CR, CW>
 
     fun createSpace(settings: PhysicsSpace.Settings): PhysicsSpace
 }

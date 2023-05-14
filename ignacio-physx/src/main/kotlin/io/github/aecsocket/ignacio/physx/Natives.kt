@@ -1,8 +1,6 @@
 package io.github.aecsocket.ignacio.physx
 
-import io.github.aecsocket.ignacio.Iso
-import io.github.aecsocket.ignacio.Quat
-import io.github.aecsocket.ignacio.Vec
+import io.github.aecsocket.ignacio.*
 import physx.common.PxQuat
 import physx.common.PxTransform
 import physx.common.PxVec3
@@ -16,11 +14,11 @@ internal val allocFn: (SegmentAllocator, Int, Int) -> Long = { alloc, alignment,
     alloc.allocate(size.toLong(), alignment.toLong()).address()
 }
 
-fun Vec.asPx(alloc: SegmentAllocator) = PxVec3.createAt(alloc, allocFn, x.toFloat(), y.toFloat(), z.toFloat())
-fun PxVec3.asVec() = Vec(x.toDouble(), y.toDouble(), z.toDouble())
+fun Vec.toPx(alloc: SegmentAllocator) = PxVec3.createAt(alloc, allocFn, x.toFloat(), y.toFloat(), z.toFloat())
+fun PxVec3.toVec() = Vec(x.toDouble(), y.toDouble(), z.toDouble())
 
-fun Quat.asPx(alloc: SegmentAllocator) = PxQuat.createAt(alloc, allocFn, x.toFloat(), y.toFloat(), z.toFloat(), w.toFloat())
-fun PxQuat.asQuat() = Quat(x.toDouble(), y.toDouble(), z.toDouble(), w.toDouble())
+fun Quat.toPx(alloc: SegmentAllocator) = PxQuat.createAt(alloc, allocFn, x.toFloat(), y.toFloat(), z.toFloat(), w.toFloat())
+fun PxQuat.toQuat() = Quat(x.toDouble(), y.toDouble(), z.toDouble(), w.toDouble())
 
-fun Iso.asPx(alloc: SegmentAllocator) = PxTransform.createAt(alloc, allocFn, translation.asPx(alloc), rotation.asPx(alloc))
-fun PxTransform.asIso() = Iso(p.asVec(), q.asQuat())
+fun Iso.toPx(alloc: SegmentAllocator) = PxTransform.createAt(alloc, allocFn, translation.toPx(alloc), rotation.toPx(alloc))
+fun PxTransform.toIso() = Iso(p.toVec(), q.toQuat())

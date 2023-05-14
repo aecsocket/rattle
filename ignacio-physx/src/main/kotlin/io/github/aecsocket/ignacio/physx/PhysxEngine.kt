@@ -46,7 +46,6 @@ class PhysxEngine(
     val cpuDispatcher: PxCpuDispatcher
 
     val defaultFilterShader = DefaultFilterShader()
-    val defaultMaterial: PxMaterial
     val defaultShapeFlags: PxShapeFlags
     val defaultFilterData: PxFilterData
 
@@ -84,7 +83,6 @@ class PhysxEngine(
         cpuDispatcher = DefaultCpuDispatcherCreate(numThreads(settings.numThreads))
 
         // TODO
-        defaultMaterial = physics.createMaterial(0.5f, 0.5f, 0.5f)
         defaultShapeFlags = PxShapeFlags(
             (PxShapeFlagEnum.eSCENE_QUERY_SHAPE.value or PxShapeFlagEnum.eSIMULATION_SHAPE.value).toByte()
         )
@@ -104,7 +102,12 @@ class PhysxEngine(
         allocator.destroy()
     }
 
-    override fun createMaterial(desc: PhysicsMaterialDesc): PhysicsMaterial {
+    override fun createMaterial(
+        friction: Real,
+        restitution: Real,
+        frictionCombine: CoeffCombineRule,
+        restitutionCombine: CoeffCombineRule,
+    ): PhysicsMaterial {
         fun CoeffCombineRule.asPx() = when (this) {
             CoeffCombineRule.AVERAGE -> PxCombineModeEnum.eAVERAGE
             CoeffCombineRule.MIN -> PxCombineModeEnum.eMIN
@@ -113,47 +116,35 @@ class PhysxEngine(
         }
 
         val material = physics.createMaterial(
-            desc.friction.toFloat(),
-            desc.friction.toFloat(),
-            desc.restitution.toFloat(),
+            friction.toFloat(),
+            friction.toFloat(),
+            restitution.toFloat(),
         )
-        material.frictionCombineMode = desc.frictionCombine.asPx()
-        material.restitutionCombineMode = desc.restitutionCombine.asPx()
+        material.frictionCombineMode = frictionCombine.asPx()
+        material.restitutionCombineMode = restitutionCombine.asPx()
         return PhysxMaterial(material)
     }
 
     override fun createShape(geom: Geometry): Shape {
-        val shape = pushArena { arena ->
-            val pxGeom = when (geom) {
-                is Sphere -> PxSphereGeometry.createAt(
-                    arena,
-                    allocFn,
-                    geom.radius.toFloat(),
-                )
-                is Cuboid -> PxBoxGeometry.createAt(
-                    arena,
-                    allocFn,
-                    geom.halfExtent.x.toFloat(),
-                    geom.halfExtent.y.toFloat(),
-                    geom.halfExtent.z.toFloat(),
-                )
-                is Capsule -> PxCapsuleGeometry.createAt(
-                    arena,
-                    allocFn,
-                    geom.radius.toFloat(),
-                    geom.halfHeight.toFloat(),
-                )
-            }
-            physics.createShape(pxGeom, defaultMaterial) // TODO
+        val pxGeom = when (geom) {
+            is Sphere -> PxSphereGeometry(geom.radius.toFloat())
+            is Box -> PxBoxGeometry(
+                geom.halfExtent.x.toFloat(),
+                geom.halfExtent.y.toFloat(),
+                geom.halfExtent.z.toFloat(),
+            )
+            is Capsule -> PxCapsuleGeometry(
+                geom.radius.toFloat(),
+                geom.halfHeight.toFloat(),
+            )
         }
-        shape.simulationFilterData = defaultFilterData
-        return PhysxShape(shape)
+        return PhysxShape(pxGeom)
     }
 
     override fun createSpace(settings: PhysicsSpace.Settings): PhysicsSpace {
         val scene = pushArena { arena ->
             val scene = PxSceneDesc.createAt(arena, allocFn, tolerances)
-            scene.gravity = settings.gravity.asPx(arena)
+            scene.gravity = settings.gravity.toPx(arena)
             scene.cpuDispatcher = cpuDispatcher
             scene.filterShader = defaultFilterShader
             scene.broadPhaseType = when (this.settings.broadPhaseType) {

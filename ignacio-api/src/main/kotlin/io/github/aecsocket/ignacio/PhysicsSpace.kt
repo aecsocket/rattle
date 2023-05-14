@@ -14,13 +14,24 @@ interface PhysicsSpace : Destroyable {
 
     fun finishStep()
 
-    val bodies: Bodies
-    interface Bodies {
-        fun <CR : Collider<CR, CW>, CW : CR> createFixed(
-            position: Iso,
-            collider: CR,
-        ): FixedBodyHandle.Write<CR, CW>
-    }
+    fun createCollider(
+        shape: Shape,
+        material: PhysicsMaterial,
+        position: Iso = Iso(),
+        isSensor: Boolean = false,
+    ): Collider
+
+    fun <VR : VolumeAccess, VW : VR> addFixedBody(
+        position: Iso,
+        volume: Volume<VR, VW>,
+    ): FixedBodyHandle<VR, VW>
+
+    fun <VR : VolumeAccess, VW : VR> addMovingBody(
+        position: Iso,
+        volume: Volume<VR, VW>,
+        linearVelocity: Vec = Vec.Zero,
+        angularVelocity: Vec = Vec.Zero,
+    ): MovingBodyHandle<VR, VW>
 
 //
 //    val rigidBodies: RigidBodies

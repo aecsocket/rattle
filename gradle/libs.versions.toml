@@ -1,5 +1,5 @@
 [versions]
-indra = "3.0.1"
+indra = "3.1.0"
 kotlin = "1.9.0-Beta-104"
 klam = "0.2.0-SNAPSHOT"
 configurate = "4.1.2"

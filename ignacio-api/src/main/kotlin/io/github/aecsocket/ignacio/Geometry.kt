@@ -12,7 +12,7 @@ data class Sphere(
 ) : ConvexGeometry
 
 @ConfigSerializable
-data class Cuboid(
+data class Box(
     val halfExtent: Vec,
 ) : ConvexGeometry
 

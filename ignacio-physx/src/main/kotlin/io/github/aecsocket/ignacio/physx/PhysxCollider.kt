@@ -1,16 +1,16 @@
 package io.github.aecsocket.ignacio.physx
 
+import io.github.aecsocket.ignacio.Collider
 import io.github.aecsocket.ignacio.DestroyFlag
-import io.github.aecsocket.ignacio.Shape
-import physx.geometry.PxGeometry
+import physx.physics.PxShape
 
-class PhysxShape internal constructor(
-    val geom: PxGeometry
-) : Shape {
+class PhysxCollider internal constructor(
+    val shape: PxShape,
+) : Collider {
     private val destroyed = DestroyFlag()
 
     override fun destroy() {
         destroyed()
-        geom.destroy()
+        shape.release()
     }
 }

@@ -65,7 +65,7 @@ class RapierEngine(val settings: Settings) : PhysicsEngine {
                 is Sphere -> SharedShape.of(
                     rapier.shape.Ball.of(arena, geom.radius)
                 )
-                is Cuboid -> SharedShape.of(
+                is Box -> SharedShape.of(
                     rapier.shape.Cuboid.of(arena, geom.halfExtent.asVector(arena))
                 )
                 is Capsule -> SharedShape.of(

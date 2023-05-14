@@ -5,12 +5,12 @@ import io.github.aecsocket.ignacio.PhysicsMaterial
 import physx.physics.PxMaterial
 
 class PhysxMaterial internal constructor(
-    val material: PxMaterial,
+    val handle: PxMaterial,
 ) : PhysicsMaterial {
     private val destroyed = DestroyFlag()
 
     override fun destroy() {
         destroyed()
-        material.release()
+        handle.release()
     }
 }
