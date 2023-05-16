@@ -21,16 +21,6 @@ interface PhysicsMaterial : Destroyable {
     val restitutionCombine: CoeffCombineRule
 }
 
-interface ColliderParent {
-    val body: RigidBody
-
-    val position: Iso
-
-    interface Write : ColliderParent {
-        override var position: Iso
-    }
-}
-
 interface Collider : Destroyable {
     fun <R> read(block: (Read) -> R): R
 
@@ -44,6 +34,10 @@ interface Collider : Destroyable {
 
     fun remove()
 
+    fun attachTo(parent: RigidBody)
+
+    fun detach()
+
     interface Access {
         val handle: Collider
 
@@ -55,7 +49,9 @@ interface Collider : Destroyable {
 
         val isSensor: Boolean
 
-        val parent: ColliderParent?
+        val relativePosition: Iso
+
+        val parent: RigidBody?
     }
 
     interface Read : Access
@@ -69,6 +65,6 @@ interface Collider : Destroyable {
 
         override var isSensor: Boolean
 
-        override var parent: ColliderParent.Write?
+        override var relativePosition: Iso
     }
 }

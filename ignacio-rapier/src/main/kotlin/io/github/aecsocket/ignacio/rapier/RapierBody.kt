@@ -78,6 +78,10 @@ class RapierBody internal constructor(
         is State.Removed -> "RapierBody[0x%x]".format(state.body.memory().address())
     }
 
+    override fun equals(other: Any?) = other is RapierBody && state == other.state
+
+    override fun hashCode() = state.hashCode()
+
     open inner class Access(
         internal open val body: rapier.dynamics.RigidBody,
     ) : FixedBody.Access, MovingBody.Access {

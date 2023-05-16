@@ -92,4 +92,8 @@ class RapierSpace internal constructor(
     override fun finishStep() {}
 
     override fun toString() = "RapierSpace[0x%x]".format(pipeline.memory().address())
+
+    override fun equals(other: Any?) = other is RapierSpace && pipeline.memory() == other.pipeline.memory()
+
+    override fun hashCode() = pipeline.memory().hashCode()
 }

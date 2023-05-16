@@ -107,10 +107,48 @@ class RapierCollider internal constructor(
         }
     }
 
+    override fun attachTo(parent: RigidBody) {
+        parent as RapierBody
+        when (val state = state) {
+            is State.Added -> {
+                when (val bodyState = parent.state) {
+                    is RapierBody.State.Added -> {
+                        if (state.space != bodyState.space)
+                            throw IllegalArgumentException("Attempting to attach $parent (in ${bodyState.space}) to $this (in ${state.space})")
+                        state.space.colliderSet.setParent(
+                            state.handle.key.id,
+                            bodyState.handle.key.id,
+                            state.space.rigidBodySet,
+                        )
+                    }
+                    is RapierBody.State.Removed -> throw IllegalStateException("Attempting to attach $parent, which is not in a space, to $this")
+                }
+            }
+            is State.Removed -> throw IllegalStateException("$this is not added to a space")
+        }
+    }
+
+    override fun detach() {
+        when (val state = state) {
+            is State.Added -> {
+                state.space.colliderSet.setParent(
+                    state.handle.key.id,
+                    null,
+                    state.space.rigidBodySet,
+                )
+            }
+            is State.Removed -> throw IllegalStateException("$this is not added to a space")
+        }
+    }
+
     override fun toString() = when (val state = state) {
         is State.Added -> "RapierCollider[${state.handle}]"
         is State.Removed -> "RapierCollider[0x%x]".format(state.coll.memory().address())
     }
+
+    override fun equals(other: Any?) = other is RapierCollider && state == other.state
+
+    override fun hashCode() = state.hashCode()
 
     private open inner class Access(open val coll: rapier.geometry.Collider) : Collider.Access {
         override val handle get() = this@RapierCollider
@@ -134,20 +172,19 @@ class RapierCollider internal constructor(
         override val isSensor: Boolean
             get() = coll.isSensor
 
-        override val parent: ColliderParent?
+        override val relativePosition: Iso
+            get() = pushArena { arena ->
+                coll.getPositionWrtParent(arena)?.toIso() ?: Iso()
+            }
+
+        override val parent: RigidBody?
             get() = when (val state = state) {
-                // our parent is a body with handle `parentKey` in the same space as us
                 is State.Added -> coll.parent?.let { parentKey ->
-                    object : ColliderParent {
-                        override val body = RapierBody(RapierBody.State.Added(state.space, RigidBodyHandle(ArenaKey(parentKey))))
-                        override val position get() = pushArena { arena ->
-                            (coll.getPositionWrtParent(arena)
-                                ?: throw IllegalStateException("Parent for $this has been removed while parent is still being accessed"))
-                                .toIso()
-                        }
-                    }
+                    RapierBody(RapierBody.State.Added(
+                        space = state.space,
+                        handle = RigidBodyHandle(ArenaKey(parentKey)),
+                    ))
                 }
-                // we can't have a parent, we're not in any physics space
                 is State.Removed -> null
             }
     }
@@ -184,8 +221,10 @@ class RapierCollider internal constructor(
                 coll.isSensor = value
             }
 
-        override var parent: ColliderParent.Write?
-            get() = TODO()
-            set(value) = TODO()
+        override var relativePosition: Iso
+            get() = super.relativePosition
+            set(value) = pushArena { arena ->
+                coll.setPositionWrtParent(value.toIsometry(arena))
+            }
     }
 }

@@ -9,5 +9,4 @@ dependencies {
     api(libs.configurate.core)
 
     testImplementation(projects.ignacioRapier)
-    testImplementation(projects.ignacioPhysx)
 }
