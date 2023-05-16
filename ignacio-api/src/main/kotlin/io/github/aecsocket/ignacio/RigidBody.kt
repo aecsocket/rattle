@@ -68,6 +68,8 @@ interface MovingBody : RigidBody {
 
         val angularVelocity: Vec
 
+        val gravityScale: Real
+
         val linearDamping: Real
 
         val angularDamping: Real
@@ -75,6 +77,10 @@ interface MovingBody : RigidBody {
         val isSleeping: Boolean
 
         val kineticEnergy: Real
+
+        val appliedForce: Vec
+
+        val appliedTorque: Vec
     }
 
     interface Read : Access, RigidBody.Read
@@ -88,6 +94,8 @@ interface MovingBody : RigidBody {
 
         override var angularVelocity: Vec
 
+        override var gravityScale: Real
+
         override var linearDamping: Real
 
         override var angularDamping: Real
@@ -95,6 +103,18 @@ interface MovingBody : RigidBody {
         fun sleep()
 
         fun wakeUp(strong: Boolean)
+
+        fun applyForce(force: Vec)
+
+        fun applyForceAt(force: Vec, at: Vec)
+
+        fun applyImpulse(impulse: Vec)
+
+        fun applyImpulseAt(impulse: Vec, at: Vec)
+
+        fun applyTorque(torque: Vec)
+
+        fun applyTorqueImpulse(torqueImpulse: Vec)
 
         fun kinematicTarget(position: Iso)
     }

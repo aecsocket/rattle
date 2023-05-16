@@ -50,6 +50,14 @@ class HelloIgnacio {
         // add the collider to the physics space
         floorColl.addTo(physics)
 
+        // `floorColl` is just a handle which can be used to access the collider itself
+        // use `.read` to gain immutable read access
+        // or `.write` to gain mutable write access
+        floorColl.write { coll ->
+            // use `Iso()` as a shorthand for the identity isometry
+            coll.position = Iso()
+        }
+
         // create a moving ball body starting at (0, 5, 0) travelling at (0, 1, 0)/sec
 
         val ballBody = engine.createMovingBody(
@@ -58,8 +66,7 @@ class HelloIgnacio {
         ballBody.addTo(physics)
 
         // `ballBody` is just a handle which can be used to access the body itself
-        // use `.write*` to gain mutable write access
-        // or `.read*` to gain immutable read access
+        // same semantics as colliders, but you have to also specify what type of access (moving, fixed)
         ballBody.writeMoving { rb ->
             rb.linearVelocity = Vec(0.0, 1.0, 0.0)
         }
@@ -78,16 +85,10 @@ class HelloIgnacio {
         // simulate
         val dt = 1.0 / 60.0
         repeat(200) { step ->
-            // start the update step, but we don't block and wait for it (yet)
-            // this is in 2 separate steps, so you can start multiple updates for multiple spaces
-            // at the same time, then wait for them to finish all at once
-            physics.startStep(dt)
-            // block the current thread and wait for the update to finish
-            physics.finishStep()
+            // do the simulation step, blocking the current thread until it's complete
+            physics.step(dt)
 
-            // similar to a collider, use `.read*` to read properties of a rigid body
-            // use different read methods depending on the type of the body (readMoving, readFixed)
-            // the same API style applies for writing
+            // use `.read*` to get immutable access to the body's property
             ballBody.readMoving { rb ->
                 println("[$step] ball @ ${rb.position.translation}")
             }

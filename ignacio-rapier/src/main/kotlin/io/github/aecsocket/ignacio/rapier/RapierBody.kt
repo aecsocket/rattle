@@ -108,6 +108,9 @@ class RapierBody internal constructor(
                 body.getAngularVelocity(arena).toVec()
             }
 
+        override val gravityScale: Real
+            get() = body.gravityScale
+
         override val linearDamping: Real
             get() = body.linearDamping
 
@@ -119,6 +122,16 @@ class RapierBody internal constructor(
 
         override val kineticEnergy: Real
             get() = body.kineticEnergy
+
+        override val appliedForce: Vec
+            get() = pushArena { arena ->
+                body.getUserForce(arena).toVec()
+            }
+
+        override val appliedTorque: Vec
+            get() = pushArena { arena ->
+                body.getUserTorque(arena).toVec()
+            }
     }
 
     inner class Read(
@@ -163,6 +176,12 @@ class RapierBody internal constructor(
                 body.setAngularVelocity(value.toAngVector(arena), false)
             }
 
+        override var gravityScale: Real
+            get() = super.gravityScale
+            set(value) {
+                body.setGravityScale(value, false)
+            }
+
         override var linearDamping: Real
             get() = super.linearDamping
             set(value) {
@@ -181,6 +200,42 @@ class RapierBody internal constructor(
 
         override fun wakeUp(strong: Boolean) {
             body.wakeUp(strong)
+        }
+
+        override fun applyForce(force: Vec) {
+            pushArena { arena ->
+                body.addForce(force.toVector(arena), false)
+            }
+        }
+
+        override fun applyForceAt(force: Vec, at: Vec) {
+            pushArena { arena ->
+                body.addForceAtPoint(force.toVector(arena), at.toVector(arena), false)
+            }
+        }
+
+        override fun applyImpulse(impulse: Vec) {
+            pushArena { arena ->
+                body.applyImpulse(impulse.toVector(arena), false)
+            }
+        }
+
+        override fun applyImpulseAt(impulse: Vec, at: Vec) {
+            pushArena { arena ->
+                body.applyImpulseAtPoint(impulse.toVector(arena), at.toVector(arena), false)
+            }
+        }
+
+        override fun applyTorque(torque: Vec) {
+            pushArena { arena ->
+                body.addTorque(torque.toAngVector(arena), false)
+            }
+        }
+
+        override fun applyTorqueImpulse(torqueImpulse: Vec) {
+            pushArena { arena ->
+                body.applyTorqueImpulse(torqueImpulse.toAngVector(arena), false)
+            }
         }
 
         override fun kinematicTarget(position: Iso) {

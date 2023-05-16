@@ -13,8 +13,8 @@ typealias Affine = DAffine3
 
 const val DEFAULT_FRICTION: Real = 0.5
 const val DEFAULT_RESTITUTION: Real = 0.0
-const val DEFAULT_LINEAR_DAMPING: Real = 0.05
-const val DEFAULT_ANGULAR_DAMPING: Real = 0.05
+const val DEFAULT_LINEAR_DAMPING: Real = 0.0
+const val DEFAULT_ANGULAR_DAMPING: Real = 0.0
 
 interface Destroyable {
     fun destroy()

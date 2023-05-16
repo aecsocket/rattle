@@ -68,7 +68,7 @@ class RapierSpace internal constructor(
         arena.close()
     }
 
-    override fun startStep(dt: Real) {
+    override fun step(dt: Real) {
         val integrationParameters = integrationParametersDesc.apply {
             this.dt = dt
             minCcdDt = dt * engine.settings.integration.minCcdDtMultiplier
@@ -88,8 +88,6 @@ class RapierSpace internal constructor(
         )
         integrationParameters.drop()
     }
-
-    override fun finishStep() {}
 
     override fun toString() = "RapierSpace[0x%x]".format(pipeline.memory().address())
 
