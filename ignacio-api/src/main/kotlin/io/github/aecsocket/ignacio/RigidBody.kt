@@ -2,62 +2,100 @@ package io.github.aecsocket.ignacio
 
 import java.util.function.Consumer
 
-sealed interface Gravity {
-    data object Enabled : Gravity
+sealed interface Sleeping {
+    data object Disabled : Sleeping
 
-    data object Disabled : Gravity
-
-    data class Scaled(val scale: Real) : Gravity
+    data class Enabled(val state: Boolean) : Sleeping
 }
 
-interface RigidBody<AR, AW>
-        where AR : RigidBody.Read<*>,
-              AW : RigidBody.Write<*, *> {
-    fun <R> read(block: (AR) -> R): R
+interface RigidBody {
+    fun <R> readBody(block: (Read) -> R): R
 
-    fun read(block: Consumer<AR>) = read { block.accept(it) }
+    fun readBody(block: Consumer<Read>) = readBody { block.accept(it) }
 
-    fun <R> write(block: (AW) -> R): R
+    fun <R> writeBody(block: (Write) -> R): R
 
-    fun write(block: Consumer<AW>) = write { block.accept(it) }
+    fun writeBody(block: Consumer<Write>) = writeBody { block.accept(it) }
 
-    interface Read<VR : VolumeAccess> {
-        val handle: RigidBody<out Read<VR>, *>
+    fun addTo(space: PhysicsSpace)
 
-        val volume: VR
+    fun remove()
+
+    interface Access {
+        val handle: RigidBody
 
         val position: Iso
     }
 
-    interface Write<VR : VolumeAccess, VW : VR> : Read<VR> {
-        override val handle: RigidBody<out Read<VR>, out Write<VR, VW>>
+    interface Read : Access
 
-        override val volume: VW
-
+    interface Write : Access {
         override var position: Iso
     }
 }
 
-interface FixedBody<AR, AW> : RigidBody<AR, AW>
-        where AR : FixedBody.Read<*>,
-              AW : FixedBody.Write<*, *> {
-    interface Read<VR : VolumeAccess> : RigidBody.Read<VR>
+interface FixedBody : RigidBody {
+    fun <R> readFixed(block: (Read) -> R): R
 
-    interface Write<VR : VolumeAccess, VW : VR> : Read<VR>, RigidBody.Write<VR, VW>
-}
+    fun <R> writeFixed(block: (Write) -> R): R
 
-interface MovingBody<AR, AW> : RigidBody<AR, AW>
-        where AR : MovingBody.Read<*>,
-              AW : MovingBody.Write<*, *> {
-    interface Read<VR : VolumeAccess> : RigidBody.Read<VR> {
-        val isSleeping: Boolean
-
-        val linearVelocity: Vec
+    interface Access : RigidBody.Access {
+        override val handle: FixedBody
     }
 
-    interface Write<VR : VolumeAccess, VW : VR> : Read<VR>, RigidBody.Write<VR, VW> {
-        override var isSleeping: Boolean
+    interface Read : Access, RigidBody.Read
+
+    interface Write : Access, RigidBody.Write
+}
+
+interface MovingBody : RigidBody {
+    fun <R> readMoving(block: (Read) -> R): R
+
+    fun readMoving(block: Consumer<Read>) = readMoving { block.accept(it) }
+
+    fun <R> writeMoving(block: (Write) -> R): R
+
+    fun writeMoving(block: Consumer<Write>) = writeMoving { block.accept(it) }
+
+    interface Access : RigidBody.Access {
+        override val handle: MovingBody
+
+        val isKinematic: Boolean
+
+        val isCcdEnabled: Boolean
+
+        val linearVelocity: Vec
+
+        val angularVelocity: Vec
+
+        val linearDamping: Real
+
+        val angularDamping: Real
+
+        val isSleeping: Boolean
+
+        val kineticEnergy: Real
+    }
+
+    interface Read : Access, RigidBody.Read
+
+    interface Write : Access, RigidBody.Write {
+        override var isKinematic: Boolean
+
+        override var isCcdEnabled: Boolean
 
         override var linearVelocity: Vec
+
+        override var angularVelocity: Vec
+
+        override var linearDamping: Real
+
+        override var angularDamping: Real
+
+        fun sleep()
+
+        fun wakeUp(strong: Boolean)
+
+        fun kinematicTarget(position: Iso)
     }
 }

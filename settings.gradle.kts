@@ -18,6 +18,4 @@ rootProject.name = "ignacio"
 
 include("ignacio-api")
 include("ignacio-rapier")
-//include("ignacio-jolt") // TODO update java-jolt to Java 20 for FFI
-include("ignacio-physx")
 include("ignacio-paper")

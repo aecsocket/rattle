@@ -32,8 +32,6 @@ interface PhysicsEngine : Destroyable {
     // a human-readable, or branded, name of the engine
     val name: String
 
-    val logger: Logger
-
     val version: String
 
     fun createMaterial(
@@ -45,11 +43,30 @@ interface PhysicsEngine : Destroyable {
 
     fun createShape(geom: Geometry): Shape
 
+    fun createCollider(
+        shape: Shape,
+        material: PhysicsMaterial,
+        position: Iso = Iso(),
+        isSensor: Boolean = false,
+    ): Collider
+
+    fun createFixedBody(
+        position: Iso,
+    ): FixedBody
+
+    fun createMovingBody(
+        position: Iso,
+        isKinematic: Boolean = false,
+        isCcdEnabled: Boolean = false,
+        linearVelocity: Vec = Vec.Zero,
+        angularVelocity: Vec = Vec.Zero,
+        gravityScale: Real = 1.0,
+        linearDamping: Real = DEFAULT_LINEAR_DAMPING,
+        angularDamping: Real = DEFAULT_ANGULAR_DAMPING,
+        sleeping: Sleeping = Sleeping.Enabled(false),
+    ): MovingBody
+
     fun createSpace(settings: PhysicsSpace.Settings): PhysicsSpace
-}
-
-fun PhysicsEngine.logUnsupported(vararg message: String) {
-
 }
 
 fun numThreads(raw: Int) = if (raw > 0) raw else {

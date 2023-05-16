@@ -3,7 +3,6 @@ package io.github.aecsocket.ignacio.rapier
 import io.github.aecsocket.ignacio.*
 import rapier.dynamics.*
 import rapier.geometry.BroadPhase
-import rapier.geometry.ColliderBuilder
 import rapier.geometry.ColliderSet
 import rapier.geometry.NarrowPhase
 import rapier.pipeline.PhysicsPipeline
@@ -92,43 +91,5 @@ class RapierSpace internal constructor(
 
     override fun finishStep() {}
 
-    override fun addCollider(
-        shape: Shape,
-        material: PhysicsMaterial,
-        position: Iso,
-        isSensor: Boolean,
-    ): RapierCollider {
-        shape as RapierShape
-        material as RapierMaterial
-        val coll = pushArena { arena ->
-            ColliderBuilder.of(shape.acquire().handle)
-                .position(position.toIsometry(arena))
-                .friction(material.friction)
-                .restitution(material.restitution)
-                .frictionCombineRule(material.frictionCombine)
-                .restitutionCombineRule(material.restitutionCombine)
-                .sensor(isSensor)
-                .use { it.build() }
-        }
-        val handle = colliderSet.insert(coll)
-        return RapierCollider(this, ColliderHandle(handle))
-    }
-
-    // TODO
-    //  a fixed body can be simplified as:
-    //   - 1 collider ref, if Volume.Single
-    //   - a list of collider refs, if Volume.Fixed or Volume.Compound
-    //  Is it worth it to make this optimization, at the cost of more code complexity?
-    override fun <VR : VolumeAccess, VW : VR> addFixedBody(
-        position: Iso,
-        volume: Volume<VR, VW>
-    ): FixedBody<out FixedBody.Read<VR>, out FixedBody.Write<VR, VW>> {
-        val body = pushArena { arena ->
-            RigidBodyBuilder.fixed()
-                .position(position.toIsometry(arena))
-                .use { it.build() }
-        }
-        val handle = rigidBodySet.insert(body)
-        return
-    }
+    override fun toString() = "RapierSpace[0x%x]".format(pipeline.memory().address())
 }

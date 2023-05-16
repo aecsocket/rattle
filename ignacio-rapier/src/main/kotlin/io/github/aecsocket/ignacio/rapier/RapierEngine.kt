@@ -3,8 +3,16 @@ package io.github.aecsocket.ignacio.rapier
 import io.github.aecsocket.ignacio.*
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import rapier.Rapier
-import rapier.geometry.CoefficientCombineRule
+import rapier.data.ArenaKey
+import rapier.dynamics.RigidBodyBuilder
+import rapier.dynamics.RigidBodyType
+import rapier.geometry.ColliderBuilder
 import rapier.shape.SharedShape
+
+@JvmInline
+value class ArenaKey(val id: Long) {
+    override fun toString(): String = ArenaKey.asString(id)
+}
 
 class RapierEngine(val settings: Settings) : PhysicsEngine {
     @ConfigSerializable
@@ -51,18 +59,11 @@ class RapierEngine(val settings: Settings) : PhysicsEngine {
         frictionCombine: CoeffCombineRule,
         restitutionCombine: CoeffCombineRule,
     ): PhysicsMaterial {
-        fun CoeffCombineRule.asRapier() = when (this) {
-            CoeffCombineRule.AVERAGE -> CoefficientCombineRule.AVERAGE
-            CoeffCombineRule.MIN -> CoefficientCombineRule.MIN
-            CoeffCombineRule.MULTIPLY -> CoefficientCombineRule.MULTIPLY
-            CoeffCombineRule.MAX -> CoefficientCombineRule.MAX
-        }
-
         return RapierMaterial(
             friction,
             restitution,
-            frictionCombine.asRapier(),
-            restitutionCombine.asRapier(),
+            frictionCombine,
+            restitutionCombine,
         )
     }
 
@@ -89,6 +90,72 @@ class RapierEngine(val settings: Settings) : PhysicsEngine {
             }
         }
         return RapierShape(handle)
+    }
+
+    override fun createCollider(
+        shape: Shape,
+        material: PhysicsMaterial,
+        position: Iso,
+        isSensor: Boolean,
+    ): Collider {
+        shape as RapierShape
+        val coll = pushArena { arena ->
+            ColliderBuilder.of(shape.handle)
+                .friction(material.friction)
+                .restitution(material.restitution)
+                .frictionCombineRule(material.frictionCombine.convert())
+                .restitutionCombineRule(material.restitutionCombine.convert())
+                .position(position.toIsometry(arena))
+                .sensor(isSensor)
+                .use { it.build() }
+        }
+        return RapierCollider(RapierCollider.State.Removed(coll))
+    }
+
+    private fun createBody(builder: RigidBodyBuilder): RapierBody {
+        val body = builder.use { it.build() }
+        return RapierBody(RapierBody.State.Removed(body))
+    }
+
+    override fun createFixedBody(
+        position: Iso,
+    ): FixedBody {
+        return createBody(pushArena { arena ->
+            RigidBodyBuilder.fixed()
+                .position(position.toIsometry(arena))
+        })
+    }
+
+    override fun createMovingBody(
+        position: Iso,
+        isKinematic: Boolean,
+        isCcdEnabled: Boolean,
+        linearVelocity: Vec,
+        angularVelocity: Vec,
+        gravityScale: Real,
+        linearDamping: Real,
+        angularDamping: Real,
+        sleeping: Sleeping,
+    ): MovingBody {
+        return createBody(pushArena { arena ->
+            RigidBodyBuilder.of(if (isKinematic) RigidBodyType.KINEMATIC_POSITION_BASED else RigidBodyType.DYNAMIC)
+                .position(position.toIsometry(arena))
+                .ccdEnabled(isCcdEnabled)
+                .linvel(linearVelocity.toVector(arena))
+                .angvel(angularVelocity.toAngVector(arena))
+                .gravityScale(gravityScale)
+                .linearDamping(linearDamping)
+                .angularDamping(angularDamping)
+                .apply {
+                    when (sleeping) {
+                        is Sleeping.Disabled -> canSleep(false)
+                        is Sleeping.Enabled -> {
+                            canSleep(true)
+                            sleeping(sleeping.state)
+                        }
+                    }
+                }
+        })
     }
 
     override fun createSpace(settings: PhysicsSpace.Settings): PhysicsSpace {

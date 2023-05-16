@@ -10,11 +10,6 @@ class HelloIgnacio {
         runTest(RapierEngine(RapierEngine.Settings()))
     }
 
-    @Test
-    fun helloPhysX() {
-        runTest(PhysxEngine(PhysxEngine.Settings(), Logger.getAnonymousLogger()))
-    }
-
     private fun runTest(engine: PhysicsEngine) {
         // sets up a space - an independent structure holding simulation data
         val physics: PhysicsSpace = engine.createSpace(PhysicsSpace.Settings())
@@ -35,39 +30,19 @@ class HelloIgnacio {
         val floorShape: Shape = engine.createShape(floorGeom)
 
         // collider: a shape with properties determining how it is collided with
-        val floorColl: Collider = physics.addCollider(
+        val floorColl: Collider = engine.createCollider(
             shape = floorShape,
             material = floorMat,
         )
 
-        // volume: describes how colliders are attached to a rigid body
-        // here we want the option of adding more colliders to this single body
-        // (note: in a real situation, use what is simplest for your use case;
-        //  here it would be a Volume.Fixed, since we don't add/remove colliders)
-        val floorVolume = Volume.Compound(listOf(floorColl))
-
-        // simulated object which is affected by dynamics: velocity, forces, etc.
-        // and can partake in collisions by having colliders attached to it (through the volume)
-
-        // note the <*, *> wildcard type parameters; for simplicity we're erasing
-        // what volume we're using. This means we can't read or write the volume (colliders).
-        val floorBody: FixedBody<*, *> = physics.addFixedBody(
-            position = Iso(
-                translation = Vec(0.0, 0.0, 0.0),
-                rotation = Quat.Identity
-            ),
-            volume = floorVolume,
-        )
-
-        // our `floorBody` is simply a handle to the body, we can't access any properties from it directly
-        // use `read` to gain immutable access and read values
-        floorBody.read { access ->
-            // note: methods which mutate the body are not accessible here
-            // you need to use `.write` instead
-            println("start position = ${access.position}")
-        }
 
         // create a moving ball body starting at (0, 5, 0)
+
+        val ballBody = engine.createMovingBody(
+            position = Iso(Vec(0.0, 5.0, 0.0)),
+        )
+
+
 
         val ballMaterial = engine.createMaterial(
             friction = 0.5,
