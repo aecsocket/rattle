@@ -1,6 +1,7 @@
 package io.github.aecsocket.ignacio
 
 import io.github.aecsocket.klam.*
+import java.util.logging.Logger
 import kotlin.math.max
 
 typealias Real = Double
@@ -19,7 +20,20 @@ interface Destroyable {
     fun destroy()
 }
 
+interface RefCounted {
+    val refCount: Long
+
+    fun acquire(): RefCounted
+
+    fun release(): RefCounted
+}
+
 interface PhysicsEngine : Destroyable {
+    // a human-readable, or branded, name of the engine
+    val name: String
+
+    val logger: Logger
+
     val version: String
 
     fun createMaterial(
@@ -32,6 +46,10 @@ interface PhysicsEngine : Destroyable {
     fun createShape(geom: Geometry): Shape
 
     fun createSpace(settings: PhysicsSpace.Settings): PhysicsSpace
+}
+
+fun PhysicsEngine.logUnsupported(vararg message: String) {
+
 }
 
 fun numThreads(raw: Int) = if (raw > 0) raw else {

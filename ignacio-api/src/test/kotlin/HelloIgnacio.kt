@@ -28,13 +28,14 @@ class HelloIgnacio {
         )
 
         // geometry: descriptor for a volume in 3D space
+        // to define a box, we provide the half-extents - the half-size of the box
         val floorGeom: Geometry = Box(Vec(100.0, 0.5, 100.0))
 
         // shape: baked form of a geometry, physics-ready
         val floorShape: Shape = engine.createShape(floorGeom)
 
         // collider: a shape with properties determining how it is collided with
-        val floorColl: Collider = physics.createCollider(
+        val floorColl: Collider = physics.addCollider(
             shape = floorShape,
             material = floorMat,
         )
@@ -42,12 +43,15 @@ class HelloIgnacio {
         // volume: describes how colliders are attached to a rigid body
         // here we want the option of adding more colliders to this single body
         // (note: in a real situation, use what is simplest for your use case;
-        //  here it would be a Volume.Single, since we don't add/remove colliders)
+        //  here it would be a Volume.Fixed, since we don't add/remove colliders)
         val floorVolume = Volume.Compound(listOf(floorColl))
 
         // simulated object which is affected by dynamics: velocity, forces, etc.
-        // and can partake in collisions by having colliders attached to it
-        val floorBody: FixedBody = physics.addFixedBody(
+        // and can partake in collisions by having colliders attached to it (through the volume)
+
+        // note the <*, *> wildcard type parameters; for simplicity we're erasing
+        // what volume we're using. This means we can't read or write the volume (colliders).
+        val floorBody: FixedBody<*, *> = physics.addFixedBody(
             position = Iso(
                 translation = Vec(0.0, 0.0, 0.0),
                 rotation = Quat.Identity
@@ -72,13 +76,13 @@ class HelloIgnacio {
 
         val ballShape = engine.createShape(Sphere(0.5))
 
-        val ballCollider = physics.createCollider(ballShape, ballMaterial)
+        val ballCollider = physics.addCollider(ballShape, ballMaterial)
 
-        val ball: MovingBody = physics.addMovingBody(
+        val ball: MovingBody<*, *> = physics.addMovingBody(
             // start at (0, 5, 0) units
             position = Iso(Vec(0.0, 5.0, 0.0)),
             // this body will only ever have a single collider attached to it
-            volume = Volume.Single(ballCollider),
+            volume = Volume.Mutable(ballCollider),
         )
 
         ball.write { access ->

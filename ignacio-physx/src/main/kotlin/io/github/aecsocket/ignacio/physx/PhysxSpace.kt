@@ -5,6 +5,8 @@ import physx.NativeObject
 import physx.common.PxBaseTask
 import physx.physics.PxActorFlagEnum
 import physx.physics.PxActorFlags
+import physx.physics.PxRigidBodyFlagEnum
+import physx.physics.PxRigidBodyFlags
 import physx.physics.PxScene
 import physx.physics.PxShapeFlagEnum
 import physx.physics.PxShapeFlags
@@ -49,12 +51,12 @@ class PhysxSpace internal constructor(
         handle.fetchResults(true)
     }
 
-    override fun createCollider(
+    override fun addCollider(
         shape: Shape,
         material: PhysicsMaterial,
         position: Iso,
         isSensor: Boolean,
-    ): Collider {
+    ): PhysxCollider {
         shape as PhysxShape
         material as PhysxMaterial
         val pxShape = pushArena { arena ->
@@ -62,11 +64,10 @@ class PhysxSpace internal constructor(
             pxShape.flags = PxShapeFlags.createAt(
                 arena,
                 allocFn,
-                (PxShapeFlagEnum.eSCENE_QUERY_SHAPE.value or if (isSensor) {
-                    PxShapeFlagEnum.eTRIGGER_SHAPE.value
-                } else {
-                    PxShapeFlagEnum.eSIMULATION_SHAPE.value
-                }).toByte(),
+                (
+                    PxShapeFlagEnum.eSCENE_QUERY_SHAPE.value or
+                    (if (isSensor) PxShapeFlagEnum.eTRIGGER_SHAPE.value else PxShapeFlagEnum.eSIMULATION_SHAPE.value)
+                ).toByte()
             )
             pxShape.simulationFilterData = engine.defaultFilterData
             pxShape.localPose = position.toPx(arena)
@@ -78,29 +79,58 @@ class PhysxSpace internal constructor(
     override fun <VR : VolumeAccess, VW : VR> addFixedBody(
         position: Iso,
         volume: Volume<VR, VW>
-    ): FixedBodyHandle<VR, VW> {
+    ): PhysxFixed<VR, VW> {
         val body = pushArena { arena ->
             val body = engine.physics.createRigidStatic(position.toPx(arena))
-            body.actorFlags = PxActorFlags.createAt(
-                arena,
-                allocFn,
-                0.toByte(),
-            )
+
+            body.actorFlags = PxActorFlags.createAt(arena, allocFn, 0.toByte())
             body
         }
 
-        return when (volume) {
-            is Volume.Single -> {
-                val collider = volume.collider as PhysxCollider
-                body.attachShape(collider.shape)
+        return PhysxFixed(body, volumeAccessOf(body, volume))
+    }
 
-            }
-            is Volume.Compound -> {
-                volume.colliders.forEach { collider ->
-                    collider as PhysxCollider
-                    body.attachShape(collider.shape)
+    override fun <VR : VolumeAccess, VW : VR> addMovingBody(
+        position: Iso,
+        volume: Volume<VR, VW>,
+        isKinematic: Boolean,
+        linearVelocity: Vec,
+        angularVelocity: Vec,
+        gravity: Gravity,
+        linearDamping: Real,
+        angularDamping: Real,
+        isCcdEnabled: Boolean,
+        canSleep: Boolean,
+        isSleeping: Boolean,
+    ): PhysxMoving<VR, VW> {
+        val body = pushArena { arena ->
+            val body = engine.physics.createRigidDynamic(position.toPx(arena))
+            body.linearVelocity = linearVelocity.toPx(arena)
+            body.angularVelocity = angularVelocity.toPx(arena)
+            body.linearDamping = linearDamping.toFloat()
+            body.angularDamping = angularDamping.toFloat()
+            if (!canSleep) body.sleepThreshold = Float.MAX_VALUE
+            if (isSleeping) body.putToSleep()
+            else body.wakeUp()
+
+            var actorFlags = 0
+            val rigidBodyFlags =
+                (if (isKinematic) PxRigidBodyFlagEnum.eKINEMATIC.value else 0) or
+                (if (isCcdEnabled) PxRigidBodyFlagEnum.eENABLE_CCD.value else 0)
+
+            when (gravity) {
+                is Gravity.Enabled -> {}
+                is Gravity.Disabled -> actorFlags = PxActorFlagEnum.eDISABLE_GRAVITY.value
+                is Gravity.Scaled -> {
+                    // fallback to Gravity.Enabled
+                    engine.unsupported("PhysxSpace.addMovingBody - Gravity.Scale for `gravity` is unsupported")
                 }
             }
+
+            body.actorFlags = PxActorFlags.createAt(arena, allocFn, actorFlags.toByte())
+            body.rigidBodyFlags = PxRigidBodyFlags.createAt(arena, allocFn, rigidBodyFlags.toByte())
+            body
         }
+        return PhysxMoving(body, volumeAccessOf(body, volume))
     }
 }

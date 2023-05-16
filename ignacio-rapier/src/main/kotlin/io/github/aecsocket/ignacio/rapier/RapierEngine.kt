@@ -30,6 +30,8 @@ class RapierEngine(val settings: Settings) : PhysicsEngine {
         )
     }
 
+    override val name = "Rapier"
+
     private val destroyed = DestroyFlag()
     override lateinit var version: String
         private set
@@ -43,7 +45,12 @@ class RapierEngine(val settings: Settings) : PhysicsEngine {
         destroyed()
     }
 
-    override fun createMaterial(desc: PhysicsMaterialDesc): PhysicsMaterial {
+    override fun createMaterial(
+        friction: Real,
+        restitution: Real,
+        frictionCombine: CoeffCombineRule,
+        restitutionCombine: CoeffCombineRule,
+    ): PhysicsMaterial {
         fun CoeffCombineRule.asRapier() = when (this) {
             CoeffCombineRule.AVERAGE -> CoefficientCombineRule.AVERAGE
             CoeffCombineRule.MIN -> CoefficientCombineRule.MIN
@@ -52,10 +59,10 @@ class RapierEngine(val settings: Settings) : PhysicsEngine {
         }
 
         return RapierMaterial(
-            desc.friction,
-            desc.restitution,
-            desc.frictionCombine.asRapier(),
-            desc.restitutionCombine.asRapier(),
+            friction,
+            restitution,
+            frictionCombine.asRapier(),
+            restitutionCombine.asRapier(),
         )
     }
 
@@ -66,15 +73,15 @@ class RapierEngine(val settings: Settings) : PhysicsEngine {
                     rapier.shape.Ball.of(arena, geom.radius)
                 )
                 is Box -> SharedShape.of(
-                    rapier.shape.Cuboid.of(arena, geom.halfExtent.asVector(arena))
+                    rapier.shape.Cuboid.of(arena, geom.halfExtent.toVector(arena))
                 )
                 is Capsule -> SharedShape.of(
                     rapier.shape.Capsule.of(
                         arena,
                         rapier.shape.Segment.of(
                             arena,
-                            Vec(0.0, -geom.halfHeight, 0.0).asVector(arena),
-                            Vec(0.0,  geom.halfHeight, 0.0).asVector(arena),
+                            Vec(0.0, -geom.halfHeight, 0.0).toVector(arena),
+                            Vec(0.0,  geom.halfHeight, 0.0).toVector(arena),
                         ),
                         geom.radius,
                     )

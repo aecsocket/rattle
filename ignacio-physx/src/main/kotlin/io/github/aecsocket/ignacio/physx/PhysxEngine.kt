@@ -37,6 +37,8 @@ class PhysxEngine(
         val scratchBlocks: Int = 4, // 64KB
     )
 
+    override val name = "PhysX"
+
     private val destroyed = DestroyFlag()
     val allocator: PxDefaultAllocator
     val errorCallback: PxErrorCallback
@@ -94,7 +96,6 @@ class PhysxEngine(
 
         defaultFilterData.destroy()
         defaultShapeFlags.destroy()
-        defaultMaterial.release()
 
         physics.release()
         foundation.release()
@@ -156,5 +157,9 @@ class PhysxEngine(
             physics.createScene(scene)
         }
         return PhysxSpace(this, scene, settings)
+    }
+
+    internal fun unsupported(message: String) {
+        logger.warning("[PhysX] Unsupported operation: $message")
     }
 }
