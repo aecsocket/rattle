@@ -100,13 +100,14 @@ class RapierEngine(val settings: Settings) : PhysicsEngine {
     ): Collider {
         shape as RapierShape
         val coll = pushArena { arena ->
-            ColliderBuilder.of(shape.handle)
+            ColliderBuilder.of(shape.acquire().handle)
                 .friction(material.friction)
                 .restitution(material.restitution)
                 .frictionCombineRule(material.frictionCombine.convert())
                 .restitutionCombineRule(material.restitutionCombine.convert())
                 .position(position.toIsometry(arena))
                 .sensor(isSensor)
+                .density(1.0)
                 .use { it.build() }
         }
         return RapierCollider(RapierCollider.State.Removed(coll))

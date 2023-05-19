@@ -107,40 +107,6 @@ class RapierCollider internal constructor(
         }
     }
 
-    override fun attachTo(parent: RigidBody) {
-        parent as RapierBody
-        when (val state = state) {
-            is State.Added -> {
-                when (val bodyState = parent.state) {
-                    is RapierBody.State.Added -> {
-                        if (state.space != bodyState.space)
-                            throw IllegalArgumentException("Attempting to attach $parent (in ${bodyState.space}) to $this (in ${state.space})")
-                        state.space.colliderSet.setParent(
-                            state.handle.key.id,
-                            bodyState.handle.key.id,
-                            state.space.rigidBodySet,
-                        )
-                    }
-                    is RapierBody.State.Removed -> throw IllegalStateException("Attempting to attach $parent, which is not in a space, to $this")
-                }
-            }
-            is State.Removed -> throw IllegalStateException("$this is not added to a space")
-        }
-    }
-
-    override fun detach() {
-        when (val state = state) {
-            is State.Added -> {
-                state.space.colliderSet.setParent(
-                    state.handle.key.id,
-                    null,
-                    state.space.rigidBodySet,
-                )
-            }
-            is State.Removed -> throw IllegalStateException("$this is not added to a space")
-        }
-    }
-
     override fun toString() = when (val state = state) {
         is State.Added -> "RapierCollider[${state.handle}]"
         is State.Removed -> "RapierCollider[0x%x]".format(state.coll.memory().address())
@@ -225,6 +191,31 @@ class RapierCollider internal constructor(
             get() = super.relativePosition
             set(value) = pushArena { arena ->
                 coll.setPositionWrtParent(value.toIsometry(arena))
+            }
+
+        override var parent: RigidBody?
+            get() = super.parent
+            set(value) = when (val state = state) {
+                is State.Added -> {
+                    val parentHandle = value?.let { parent ->
+                        parent as RapierBody
+                        when (val parentState = parent.state) {
+                            is RapierBody.State.Added -> {
+                                if (state.space != parentState.space)
+                                    throw IllegalArgumentException("Attempting to attach $value (in ${parentState.space}) to $handle (in ${state.space})")
+                                parentState.handle.key.id
+                            }
+                            is RapierBody.State.Removed ->throw IllegalStateException("Attempting to attach $parent, which is not in a space, to $this")
+                        }
+                    }
+
+                    state.space.colliderSet.setParent(
+                        state.handle.key.id,
+                        parentHandle,
+                        state.space.rigidBodySet,
+                    )
+                }
+                is State.Removed -> throw IllegalStateException("$this is not added to a space")
             }
     }
 }

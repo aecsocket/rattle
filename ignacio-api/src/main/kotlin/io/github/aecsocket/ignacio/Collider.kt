@@ -34,10 +34,6 @@ interface Collider : Destroyable {
 
     fun remove()
 
-    fun attachTo(parent: RigidBody)
-
-    fun detach()
-
     interface Access {
         val handle: Collider
 
@@ -66,5 +62,7 @@ interface Collider : Destroyable {
         override var isSensor: Boolean
 
         override var relativePosition: Iso
+
+        override var parent: RigidBody?
     }
 }

@@ -31,12 +31,14 @@ class HelloIgnacio {
         val ballGeom: Geometry = Sphere(0.5)
 
         // shape: baked form of a geometry, physics-ready
+        // shapes are reference-counted, and start with a count of 1
         val floorShape: Shape = engine.createShape(floorGeom)
         val ballShape: Shape = engine.createShape(ballGeom)
 
         // collider: a volume in 3D space which can produce collision response
         // but *cannot* simulate dynamics (velocity, etc.) on its own
         val floorColl: Collider = engine.createCollider(
+            // shapes are reference counted - creating the collider will increment the ref count by 1
             shape = floorShape,
             material = floorMat,
             // an Iso is an isometry - a combination of translation vector + rotation quaternion
@@ -44,7 +46,7 @@ class HelloIgnacio {
                 // any of the fields of an Iso can be omitted, and they will default to these values:
                 translation = Vec(0.0, 0.0, 0.0),
                 rotation = Quat.Identity,
-                // this is known as the identity
+                // this is known as the identity isometry
             ),
         )
         // add the collider to the physics space
@@ -74,13 +76,16 @@ class HelloIgnacio {
         // no position provided, so it defaults to the identity isometry
         // which doesn't matter, since we will attach this collider to the ball soon
         // so that it will follow the ball
+        // ballShape's ref count increased by 1
         val ballCollider = engine.createCollider(ballShape, ballMat)
         ballCollider.addTo(physics)
 
-        // attach the collider to the body
-        // it will now always be positioned at `ballBody.position` * `ballCollider.relativePosition`
-        // relativePosition defaults to the identity isometry
-        ballCollider.attachTo(ballBody)
+        ballCollider.write { coll ->
+            // attach the collider to the body
+            // it will now always be positioned at `ballBody.position` * `ballCollider.relativePosition`
+            // relativePosition defaults to the identity isometry
+            coll.parent = ballBody
+        }
 
         // simulate
         val dt = 1.0 / 60.0
@@ -94,12 +99,17 @@ class HelloIgnacio {
             }
         }
 
-        // the physics space owns our bodies and colliders (which in turn own shapes),
+        // the physics space owns our bodies and colliders,
         // so when we destroy the physics space these objects will be destroyed as well
         // if these objects were not attached to any space, we would have to destroy them manually
+        // note: since colliders own ref-counted shapes, destroying a collider
+        //       will reduce the shape's ref count by 1, but *not* destroy it
         physics.destroy()
         // material is not owned by a single space, so must be destroyed manually
         floorMat.destroy()
+        // the shapes' current ref counts are 1, so to fully destroy them we bring their ref counts to 0
+        floorShape.destroy()
+        ballShape.destroy()
         // finally, destroy the engine to tear down any remaining constructs
         engine.destroy()
     }
