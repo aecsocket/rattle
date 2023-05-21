@@ -6,7 +6,4 @@ plugins {
 dependencies {
     api(projects.rattleApi)
     api(libs.rapier)
-    runtimeOnly(libs.rapier.linux.x86)
-    //runtimeOnly(libs.rapier.windows.x86)
-    //runtimeOnly(libs.rapier.macos.x86)
 }

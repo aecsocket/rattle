@@ -14,7 +14,7 @@ value class ArenaKey(val id: Long) {
     override fun toString(): String = ArenaKey.asString(id)
 }
 
-class RapierEngine(val settings: Settings) : PhysicsEngine {
+class RapierEngine(var settings: Settings) : PhysicsEngine {
     @ConfigSerializable
     data class Settings(
         val integration: Integration = Integration(),
