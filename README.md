@@ -17,6 +17,7 @@ displayed to clients via vanilla packets (no client mod required).
 
 The project currently uses the [Rapier](https://github.com/dimforge/rapier) backend, a rigid-body physics library,
 with Java bindings via [rapier-java](https://github.com/aecsocket/rapier-java) and integrated in the `rattle-rapier` module.
+These bindings require Java 20, since they use the Java Foreign API.
 
 ## Features
 
@@ -37,7 +38,7 @@ The code is implemented as a server-side plugin rather than a client-side mod, b
 - clients don't need to download any mods for a mod loader (Forge, Fabric etc.) to interact with physics
 
 There have already been projects which integrate some degree of rigid-body physics into the game, however those are mainly
-used for one-off specific features, and most are client-side mods. Ignacio acts instead as a framework for other projects
+used for one-off specific features, and most are client-side mods. Rattle acts instead as a framework for other projects
 to use to integrate physics into a world.
 
 ## Installation
