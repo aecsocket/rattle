@@ -11,9 +11,12 @@ repositories {
 dependencies {
     minecraft(libs.minecraft)
     mappings(loom.officialMojangMappings())
+    modImplementation(libs.fabric.loader)
+    modImplementation(libs.fabric.api)
+    modImplementation(libs.fabric.language.kotlin)
     api(projects.rattleServer)
 
-    api(libs.alexandria.fabric)
+    //api(libs.alexandria.fabric)
 }
 
 loom {

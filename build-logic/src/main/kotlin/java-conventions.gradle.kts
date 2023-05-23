@@ -21,12 +21,17 @@ repositories {
 
 tasks {
     processResources {
-        filesMatching("**/*.yml") {
-            expand(
-                "version" to project.version,
-                "group" to project.group,
-                "description" to project.description
-            )
+        listOf(
+            "paper-plugin.yml",
+            "fabric.mod.json",
+        ).forEach { pattern ->
+            filesMatching(pattern) {
+                expand(
+                    "version" to project.version,
+                    "group" to project.group,
+                    "description" to project.description
+                )
+            }
         }
     }
 
