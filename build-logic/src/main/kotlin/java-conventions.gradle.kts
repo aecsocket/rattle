@@ -8,7 +8,7 @@ plugins {
 
 indra {
     javaVersions {
-        target(20)
+        target(19)
         previewFeaturesEnabled(true)
     }
 }
@@ -17,7 +17,6 @@ repositories {
     if (!ci.get()) mavenLocal()
     mavenCentral()
     sonatype.s01Snapshots()
-    maven("https://maven.pkg.jetbrains.space/kotlin/p/kotlin/dev") // Kotlin Beta
 }
 
 tasks {

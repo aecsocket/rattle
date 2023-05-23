@@ -3,7 +3,7 @@ package io.github.aecsocket.rattle
 import java.util.function.Consumer
 
 sealed interface Sleeping {
-    data object Disabled : Sleeping
+    /* TODO Kotlin 1.9: data */ object Disabled : Sleeping
 
     data class Enabled(val state: Boolean) : Sleeping
 }

@@ -10,8 +10,10 @@ import rapier.math.AngVector
 import rapier.math.Isometry
 import rapier.math.Rotation
 import rapier.math.Vector
-import java.lang.foreign.Arena
 import java.lang.foreign.SegmentAllocator
+
+// TODO Java 20: just use Arena directly
+typealias Arena = java.lang.foreign.MemorySession
 
 fun <R> pushArena(block: (arena: Arena) -> R): R =
     Arena.openConfined().use(block)

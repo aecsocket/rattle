@@ -4,8 +4,7 @@ import io.github.aecsocket.alexandria.hook.AlexandriaHook
 import io.github.aecsocket.alexandria.hook.AlexandriaManifest
 import io.github.aecsocket.alexandria.paper.AlexandriaPlugin
 import io.github.aecsocket.alexandria.paper.SETTINGS_PATH
-import io.github.aecsocket.alexandria.paper.seralizer.alexandriaPaperSerializers
-import io.github.aecsocket.klam.configurate.klamSerializers
+import io.github.aecsocket.alexandria.paper.extension.alexandriaPaperSerializers
 import io.github.aecsocket.rattle.PhysicsEngine
 import io.github.aecsocket.rattle.RattleHook
 import io.github.aecsocket.rattle.rapier.RapierEngine
@@ -52,6 +51,7 @@ class Rattle : AlexandriaPlugin<RattleHook.Settings>(AlexandriaManifest(
 
     override fun onLoad(log: Logger) {
         mEngine = RapierEngine(settings.rapier)
+        log.info("Loaded physics engine ${mEngine.name} v${mEngine.version}")
     }
 
     override fun onReload(log: Logger) {

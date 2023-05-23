@@ -4,7 +4,6 @@ pluginManagement {
     repositories {
         mavenLocal()
         gradlePluginPortal()
-        maven("https://maven.pkg.jetbrains.space/kotlin/p/kotlin/dev") // Kotlin Beta
         maven("https://repo.papermc.io/repository/maven-public/")
         maven("https://maven.fabricmc.net")
     }
@@ -21,4 +20,4 @@ include("rattle-api")
 include("rattle-rapier")
 include("rattle-server")
 include("rattle-paper")
-//include("rattle-fabric")
+include("rattle-fabric")

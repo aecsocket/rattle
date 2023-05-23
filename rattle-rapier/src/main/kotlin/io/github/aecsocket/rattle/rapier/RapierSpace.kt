@@ -7,7 +7,6 @@ import rapier.geometry.ColliderSet
 import rapier.geometry.NarrowPhase
 import rapier.pipeline.PhysicsPipeline
 import rapier.pipeline.QueryPipeline
-import java.lang.foreign.Arena
 
 class RapierSpace internal constructor(
     val engine: RapierEngine,
@@ -15,7 +14,7 @@ class RapierSpace internal constructor(
 ) : PhysicsSpace {
     private val destroyed = DestroyFlag()
 
-    val arena = Arena.openShared()
+    val arena: Arena = Arena.openShared()
 
     val pipeline = PhysicsPipeline.create()
     val islands = IslandManager.create()

@@ -13,5 +13,13 @@ dependencies {
     mappings(loom.officialMojangMappings())
     api(projects.rattleServer)
 
-    modApi(libs.alexandria.fabric)
+    api(libs.alexandria.fabric)
+}
+
+loom {
+    runs {
+        get("client").apply {
+            vmArgs.add("--enable-preview")
+        }
+    }
 }

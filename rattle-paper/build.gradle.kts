@@ -1,10 +1,8 @@
-import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
-
 plugins {
     id("kotlin-conventions")
     id("publishing-conventions")
     alias(libs.plugins.shadow)
-    //alias(libs.plugins.paperweight.userdev)
+    alias(libs.plugins.paperweight.userdev)
     alias(libs.plugins.run.paper)
 }
 
@@ -16,8 +14,7 @@ repositories {
 }
 
 dependencies {
-    //paperweight.foliaDevBundle("$minecraft-R0.1-SNAPSHOT")
-    api("io.papermc.paper", "paper-api", "$minecraft-R0.1-SNAPSHOT")
+    paperweight.foliaDevBundle("$minecraft-R0.1-SNAPSHOT")
     api(projects.rattleServer)
     api(libs.alexandria.paper)
 }
