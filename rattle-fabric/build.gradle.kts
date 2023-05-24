@@ -22,6 +22,7 @@ dependencies {
 loom {
     runs {
         get("client").apply {
+            // TODO: this gets ignored apparently (not java 19?)
             vmArgs.add("--enable-preview")
         }
     }
