@@ -17,10 +17,10 @@ import org.spongepowered.configurate.kotlin.extensions.get
 import org.spongepowered.configurate.objectmapping.ObjectMapper
 import java.util.logging.Logger
 
-lateinit var RattleAPI: Rattle
+lateinit var Rattle: RattlePlugin
     private set
 
-class Rattle : AlexandriaPlugin<RattleHook.Settings>(AlexandriaManifest(
+class RattlePlugin : AlexandriaPlugin<RattleHook.Settings>(AlexandriaManifest(
     id = "rattle",
     accentColor = TextColor.color(0xdeab14),
     languageResources = listOf(),
@@ -44,7 +44,7 @@ class Rattle : AlexandriaPlugin<RattleHook.Settings>(AlexandriaManifest(
     val physics: Map<World, WorldPhysics> get() = mPhysics
 
     init {
-        RattleAPI = this
+        Rattle = this
     }
 
     override fun loadSettings(node: ConfigurationNode) = node.get() ?: RattleHook.Settings()

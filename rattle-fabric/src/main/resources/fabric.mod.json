@@ -12,20 +12,22 @@
     "homepage": "https://github.com/aecsocket/rattle",
     "sources": "https://github.com/aecsocket/rattle"
   },
-
   "license": "MIT",
 
-  "environment": "server",
+  "environment": "*",
   "entrypoints": {
     "main": [
-      "${group}.rattle.fabric.Rattle"
+      {
+        "adapter": "kotlin",
+        "value": "${group}.rattle.fabric.Rattle"
+      }
     ]
   },
 
   "depends": {
     "fabricloader": ">=0.14.19",
     "fabric-api": "0.81.1+1.19.4",
-    "minecraft": "~1.19.4",
+    "minecraft": "1.19.4",
     "java": "19"
   }
 }
