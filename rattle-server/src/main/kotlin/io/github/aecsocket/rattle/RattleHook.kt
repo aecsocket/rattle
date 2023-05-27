@@ -13,9 +13,6 @@ val rattleManifest = AlexandriaManifest(
     id = "rattle",
     accentColor = TextColor.color(0xdeab14),
     languageResources = listOf(),
-    savedResources = listOf(
-        SETTINGS_PATH,
-    ),
 )
 
 interface RattleHook : AlexandriaHook {
