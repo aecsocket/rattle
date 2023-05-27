@@ -6,7 +6,7 @@ import kotlin.math.max
 typealias Real = Double
 typealias Vec = DVec3
 typealias Quat = DQuat
-typealias Mat3 = DMat3
+typealias Mat = DMat3
 typealias Iso = DIso3
 typealias Affine = DAffine3
 
