@@ -53,6 +53,13 @@ interface RattleMessages {
                     ): Message
                 }
             }
+
+            val destroy: Destroy
+            interface Destroy {
+                fun all(
+                    count: Int,
+                ): Message
+            }
         }
     }
 }

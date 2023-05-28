@@ -14,7 +14,7 @@ dependencies {
     modImplementation(libs.fabric.loader)
     modImplementation(libs.fabric.api)
     modImplementation(libs.fabric.language.kotlin)
-    api(projects.rattleServer)
+    api(projects.rattleCommon)
 
     modApi(libs.alexandria.fabric)
     include(libs.alexandria.fabric)

@@ -1,0 +1,57 @@
+translations:
+  en-US:
+    error:
+      space:
+        already_exists: >-
+          <se>Physics space for <p1>{world}</p1> already exists
+        does_not_exist: >-
+          <se>Physics space for <p1>{world}</p1> does not exist
+
+    command:
+      space:
+        create: >-
+          <p2>Created physics space for <p1>{world}</p1>
+        destroy: >-
+          <p2>Destroyed physics space for <p1>{world}</p1>
+
+      body:
+        create:
+          fixed:
+            box: >-
+              <p2>Created {count, plural,
+                one {<p1>#</p1> fixed box}
+                other {<p1>#</p1> fixed boxes}
+              } at <p1>{position_x}, {position_y}, {position_z}</p1>
+            sphere: >-
+              <p2>Created {count, plural,
+                one {<p1>#</p1> fixed sphere}
+                other {<p1>#</p1> fixed spheres}
+              } at <p1>{position_x}, {position_y}, {position_z}</p1>
+            capsule: >-
+              <p2>Created {count, plural,
+                one {<p1>#</p1> fixed capsule}
+                other {<p1>#</p1> fixed capsules}
+              } at <p1>{position_x}, {position_y}, {position_z}</p1>
+          moving:
+            box: >-
+              <p2>Created {count, plural,
+                one {<p1>#</p1> moving box}
+                other {<p1>#</p1> moving boxes}
+              } at <p1>{position_x}, {position_y}, {position_z}</p1>
+            sphere: >-
+              <p2>Created {count, plural,
+                one {<p1>#</p1> moving sphere}
+                other {<p1>#</p1> moving spheres}
+              } at <p1>{position_x}, {position_y}, {position_z}</p1>
+            capsule: >-
+              <p2>Created {count, plural,
+                one {<p1>#</p1> moving capsule}
+                other {<p1>#</p1> moving capsules}
+              } at <p1>{position_x}, {position_y}, {position_z}</p1>
+        destroy:
+          all: >-
+            <p2>Destroyed {count, plural,
+              =0 {zero bodies}
+              one {<p1>#</p1> body}
+              other {<p1>#</p1> bodies}
+            }

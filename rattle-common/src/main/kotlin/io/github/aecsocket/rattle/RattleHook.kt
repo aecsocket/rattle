@@ -12,7 +12,9 @@ import java.util.*
 val rattleManifest = AlexandriaManifest(
     id = "rattle",
     accentColor = TextColor.color(0xdeab14),
-    languageResources = listOf(),
+    languageResources = listOf(
+        "lang/en-US.yml",
+    ),
 )
 
 interface RattleHook : AlexandriaHook {
@@ -26,6 +28,8 @@ interface RattleHook : AlexandriaHook {
 
     override val settings: Settings
     val engine: PhysicsEngine
+
+    val primitives: PrimitiveBodies
 
     val worlds: Worlds
     interface Worlds {

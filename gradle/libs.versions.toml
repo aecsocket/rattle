@@ -21,7 +21,7 @@ rapier = { group = "io.github.aecsocket", name = "rapier-java-dim3-f64", version
 rapier-linux-x86 = { group = "io.github.aecsocket", name = "rapier-java-dim3-f64-linux-x86", version.ref = "rapier" }
 rapier-windows-x86 = { group = "io.github.aecsocket", name = "rapier-java-dim3-f64-windows-x86", version.ref = "rapier" }
 rapier-macos-x86 = { group = "io.github.aecsocket", name = "rapier-java-dim3-f64-macos-x86", version.ref = "rapier" }
-alexandria-api = { group = "io.github.aecsocket", name = "alexandria-api", version.ref = "alexandria" }
+alexandria-common = { group = "io.github.aecsocket", name = "alexandria-common", version.ref = "alexandria" }
 alexandria-paper = { group = "io.github.aecsocket", name = "alexandria-paper", version.ref = "alexandria" }
 alexandria-fabric = { group = "io.github.aecsocket", name = "alexandria-fabric", version.ref = "alexandria" }
 fabric-loader = { group = "net.fabricmc", name = "fabric-loader", version.ref = "fabric-loader" }

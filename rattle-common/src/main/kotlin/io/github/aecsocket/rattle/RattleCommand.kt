@@ -7,13 +7,14 @@ import cloud.commandframework.arguments.standard.IntegerArgument
 import cloud.commandframework.context.CommandContext
 import io.github.aecsocket.alexandria.extension.flag
 import io.github.aecsocket.alexandria.extension.hasFlag
-import io.github.aecsocket.alexandria.hook.HookCommand
+import io.github.aecsocket.alexandria.hook.AlexandriaCommand
 import io.github.aecsocket.glossa.messageProxy
 import io.github.aecsocket.klam.nextDVec3
 import net.kyori.adventure.audience.Audience
 import kotlin.random.Random
 
 private const val ALL = "all"
+private const val ANG_DAMP = "ang-damp"
 private const val BODY = "body"
 private const val BOX = "box"
 private const val CAPSULE = "capsule"
@@ -26,6 +27,7 @@ private const val FIXED = "fixed"
 private const val FRICTION = "friction"
 private const val HALF_EXTENT = "half-extent"
 private const val HALF_HEIGHT = "half-height"
+private const val LIN_DAMP = "lin-damp"
 private const val LOCATION = "location"
 private const val MASS = "mass"
 private const val MOVING = "moving"
@@ -41,7 +43,7 @@ typealias RealArgument<C> = DoubleArgument<C>
 abstract class RattleCommand<C : Audience>(
     private val rattle: RattleHook,
     manager: CommandManager<C>,
-) : HookCommand<C>(rattle, manager) {
+) : AlexandriaCommand<C>(rattle, manager) {
     private val messages = rattle.glossa.messageProxy<RattleMessages>()
 
     protected abstract fun locationArgumentOf(key: String): CommandArgument<C, *>
@@ -118,6 +120,12 @@ abstract class RattleCommand<C : Audience>(
 
                         literal(MOVING)
                             .flag(manager.flagBuilder(CCD))
+                            .flag(manager.flagBuilder(LIN_DAMP)
+                                .withArgument(RealArgument.builder<C>(LIN_DAMP).withMin(0))
+                            )
+                            .flag(manager.flagBuilder(ANG_DAMP)
+                                .withArgument(RealArgument.builder<C>(ANG_DAMP).withMin(0))
+                            )
                             .run {
                                 manager.command(
                                     literal(SPHERE)
@@ -257,10 +265,14 @@ abstract class RattleCommand<C : Audience>(
         geom: Geometry,
     ): BodyCreateInfo {
         val ccd = ctx.hasFlag(CCD)
+        val linDamp = ctx.flag(LIN_DAMP) ?: DEFAULT_LINEAR_DAMPING
+        val angDamp = ctx.flag(ANG_DAMP) ?: DEFAULT_ANGULAR_DAMPING
         return bodyCreate(ctx, geom) { position ->
             rattle.engine.createMovingBody(
                 position = position,
                 isCcdEnabled = ccd,
+                linearDamping = linDamp,
+                angularDamping = angDamp,
             )
         }
     }
@@ -336,6 +348,9 @@ abstract class RattleCommand<C : Audience>(
     }
 
     private fun bodyDestroyAll(ctx: CommandContext<C>) {
+        val sender = ctx.sender
+        val messages = messages.forAudience(sender)
+
         // TODO
     }
 }

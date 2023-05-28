@@ -18,6 +18,6 @@ rootProject.name = "rattle"
 
 include("rattle-api")
 include("rattle-rapier")
-include("rattle-server")
+include("rattle-common")
 include("rattle-paper")
 include("rattle-fabric")
