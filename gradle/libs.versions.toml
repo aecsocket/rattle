@@ -1,7 +1,7 @@
 [versions]
 indra = "3.1.1"
 kotlin = "1.8.21"
-klam = "0.2.0-SNAPSHOT"
+klam = "0.2.0"
 configurate = "4.1.2"
 alexandria = "0.1.1-SNAPSHOT"
 rapier = "0.1.0-SNAPSHOT"
