@@ -67,27 +67,6 @@ class RapierSpace internal constructor(
         arena.close()
     }
 
-    override fun step(dt: Real) {
-        val integrationParameters = integrationParametersDesc.apply {
-            this.dt = dt
-            minCcdDt = dt * engine.settings.integration.minCcdDtMultiplier
-        }.build()
-        pipeline.step(
-            gravity,
-            integrationParameters,
-            islands,
-            broadPhase,
-            narrowPhase,
-            rigidBodySet,
-            colliderSet,
-            impulseJointSet,
-            multibodyJointSet,
-            ccdSolver,
-            queryPipeline,
-        )
-        integrationParameters.drop()
-    }
-
     override fun toString() = "RapierSpace[0x%x]".format(pipeline.memory().address())
 
     override fun equals(other: Any?) = other is RapierSpace && pipeline.memory() == other.pipeline.memory()

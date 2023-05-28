@@ -9,6 +9,4 @@ interface PhysicsSpace : Destroyable {
     )
 
     var settings: Settings
-
-    fun step(dt: Real)
 }

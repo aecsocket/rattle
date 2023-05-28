@@ -46,6 +46,7 @@ interface PhysicsEngine : Destroyable {
         shape: Shape,
         material: PhysicsMaterial,
         position: Iso = Iso(),
+        mass: Mass = Mass.Density(1.0),
         isSensor: Boolean = false,
     ): Collider
 
@@ -66,6 +67,8 @@ interface PhysicsEngine : Destroyable {
     ): MovingBody
 
     fun createSpace(settings: PhysicsSpace.Settings): PhysicsSpace
+
+    fun stepSpaces(dt: Real, spaces: Collection<PhysicsSpace>)
 }
 
 fun numThreads(raw: Int) = if (raw > 0) raw else {

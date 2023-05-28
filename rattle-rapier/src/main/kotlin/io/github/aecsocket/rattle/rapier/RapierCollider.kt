@@ -71,14 +71,16 @@ class RapierCollider internal constructor(
     override fun <R> read(block: (Collider.Read) -> R): R {
         return when (val state = state) {
             is State.Removed -> block(Read(state.coll))
-            is State.Added -> block(Read(state.space.colliderSet.index(state.handle.key.id)))
+            is State.Added -> block(Read(state.space.colliderSet.get(state.handle.key.id)
+                ?: throw IllegalArgumentException("No collider with ID ${state.handle.key}")))
         }
     }
 
     override fun <R> write(block: (Collider.Write) -> R): R {
         return when (val state = state) {
             is State.Removed -> block(Write(state.coll))
-            is State.Added -> block(Write(state.space.colliderSet.indexMut(state.handle.key.id)))
+            is State.Added -> block(Write(state.space.colliderSet.getMut(state.handle.key.id)
+                ?: throw IllegalArgumentException("No collider with ID ${state.handle.key}")))
         }
     }
 

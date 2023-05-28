@@ -9,31 +9,46 @@ import net.kyori.adventure.text.format.TextColor
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import java.util.*
 
-const val DEFAULT = "default"
-
 val rattleManifest = AlexandriaManifest(
     id = "rattle",
     accentColor = TextColor.color(0xdeab14),
     languageResources = listOf(),
 )
 
-interface RattleHook<W> : AlexandriaHook {
+interface RattleHook : AlexandriaHook {
     @ConfigSerializable
     data class Settings(
         override val defaultLocale: Locale = fallbackLocale,
+        val timeStepMultiplier: Real = 1.0,
         val worlds: Map<String, PhysicsSpace.Settings> = emptyMap(),
         val rapier: RapierEngine.Settings = RapierEngine.Settings(),
-    ) : AlexandriaSettings {
-        @ConfigSerializable
-        data class World(
-            val gravity: Vec = Vec(0.0, -9.81, 0.0),
-        )
-    }
+    ) : AlexandriaSettings
 
     override val settings: Settings
     val engine: PhysicsEngine
 
-    fun physicsOrNull(world: W): WorldPhysics<W>?
+    val worlds: Worlds
+    interface Worlds {
+        operator fun contains(world: World): Boolean
 
-    fun physicsOrCreate(world: W): WorldPhysics<W>
+        operator fun get(world: World): WorldPhysics?
+
+        fun getOrCreate(world: World): WorldPhysics
+
+        fun destroy(world: World)
+    }
+
+    companion object {
+        fun <T : WorldPhysics> createWorldPhysics(
+            hook: RattleHook,
+            settings: PhysicsSpace.Settings?,
+            create: (PhysicsSpace, TerrainStrategy, EntityStrategy) -> T,
+        ): T {
+            val physics = hook.engine.createSpace(settings ?: PhysicsSpace.Settings())
+            // TODO
+            val terrain = NoOpTerrainStrategy
+            val entities = NoOpEntityStrategy
+            return create(physics, terrain, entities)
+        }
+    }
 }

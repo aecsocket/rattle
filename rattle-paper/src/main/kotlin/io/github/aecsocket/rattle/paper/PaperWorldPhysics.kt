@@ -7,8 +7,8 @@ import io.github.aecsocket.rattle.WorldPhysics
 import org.bukkit.World
 
 class PaperWorldPhysics(
+    val world: World,
     override val physics: PhysicsSpace,
-    override val world: World,
     override val terrain: TerrainStrategy,
     override val entities: EntityStrategy,
-) : WorldPhysics<World>
+) : WorldPhysics

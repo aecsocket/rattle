@@ -7,6 +7,7 @@ import rapier.data.ArenaKey
 import rapier.dynamics.RigidBodyBuilder
 import rapier.dynamics.RigidBodyType
 import rapier.geometry.ColliderBuilder
+import rapier.pipeline.PhysicsPipeline
 import rapier.shape.SharedShape
 
 @JvmInline
@@ -96,6 +97,7 @@ class RapierEngine(var settings: Settings) : PhysicsEngine {
         shape: Shape,
         material: PhysicsMaterial,
         position: Iso,
+        mass: Mass,
         isSensor: Boolean,
     ): Collider {
         shape as RapierShape
@@ -107,8 +109,13 @@ class RapierEngine(var settings: Settings) : PhysicsEngine {
                 .restitutionCombineRule(material.restitutionCombine.convert())
                 .position(position.toIsometry(arena))
                 .sensor(isSensor)
-                .density(1.0)
-                .use { it.build() }
+                .use {
+                    when (mass) {
+                        is Mass.Constant -> it.mass(mass.mass)
+                        is Mass.Density -> it.density(mass.density)
+                    }
+                    it.build()
+                }
         }
         return RapierCollider(RapierCollider.State.Removed(coll))
     }
@@ -161,5 +168,31 @@ class RapierEngine(var settings: Settings) : PhysicsEngine {
 
     override fun createSpace(settings: PhysicsSpace.Settings): PhysicsSpace {
         return RapierSpace(this, settings)
+    }
+
+    override fun stepSpaces(dt: Real, spaces: Collection<PhysicsSpace>) {
+        @Suppress("UNCHECKED_CAST")
+        spaces as Collection<RapierSpace>
+        val integrationParameters = spaces.map { space ->
+            space.integrationParametersDesc.apply {
+                this.dt = dt
+                minCcdDt = dt * settings.integration.minCcdDtMultiplier
+            }.build()
+        }
+        PhysicsPipeline.stepAll(
+            spaces.map { it.pipeline }.toTypedArray(),
+            spaces.map { it.gravity }.toTypedArray(),
+            integrationParameters.toTypedArray(),
+            spaces.map { it.islands }.toTypedArray(),
+            spaces.map { it.broadPhase }.toTypedArray(),
+            spaces.map { it.narrowPhase }.toTypedArray(),
+            spaces.map { it.rigidBodySet }.toTypedArray(),
+            spaces.map { it.colliderSet }.toTypedArray(),
+            spaces.map { it.impulseJointSet }.toTypedArray(),
+            spaces.map { it.multibodyJointSet }.toTypedArray(),
+            spaces.map { it.ccdSolver }.toTypedArray(),
+            spaces.map { it.queryPipeline }.toTypedArray(),
+        )
+        integrationParameters.forEach { it.drop() }
     }
 }

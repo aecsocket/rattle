@@ -21,6 +21,20 @@ interface PhysicsMaterial : Destroyable {
     val restitutionCombine: CoeffCombineRule
 }
 
+sealed interface Mass {
+    data class Density(val density: Real) : Mass {
+        init {
+            require(density > 0.0) { "requires density > 0.0" }
+        }
+    }
+
+    data class Constant(val mass: Real) : Mass {
+        init {
+            require(mass > 0.0) { "requires mass > 0.0" }
+        }
+    }
+}
+
 interface Collider : Destroyable {
     fun <R> read(block: (Read) -> R): R
 

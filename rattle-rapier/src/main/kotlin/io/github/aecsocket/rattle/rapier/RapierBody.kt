@@ -23,7 +23,8 @@ class RapierBody internal constructor(
     fun <R> read(block: (RapierBody.Read) -> R): R {
         return when (val state = state) {
             is State.Removed -> block(Read(state.body))
-            is State.Added -> block(Read(state.space.rigidBodySet.index(state.handle.key.id)))
+            is State.Added -> block(Read(state.space.rigidBodySet.get(state.handle.key.id)
+                ?: throw IllegalArgumentException("No body with ID ${state.handle.key}")))
         }
     }
 
@@ -36,7 +37,8 @@ class RapierBody internal constructor(
     fun <R> write(block: (RapierBody.Write) -> R): R {
         return when (val state = state) {
             is State.Removed -> block(Write(state.body))
-            is State.Added -> block(Write(state.space.rigidBodySet.indexMut(state.handle.key.id)))
+            is State.Added -> block(Write(state.space.rigidBodySet.getMut(state.handle.key.id)
+                ?: throw IllegalArgumentException("No body with ID ${state.handle.key}")))
         }
     }
 

@@ -21,10 +21,17 @@ dependencies {
 }
 
 loom {
+    splitEnvironmentSourceSets()
+
+    mods {
+        create("rattle").apply {
+            sourceSet(sourceSets.main.get())
+        }
+    }
+
     runs {
         get("client").apply {
-            // TODO: this gets ignored apparently (not java 19?)
-            vmArgs.add("--enable-preview")
+            vmArgs.addAll(listOf("--enable-preview", "--enable-native-access=ALL-UNNAMED"))
         }
     }
 }
