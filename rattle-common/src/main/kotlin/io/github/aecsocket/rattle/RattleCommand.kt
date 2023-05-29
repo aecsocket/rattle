@@ -14,7 +14,6 @@ import io.github.aecsocket.klam.nextDVec3
 import io.github.aecsocket.rattle.stats.formatTiming
 import io.github.aecsocket.rattle.stats.timingStatsOf
 import net.kyori.adventure.audience.Audience
-import net.kyori.adventure.key.Key
 import kotlin.random.Random
 
 private const val ALL = "all"
@@ -47,13 +46,6 @@ private const val WORLD = "world"
 
 typealias RealArgument<C> = DoubleArgument<C>
 
-data class WorldPhysicsStats(
-    val world: Key,
-    val numColliders: Int,
-    val numBodies: Int,
-    val numActiveBodies: Int,
-)
-
 abstract class RattleCommand<C : Audience, W>(
     private val rattle: RattleHook<W>,
     private val messages: MessageProxy<RattleMessages>,
@@ -67,9 +59,7 @@ abstract class RattleCommand<C : Audience, W>(
 
     protected abstract fun CommandContext<C>.getWorld(key: String): W
 
-    protected abstract fun CommandContext<C>.worldPhysicsStats(): List<WorldPhysicsStats>
-
-    protected abstract fun playerData(sender: C): RattlePlayer<*, *>?
+    protected abstract val CommandContext<C>.server: RattleServer<W, C>
 
     init {
         root.run {
@@ -187,38 +177,40 @@ abstract class RattleCommand<C : Audience, W>(
     }
 
     private fun spaceCreate(ctx: CommandContext<C>) {
+        val server = ctx.server
         val sender = ctx.sender
         val messages = messages.forAudience(sender)
         val world = ctx.getWorld(WORLD)
 
-        if (rattle.hasPhysics(world)) {
+        if (server.hasPhysics(world)) {
             error(messages.error.space.alreadyExists(
-                world = rattle.key(world).asString()
+                world = server.key(world).asString()
             ))
         }
 
-        rattle.physicsOrCreate(world)
+        server.physicsOrCreate(world)
 
         messages.command.space.create(
-            world = rattle.key(world).asString(),
+            world = server.key(world).asString(),
         ).sendTo(sender)
     }
 
     private fun spaceDestroy(ctx: CommandContext<C>) {
+        val server = ctx.server
         val sender = ctx.sender
         val messages = messages.forAudience(sender)
         val world = ctx.getWorld(WORLD)
 
         // block the command/main thread until physics world has been fully destroyed
         // this will wait until stepping and updates are complete
-        rattle.physicsOrNull(world)?.withLock { (physics) ->
+        server.physicsOrNull(world)?.withLock { (physics) ->
             physics.destroy()
         } ?: error(messages.error.space.doesNotExist(
-            world = rattle.key(world).asString()
+            world = server.key(world).asString()
         ))
 
         messages.command.space.destroy(
-            world = rattle.key(world).asString(),
+            world = server.key(world).asString(),
         ).sendTo(sender)
     }
 
@@ -234,6 +226,7 @@ abstract class RattleCommand<C : Audience, W>(
         geom: Geometry,
         createBody: (Iso) -> RigidBody,
     ): BodyCreateInfo {
+        val server = ctx.server
         val location = ctx.getLocation(LOCATION)
         val count = ctx.flag(COUNT) ?: 1
         val spread = ctx.flag(SPREAD) ?: 0.0
@@ -254,7 +247,7 @@ abstract class RattleCommand<C : Audience, W>(
             val offset = (Random.nextDVec3() * 2.0 - 1.0) * spread
             val position = Iso(location.position + offset)
 
-            rattle.primitiveBodies.create(
+            server.primitiveBodies.create(
                 world = location.world,
                 geom = geom,
                 body = createBody(position),
@@ -371,24 +364,26 @@ abstract class RattleCommand<C : Audience, W>(
     }
 
     private fun bodyDestroyAll(ctx: CommandContext<C>) {
+        val server = ctx.server
         val sender = ctx.sender
         val messages = messages.forAudience(sender)
 
-        val count = rattle.primitiveBodies.count
-        rattle.primitiveBodies.destroyAll()
+        val count = server.primitiveBodies.count
+        server.primitiveBodies.destroyAll()
         messages.command.body.destroy.all(
             count = count,
         ).sendTo(sender)
     }
 
     private fun stats(ctx: CommandContext<C>) {
+        val server = ctx.server
         val sender = ctx.sender
         val messages = messages.forAudience(sender)
 
         messages.command.stats.timingsHeader().sendTo(sender)
 
         rattle.settings.stats.timingBuffers.forEach { buffer ->
-            val (median, best5, worst5) = timingStatsOf(rattle.engineTimings.getLast((buffer * 1000).toLong()))
+            val (median, best5, worst5) = timingStatsOf(server.engineTimings.getLast((buffer * 1000).toLong()))
             messages.command.stats.timing(
                 buffer = buffer,
                 median = formatTiming(median, messages),
@@ -397,24 +392,28 @@ abstract class RattleCommand<C : Audience, W>(
             ).sendTo(sender)
         }
 
-        val worlds = ctx.worldPhysicsStats()
+        val worlds = server.worlds
+            .mapNotNull { server.physicsOrNull(it) }
 
         messages.command.stats.spacesHeader(
             count = worlds.size,
         ).sendTo(sender)
 
-        worlds.forEach { stats ->
-            messages.command.stats.space(
-                world = stats.world.asString(),
-                numColliders = stats.numColliders,
-                numBodies = stats.numBodies,
-                numActiveBodies = stats.numActiveBodies,
-            ).sendTo(sender)
+        worlds.forEach { world ->
+            world.withLock { (physics, world) ->
+                messages.command.stats.space(
+                    world = server.key(world).asString(),
+                    numColliders = physics.colliders.count,
+                    numBodies = physics.bodies.count,
+                    numActiveBodies = physics.bodies.activeCount,
+                ).sendTo(sender)
+            }
         }
     }
 
     private fun statsEnable(ctx: CommandContext<C>) {
-        val sender = playerData(ctx.sender) ?: mustBePlayer(ctx.sender)
+        val server = ctx.server
+        val sender = server.playerData(ctx.sender) ?: mustBePlayer(ctx.sender)
         val enabled = ctx.get<Boolean>(ENABLED)
 
         sender.showStatsBar(enabled)

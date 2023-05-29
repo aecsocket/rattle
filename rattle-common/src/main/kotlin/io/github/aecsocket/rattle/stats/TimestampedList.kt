@@ -12,9 +12,9 @@ interface MutableTimestampedList<T> : TimestampedList<T> {
     fun add(value: T)
 
     fun clear()
-}
 
-operator fun <T> MutableTimestampedList<T>.plusAssign(value: T) = add(value)
+    operator fun plusAssign(value: T) = add(value)
+}
 
 private class TimestampedListImpl<T>(override var buffer: Long) : MutableTimestampedList<T> {
     private data class Entry<T>(

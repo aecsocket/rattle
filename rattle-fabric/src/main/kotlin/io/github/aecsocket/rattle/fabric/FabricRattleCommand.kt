@@ -11,7 +11,6 @@ import net.minecraft.commands.CommandSourceStack
 import net.minecraft.core.registries.Registries
 import net.minecraft.resources.ResourceKey
 import net.minecraft.server.level.ServerLevel
-import net.minecraft.server.level.ServerPlayer
 
 internal class FabricRattleCommand(
      rattle: Rattle,
@@ -45,22 +44,6 @@ internal class FabricRattleCommand(
         return sender.server.getLevel(res) ?: throw IllegalArgumentException("No world with key ${res.key()}")
     }
 
-    override fun CommandContext<CommandSourceStack>.worldPhysicsStats(): List<WorldPhysicsStats> {
-        return sender.server.allLevels
-            .mapNotNull { world ->
-                world.physicsOrNull()?.withLock { (physics) ->
-                    WorldPhysicsStats(
-                        world = world.dimension().key(),
-                        numColliders = physics.colliders.count,
-                        numBodies = physics.bodies.count,
-                        numActiveBodies = physics.bodies.activeCount,
-                    )
-                }
-            }
-    }
-
-    override fun playerData(sender: CommandSourceStack): FabricRattlePlayer? {
-        val player = sender.entity as? ServerPlayer ?: return null
-        return player.rattle
-    }
+    override val CommandContext<CommandSourceStack>.server: Rattle.Server
+        get() = sender.server.rattle()
 }

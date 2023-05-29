@@ -5,13 +5,15 @@ import io.github.aecsocket.alexandria.hook.AlexandriaHook
 import io.github.aecsocket.alexandria.hook.AlexandriaManifest
 import io.github.aecsocket.alexandria.hook.AlexandriaSettings
 import io.github.aecsocket.alexandria.hook.fallbackLocale
-import io.github.aecsocket.alexandria.log.Log
 import io.github.aecsocket.alexandria.log.info
+import io.github.aecsocket.alexandria.sync.Sync
 import io.github.aecsocket.glossa.MessageProxy
 import io.github.aecsocket.glossa.messageProxy
 import io.github.aecsocket.rattle.rapier.RapierEngine
 import io.github.aecsocket.rattle.stats.MutableTimestampedList
 import io.github.aecsocket.rattle.stats.TimestampedList
+import net.kyori.adventure.audience.Audience
+import net.kyori.adventure.key.Key
 import net.kyori.adventure.text.format.TextColor
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import java.util.*
@@ -24,7 +26,7 @@ val rattleManifest = AlexandriaManifest(
     ),
 )
 
-interface RattleHook<W> : AlexandriaHook, RattleAdapter<W> {
+interface RattleHook<W> : AlexandriaHook {
     @ConfigSerializable
     data class Settings(
         override val defaultLocale: Locale = fallbackLocale,
@@ -43,8 +45,6 @@ interface RattleHook<W> : AlexandriaHook, RattleAdapter<W> {
 
     override val settings: Settings
     val engine: PhysicsEngine
-    val primitiveBodies: PrimitiveBodies<W>
-    val engineTimings: TimestampedList<Long>
 
     companion object {
         fun <W> onInit(
@@ -59,10 +59,10 @@ interface RattleHook<W> : AlexandriaHook, RattleAdapter<W> {
         fun <W> onLoad(
             rattle: RattleHook<W>,
             setMessages: (MessageProxy<RattleMessages>) -> Unit,
-            engineTimings: MutableTimestampedList<Long>,
+            engineTimings: MutableTimestampedList<Long>?,
         ) {
             setMessages(rattle.glossa.messageProxy())
-            engineTimings.buffer = (rattle.settings.stats.timingBuffers.max() * 1000).toLong()
+            engineTimings?.buffer = (rattle.settings.stats.timingBuffers.max() * 1000).toLong()
         }
 
         fun <W> onReload(
@@ -70,18 +70,6 @@ interface RattleHook<W> : AlexandriaHook, RattleAdapter<W> {
             engine: RapierEngine,
         ) {
             engine.settings = rattle.settings.rapier
-        }
-
-        fun <W> onServerStop(rattle: RattleHook<W>, worlds: Iterable<W>) {
-            val destroyed = worlds.sumOf { world ->
-                val res = rattle.physicsOrNull(world)?.withLock {
-                    it.destroy()
-                    1
-                } ?: 0
-               // weird pattern because kotlin gets confused on if the result is an Int or a Long otherwise
-               res
-            }
-            rattle.log.info { "Destroyed $destroyed world physics space(s)" }
         }
 
         fun <T : WorldPhysics<*>> createWorldPhysics(
@@ -94,6 +82,37 @@ interface RattleHook<W> : AlexandriaHook, RattleAdapter<W> {
             val terrain = NoOpTerrainStrategy
             val entities = NoOpEntityStrategy
             return create(physics, terrain, entities)
+        }
+    }
+}
+
+interface RattleServer<W, C : Audience> {
+    val rattle: RattleHook<W>
+    val primitiveBodies: PrimitiveBodies<W>
+    val engineTimings: TimestampedList<Long>
+    val worlds: Iterable<W>
+
+    fun playerData(sender: C): RattlePlayer<W, *>?
+
+    fun key(world: W): Key
+
+    fun physicsOrNull(world: W): Sync<out WorldPhysics<W>>?
+
+    fun physicsOrCreate(world: W): Sync<out WorldPhysics<W>>
+
+    fun hasPhysics(world: W) = physicsOrNull(world) != null
+
+    companion object {
+        fun <W> onDestroy(server: RattleServer<W, *>) {
+            val worlds = server.worlds
+            val count = worlds.sumOf { world ->
+                val res = server.physicsOrNull(world)?.withLock { physics ->
+                    physics.destroy()
+                    1
+                } ?: 0
+                res
+            }
+            server.rattle.log.info { "Destroyed $count world physics space(s)" }
         }
     }
 }

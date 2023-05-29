@@ -43,7 +43,7 @@ class RattlePlugin : AlexandriaPlugin<RattleHook.Settings>(rattleManifest), Ratt
         Rattle = this
     }
 
-    override fun loadSettings(node: ConfigurationNode) = node.get() ?: RattleHook.Settings()
+    override fun loadSettings(node: ConfigurationNode) = node.get() ?: Rattle.Settings()
 
     override fun onEnable() {
         super.onEnable()
@@ -75,7 +75,7 @@ class RattlePlugin : AlexandriaPlugin<RattleHook.Settings>(rattleManifest), Ratt
         override fun get(world: io.github.aecsocket.rattle.World) = get(unwrap(world))
 
         fun getOrCreate(world: World) = mPhysics.computeIfAbsent(world) {
-            RattleHook.createWorldPhysics(
+            Rattle.createWorldPhysics(
                 this@RattlePlugin,
                 settings.worlds.forWorld(world)
             ) { physics, terrain, entities ->
