@@ -15,10 +15,10 @@ interface PhysicsSpace : Destroyable {
     val bodies: ActiveContainer<RigidBody>
 
     interface Container<T> {
-        val count: Long
+        val count: Int
     }
 
     interface ActiveContainer<T> : Container<T> {
-        val activeCount: Long
+        val activeCount: Int
     }
 }

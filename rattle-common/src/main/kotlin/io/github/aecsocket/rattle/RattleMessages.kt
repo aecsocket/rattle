@@ -80,9 +80,9 @@ interface RattleMessages {
 
             fun space(
                 world: String,
-                numColliders: Long,
-                numBodies: Long,
-                numActiveBodies: Long,
+                numColliders: Int,
+                numBodies: Int,
+                numActiveBodies: Int,
             ): Message
         }
     }
@@ -90,4 +90,23 @@ interface RattleMessages {
     fun timing(
         time: Double,
     ): Message
+
+    val statsBar: StatsBar
+    interface StatsBar {
+        fun none(
+            world: String,
+            median: Component,
+            best5: Component,
+            worst5: Component,
+        ): Message
+
+        fun some(
+            world: String,
+            numBodies: Int,
+            numActiveBodies: Int,
+            median: Component,
+            best5: Component,
+            worst5: Component,
+        ): Message
+    }
 }

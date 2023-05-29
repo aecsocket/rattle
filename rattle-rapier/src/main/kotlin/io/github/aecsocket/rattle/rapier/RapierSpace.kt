@@ -70,15 +70,15 @@ class RapierSpace internal constructor(
     }
 
     override val colliders = object : PhysicsSpace.Container<Collider> {
-        override val count: Long
-            get() = colliderSet.size()
+        override val count: Int
+            get() = colliderSet.size().toInt()
     }
 
     override val bodies = object : PhysicsSpace.ActiveContainer<RigidBody> {
-        override val count: Long
-            get() = rigidBodySet.size()
+        override val count: Int
+            get() = rigidBodySet.size().toInt()
 
-        override val activeCount: Long
+        override val activeCount: Int
             get() = count // TODO
     }
 

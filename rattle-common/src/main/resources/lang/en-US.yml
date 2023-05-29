@@ -69,7 +69,13 @@ translations:
         space: |-
           <p2>  · <sk>{world}</sk>:
           <p2>    {num_colliders, plural, one {<p1>#</p1> collider} other {<p1>#</p1> colliders}}
-          <p2>    <p1>{num_active_bodies}</p1> active / {num_bodies, plural, one {<p1>#</p1> body} other {<p1>#</p1>} bodies}
+          <p2>    <p1>{num_active_bodies}</p1> active / {num_bodies, plural, one {<p1>#</p1> body} other {<p1>#</p1> bodies}}
 
     timing: >-
       {time, number, :: .0}
+
+    stats_bar:
+      none: >-
+        <p2><sk>{world}</sk>: <se>no physics</se> <p3>|</p3> <p1><median> ms</p1> avg / <p1><best5> ms</p1> 5%ile / <p1><worst5> ms</p1> 95%ile
+      some: >-
+        <p2><sk>{world}</sk>: <p1>{num_active_bodies}</p1> active / <p1>{num_bodies}</p1> bodies <p3>|</p3> <p1><median> ms</p1> avg / <p1><best5> ms</p1> 5%ile / <p1><worst5> ms</p1> 95%ile

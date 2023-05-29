@@ -5,5 +5,5 @@ plugins {
 
 dependencies {
     api(projects.rattleApi)
-    api(libs.rapier)
+    implementation(libs.rapier)
 }
