@@ -1,6 +1,7 @@
 package io.github.aecsocket.rattle.rapier
 
 import io.github.aecsocket.rattle.*
+import io.github.aecsocket.rattle.RigidBody
 import rapier.dynamics.*
 import rapier.geometry.BroadPhase
 import rapier.geometry.ColliderSet
@@ -27,7 +28,15 @@ class RapierSpace internal constructor(
     val ccdSolver = CCDSolver.create()
     val queryPipeline = QueryPipeline.create()
 
-    val integrationParametersDesc = IntegrationParametersDesc.ofDefault(arena).apply {
+    val gravity = settings.gravity.toVector(arena)
+
+    override var settings = settings
+        set(value) {
+            field = value
+            gravity.copyFrom(settings.gravity)
+        }
+
+    fun createIntegrationParametersDesc() = IntegrationParametersDesc.ofDefault(arena).apply {
         erp = engine.settings.integration.erp
         dampingRatio = engine.settings.integration.dampingRatio
         jointErp = engine.settings.integration.jointErp
@@ -42,13 +51,6 @@ class RapierSpace internal constructor(
         minIslandSize = engine.settings.integration.minIslandSize
         maxCcdSubsteps = engine.settings.integration.maxCcdSubsteps
     }
-    val gravity = settings.gravity.toVector(arena)
-
-    override var settings = settings
-        set(value) {
-            field = value
-            gravity.copyFrom(settings.gravity)
-        }
 
     override fun destroy() {
         destroyed()
@@ -65,6 +67,19 @@ class RapierSpace internal constructor(
         queryPipeline.drop()
 
         arena.close()
+    }
+
+    override val colliders = object : PhysicsSpace.Container<Collider> {
+        override val count: Long
+            get() = colliderSet.size()
+    }
+
+    override val bodies = object : PhysicsSpace.ActiveContainer<RigidBody> {
+        override val count: Long
+            get() = rigidBodySet.size()
+
+        override val activeCount: Long
+            get() = count // TODO
     }
 
     override fun toString() = "RapierSpace[0x%x]".format(pipeline.memory().address())

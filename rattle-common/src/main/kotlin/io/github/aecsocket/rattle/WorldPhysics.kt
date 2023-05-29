@@ -24,10 +24,13 @@ object NoOpEntityStrategy : EntityStrategy {
     override fun disable() {}
 }
 
-interface WorldPhysics {
+interface WorldPhysics<W> : Destroyable {
+    val world: W
     val physics: PhysicsSpace
     val terrain: TerrainStrategy
     val entities: EntityStrategy
 
     operator fun component1() = physics
+
+    operator fun component2() = world
 }

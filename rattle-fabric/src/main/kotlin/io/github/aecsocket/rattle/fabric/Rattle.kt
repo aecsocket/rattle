@@ -7,16 +7,16 @@ import io.github.aecsocket.alexandria.log.Log
 import io.github.aecsocket.alexandria.log.info
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.rapier.RapierEngine
-import net.minecraft.resources.ResourceKey
+import io.github.aecsocket.rattle.stats.TimestampedList
+import io.github.aecsocket.rattle.stats.timestampedList
 import net.minecraft.world.level.Level
 import org.spongepowered.configurate.ConfigurationNode
 import org.spongepowered.configurate.ConfigurationOptions
 import org.spongepowered.configurate.kotlin.dataClassFieldDiscoverer
 import org.spongepowered.configurate.kotlin.extensions.get
 import org.spongepowered.configurate.objectmapping.ObjectMapper
-import java.util.concurrent.atomic.AtomicBoolean
 
-object Rattle : AlexandriaMod<RattleHook.Settings>(rattleManifest), RattleHook {
+object Rattle : AlexandriaMod<RattleHook.Settings>(rattleManifest), RattleHook<Level> {
     override val configOptions: ConfigurationOptions = ConfigurationOptions.defaults()
         .serializers { it
             .registerAll(alexandriaFabricSerializers)
@@ -30,15 +30,17 @@ object Rattle : AlexandriaMod<RattleHook.Settings>(rattleManifest), RattleHook {
     private lateinit var mEngine: RapierEngine
     override val engine: PhysicsEngine get() = mEngine
 
-    private val mPhysics = HashMap<ResourceKey<Level>, FabricWorldPhysics>()
-    val physics: Map<ResourceKey<Level>, FabricWorldPhysics> get() = mPhysics
+    override val engineTimings = timestampedList<Long>(0)
 
-    internal val stepping = AtomicBoolean(false)
-
-    override fun onLoad(log: Log) {
+    override fun onInitialize() {
+        super.onInitialize()
         FabricRattleCommand(this)
         mEngine = RapierEngine(settings.rapier)
         log.info { "Loaded physics engine ${mEngine.name} v${mEngine.version}" }
+    }
+
+    override fun onLoad(log: Log) {
+        engineTimings.buffer = (settings.stats.timingBuffers.max() * 1000).toLong()
     }
 
     override fun onReload(log: Log) {
@@ -47,28 +49,35 @@ object Rattle : AlexandriaMod<RattleHook.Settings>(rattleManifest), RattleHook {
 
     override fun loadSettings(node: ConfigurationNode) = node.get() ?: RattleHook.Settings()
 
-    override val worlds = Worlds()
-    class Worlds : RattleHook.Worlds {
-        operator fun contains(world: Level) = mPhysics.contains(world.dimension())
-        override fun contains(world: World) = contains(unwrap(world))
+    override fun key(world: Level) = world.dimension().key()
 
-        operator fun get(world: Level) = mPhysics[world.dimension()]
-        override fun get(world: World) = get(unwrap(world))
+    override fun physicsOrNull(world: Level): FabricWorldPhysics? {
+        world as LevelPhysicsAccess
+        return world.rattle_getPhysics()
+    }
 
-        fun getOrCreate(world: Level) = mPhysics.computeIfAbsent(world.dimension()) {
-            RattleHook.createWorldPhysics(
-                Rattle,
-                settings.worlds.forLevel(world)
-            ) { physics, terrain, entities ->
-                FabricWorldPhysics(world, physics, terrain, entities)
-            }
+    override fun physicsOrCreate(world: Level): FabricWorldPhysics {
+        world as LevelPhysicsAccess
+        world.rattle_getPhysics()?.let { return it }
+        val physics = RattleHook.createWorldPhysics(
+            this,
+            settings.worlds.forLevel(world),
+        ) { space, terrain, entities ->
+            FabricWorldPhysics(world, space, terrain, entities)
         }
-        override fun getOrCreate(world: World) = getOrCreate(unwrap(world))
+        world.rattle_setPhysics(physics)
+        return physics
+    }
 
-        fun destroy(world: Level) {
-            val data = mPhysics.remove(world.dimension()) ?: return
-            data.physics.destroy()
-        }
-        override fun destroy(world: World) = destroy(unwrap(world))
+    override fun destroyPhysics(world: Level) {
+        world as LevelPhysicsAccess
+        val physics = world.rattle_getPhysics() ?: return
+        physics.destroy()
     }
 }
+
+fun Level.physicsOrNull() = Rattle.physicsOrNull(this)
+
+fun Level.physicsOrCreate() = Rattle.physicsOrCreate(this)
+
+fun Level.destroyPhysics() = Rattle.destroyPhysics(this)

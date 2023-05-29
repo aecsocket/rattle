@@ -1,6 +1,7 @@
 package io.github.aecsocket.rattle
 
 import io.github.aecsocket.glossa.Message
+import net.kyori.adventure.text.Component
 
 interface RattleMessages {
     val error: Error
@@ -61,5 +62,32 @@ interface RattleMessages {
                 ): Message
             }
         }
+
+        val stats: Stats
+        interface Stats {
+            fun timingsHeader(): Message
+
+            fun timing(
+                buffer: Double,
+                median: Component,
+                best5: Component,
+                worst5: Component,
+            ): Message
+
+            fun spacesHeader(
+                count: Int,
+            ): Message
+
+            fun space(
+                world: String,
+                numColliders: Long,
+                numBodies: Long,
+                numActiveBodies: Long,
+            ): Message
+        }
     }
+
+    fun timing(
+        time: Double,
+    ): Message
 }

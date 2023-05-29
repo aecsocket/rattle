@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 lateinit var Rattle: RattlePlugin
     private set
 
-class RattlePlugin : AlexandriaPlugin<RattleHook.Settings>(rattleManifest), RattleHook {
+class RattlePlugin : AlexandriaPlugin<RattleHook.Settings>(rattleManifest), RattleHook<World> {
     override val configOptions: ConfigurationOptions = ConfigurationOptions.defaults()
         .serializers { it
             .registerAll(alexandriaPaperSerializers)
@@ -45,18 +45,11 @@ class RattlePlugin : AlexandriaPlugin<RattleHook.Settings>(rattleManifest), Ratt
 
     override fun loadSettings(node: ConfigurationNode) = node.get() ?: RattleHook.Settings()
 
-    override fun onLoad(log: Log) {
+    override fun onEnable() {
+        super.onEnable()
         PaperRattleCommand(this)
         mEngine = RapierEngine(settings.rapier)
         log.info { "Loaded physics engine ${mEngine.name} v${mEngine.version}" }
-    }
-
-    override fun onReload(log: Log) {
-        mEngine.settings = settings.rapier
-    }
-
-    override fun onEnable() {
-        super.onEnable()
         scheduling.onServer().runRepeating {
             if (stepping.getAndSet(true)) return@runRepeating
 
@@ -67,6 +60,10 @@ class RattlePlugin : AlexandriaPlugin<RattleHook.Settings>(rattleManifest), Ratt
 
             stepping.set(false)
         }
+    }
+
+    override fun onReload(log: Log) {
+        mEngine.settings = settings.rapier
     }
 
     override val worlds = Worlds()

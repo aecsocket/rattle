@@ -9,4 +9,16 @@ interface PhysicsSpace : Destroyable {
     )
 
     var settings: Settings
+
+    val colliders: Container<Collider>
+
+    val bodies: ActiveContainer<RigidBody>
+
+    interface Container<T> {
+        val count: Long
+    }
+
+    interface ActiveContainer<T> : Container<T> {
+        val activeCount: Long
+    }
 }

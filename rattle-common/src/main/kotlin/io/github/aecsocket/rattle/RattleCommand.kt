@@ -10,6 +10,8 @@ import io.github.aecsocket.alexandria.extension.hasFlag
 import io.github.aecsocket.alexandria.hook.AlexandriaCommand
 import io.github.aecsocket.glossa.messageProxy
 import io.github.aecsocket.klam.nextDVec3
+import io.github.aecsocket.rattle.stats.formatTiming
+import io.github.aecsocket.rattle.stats.timingStatsOf
 import net.kyori.adventure.audience.Audience
 import kotlin.random.Random
 
@@ -36,23 +38,26 @@ private const val RESTITUTION = "restitution"
 private const val SPACE = "space"
 private const val SPHERE = "sphere"
 private const val SPREAD = "spread"
+private const val STATS = "stats"
 private const val WORLD = "world"
 
 typealias RealArgument<C> = DoubleArgument<C>
 
-abstract class RattleCommand<C : Audience>(
-    private val rattle: RattleHook,
+abstract class RattleCommand<C : Audience, W>(
+    private val rattle: RattleHook<W>,
     manager: CommandManager<C>,
 ) : AlexandriaCommand<C>(rattle, manager) {
     private val messages = rattle.glossa.messageProxy<RattleMessages>()
 
     protected abstract fun locationArgumentOf(key: String): CommandArgument<C, *>
 
-    protected abstract fun CommandContext<C>.getLocation(key: String): Location
+    protected abstract fun CommandContext<C>.getLocation(key: String): Location<W>
 
     protected abstract fun worldArgumentOf(key: String): CommandArgument<C, *>
 
-    protected abstract fun CommandContext<C>.getWorld(key: String): World
+    protected abstract fun CommandContext<C>.getWorld(key: String): W
+
+    protected abstract fun CommandContext<C>.worlds(): List<WorldPhysics<W>>
 
     init {
         root.run {
@@ -154,6 +159,12 @@ abstract class RattleCommand<C : Audience>(
                         )
                     }
             }
+
+            manager.command(
+                literal(STATS)
+                    .axPermission(STATS)
+                    .axHandler(::stats)
+            )
         }
     }
 
@@ -161,17 +172,18 @@ abstract class RattleCommand<C : Audience>(
         val sender = ctx.sender
         val messages = messages.forAudience(sender)
         val world = ctx.getWorld(WORLD)
-        if (rattle.worlds.contains(world)) {
+
+        if (rattle.hasPhysics(world)) {
             messages.error.space.alreadyExists(
-                world = world.key.asString(),
+                world = rattle.key(world).asString(),
             ).sendTo(sender)
             return
         }
 
-        rattle.worlds.getOrCreate(world)
+        rattle.physicsOrCreate(world)
 
         messages.command.space.create(
-            world = world.key.asString(),
+            world = rattle.key(world).asString(),
         ).sendTo(sender)
     }
 
@@ -179,17 +191,18 @@ abstract class RattleCommand<C : Audience>(
         val sender = ctx.sender
         val messages = messages.forAudience(sender)
         val world = ctx.getWorld(WORLD)
-        if (!rattle.worlds.contains(world)) {
+
+        if (!rattle.hasPhysics(world)) {
             messages.error.space.doesNotExist(
-                world = world.key.asString(),
+                world = rattle.key(world).asString(),
             ).sendTo(sender)
             return
         }
 
-        rattle.worlds.destroy(world)
+        rattle.destroyPhysics(world)
 
         messages.command.space.destroy(
-            world = world.key.asString(),
+            world = rattle.key(world).asString(),
         ).sendTo(sender)
     }
 
@@ -214,7 +227,7 @@ abstract class RattleCommand<C : Audience>(
         val friction = ctx.flag(FRICTION) ?: DEFAULT_FRICTION
         val restitution = ctx.flag(RESTITUTION) ?: DEFAULT_RESTITUTION
 
-        val (physics) = rattle.worlds.getOrCreate(location.world)
+        val (physics) = rattle.physicsOrCreate(location.world)
 
         val shape = rattle.engine.createShape(geom)
         val material = rattle.engine.createMaterial(
@@ -352,5 +365,37 @@ abstract class RattleCommand<C : Audience>(
         val messages = messages.forAudience(sender)
 
         // TODO
+    }
+
+    private fun stats(ctx: CommandContext<C>) {
+        val sender = ctx.sender
+        val messages = messages.forAudience(sender)
+
+        messages.command.stats.timingsHeader().sendTo(sender)
+
+        rattle.settings.stats.timingBuffers.forEach { buffer ->
+            val (median, best5, worst5) = timingStatsOf(rattle.engineTimings.getLast((buffer * 1000).toLong()))
+            messages.command.stats.timing(
+                buffer = buffer,
+                median = formatTiming(median, messages),
+                best5 = formatTiming(best5, messages),
+                worst5 = formatTiming(worst5, messages),
+            ).sendTo(sender)
+        }
+
+        val worlds = ctx.worlds()
+
+        messages.command.stats.spacesHeader(
+            count = worlds.size,
+        ).sendTo(sender)
+
+        worlds.forEach { (physics, world) ->
+            messages.command.stats.space(
+                world = rattle.key(world).asString(),
+                numColliders = physics.colliders.count,
+                numBodies = physics.bodies.count,
+                numActiveBodies = physics.bodies.activeCount,
+            ).sendTo(sender)
+        }
     }
 }

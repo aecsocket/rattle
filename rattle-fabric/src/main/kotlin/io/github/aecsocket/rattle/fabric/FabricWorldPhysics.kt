@@ -7,8 +7,16 @@ import io.github.aecsocket.rattle.WorldPhysics
 import net.minecraft.world.level.Level
 
 class FabricWorldPhysics(
-    val world: Level,
+    override val world: Level,
     override val physics: PhysicsSpace,
     override val terrain: TerrainStrategy,
     override val entities: EntityStrategy,
-) : WorldPhysics
+) : WorldPhysics<Level> {
+    fun tick() {
+        // todo
+    }
+
+    override fun destroy() {
+        physics.destroy()
+    }
+}

@@ -1,10 +1,12 @@
 package io.github.aecsocket.rattle
 
+import io.github.aecsocket.alexandria.BossBarDescriptor
 import io.github.aecsocket.alexandria.hook.AlexandriaHook
 import io.github.aecsocket.alexandria.hook.AlexandriaManifest
 import io.github.aecsocket.alexandria.hook.AlexandriaSettings
 import io.github.aecsocket.alexandria.hook.fallbackLocale
 import io.github.aecsocket.rattle.rapier.RapierEngine
+import io.github.aecsocket.rattle.stats.TimestampedList
 import net.kyori.adventure.text.format.TextColor
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import java.util.*
@@ -17,34 +19,31 @@ val rattleManifest = AlexandriaManifest(
     ),
 )
 
-interface RattleHook : AlexandriaHook {
+interface RattleHook<W> : AlexandriaHook, RattleAdapter<W> {
     @ConfigSerializable
     data class Settings(
         override val defaultLocale: Locale = fallbackLocale,
         val timeStepMultiplier: Real = 1.0,
         val worlds: Map<String, PhysicsSpace.Settings> = emptyMap(),
+        val stats: Stats = Stats(),
         val rapier: RapierEngine.Settings = RapierEngine.Settings(),
-    ) : AlexandriaSettings
+    ) : AlexandriaSettings {
+        @ConfigSerializable
+        data class Stats(
+            val timingBuffers: List<Double> = listOf(5.0, 15.0, 60.0),
+            val timingBarBuffer: Double = 5.0,
+            val timingBar: BossBarDescriptor = BossBarDescriptor(),
+        )
+    }
 
     override val settings: Settings
     val engine: PhysicsEngine
 
-    val primitives: PrimitiveBodies
-
-    val worlds: Worlds
-    interface Worlds {
-        operator fun contains(world: World): Boolean
-
-        operator fun get(world: World): WorldPhysics?
-
-        fun getOrCreate(world: World): WorldPhysics
-
-        fun destroy(world: World)
-    }
+    val engineTimings: TimestampedList<Long>
 
     companion object {
-        fun <T : WorldPhysics> createWorldPhysics(
-            hook: RattleHook,
+        fun <T : WorldPhysics<*>> createWorldPhysics(
+            hook: RattleHook<*>,
             settings: PhysicsSpace.Settings?,
             create: (PhysicsSpace, TerrainStrategy, EntityStrategy) -> T,
         ): T {

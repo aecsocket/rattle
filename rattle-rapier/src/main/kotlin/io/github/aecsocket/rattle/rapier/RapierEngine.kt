@@ -174,7 +174,7 @@ class RapierEngine(var settings: Settings) : PhysicsEngine {
         @Suppress("UNCHECKED_CAST")
         spaces as Collection<RapierSpace>
         val integrationParameters = spaces.map { space ->
-            space.integrationParametersDesc.apply {
+            space.createIntegrationParametersDesc().apply {
                 this.dt = dt
                 minCcdDt = dt * settings.integration.minCcdDtMultiplier
             }.build()
