@@ -16,6 +16,10 @@ interface PhysicsSpace : Destroyable {
 
     interface Container<T> {
         val count: Int
+
+        fun add(value: T)
+
+        fun remove(value: T)
     }
 
     interface ActiveContainer<T> : Container<T> {

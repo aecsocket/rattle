@@ -49,8 +49,8 @@ class FabricPrimitiveBodies : PrimitiveBodies<ServerLevel> {
         }
 
         world.physicsOrCreate().withLock { (physics) ->
-            body.addTo(physics)
-            collider.addTo(physics)
+            physics.colliders.add(collider)
+            physics.bodies.add(body)
             collider.write { coll ->
                 coll.parent = body
             }
@@ -69,9 +69,11 @@ class FabricPrimitiveBodies : PrimitiveBodies<ServerLevel> {
         instances.forEach { instance ->
             instance.entity.remove(Entity.RemovalReason.DISCARDED)
             instance.world.physicsOrNull()?.withLock { (physics) ->
-                instance.body.remove()
-                instance.collider.remove()
+                physics.colliders.remove(instance.collider)
+                physics.bodies.remove(instance.body)
             }
+            instance.collider.destroy()
+            instance.body.destroy()
             // instance.render?.despawn() // todo
         }
         instances.clear()

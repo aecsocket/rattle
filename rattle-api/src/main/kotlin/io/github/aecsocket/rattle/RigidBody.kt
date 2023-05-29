@@ -8,7 +8,7 @@ sealed interface Sleeping {
     data class Enabled(val state: Boolean) : Sleeping
 }
 
-interface RigidBody {
+interface RigidBody : Destroyable {
     fun <R> readBody(block: (Read) -> R): R
 
     fun readBody(block: Consumer<Read>) = readBody { block.accept(it) }
@@ -16,10 +16,6 @@ interface RigidBody {
     fun <R> writeBody(block: (Write) -> R): R
 
     fun writeBody(block: Consumer<Write>) = writeBody { block.accept(it) }
-
-    fun addTo(space: PhysicsSpace)
-
-    fun remove()
 
     interface Access {
         val handle: RigidBody

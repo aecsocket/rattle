@@ -23,7 +23,7 @@ class RapierShape internal constructor(
         release()
     }
 
-    override fun toString() = "RapierShape[0x%x]".format(handle.memory().address())
+    override fun toString() = "RapierShape[0x%x]".format(handle.address())
 }
 
 class RapierMaterial(
@@ -53,17 +53,13 @@ class RapierCollider internal constructor(
     private val destroyed = DestroyFlag()
 
     override fun destroy() {
-        destroyed()
-        val coll = when (val state = state) {
-            is State.Removed -> state.coll
-            is State.Added -> state.space.colliderSet.remove(
-                state.handle.key.id,
-                state.space.islands,
-                state.space.rigidBodySet,
-                false,
-            )
-        } ?: return
-        coll.drop()
+        when (val state = state) {
+            is State.Removed -> {
+                destroyed()
+                state.coll.drop()
+            }
+            is State.Added -> throw IllegalStateException("$this is still added to ${state.space}")
+        }
     }
 
     override fun <R> read(block: (Collider.Read) -> R): R {
@@ -82,34 +78,9 @@ class RapierCollider internal constructor(
         }
     }
 
-    override fun addTo(space: PhysicsSpace) {
-        space as RapierSpace
-        when (val state = state) {
-            is State.Added -> throw IllegalStateException("$this is attempting to be added to $space but is already added to ${state.space}")
-            is State.Removed -> {
-                val handle = space.colliderSet.insert(state.coll)
-                this.state = State.Added(space, ColliderHandle(ArenaKey(handle)))
-            }
-        }
-    }
-
-    override fun remove() {
-        when (val state = state) {
-            is State.Added -> {
-                state.space.colliderSet.remove(
-                    state.handle.key.id,
-                    state.space.islands,
-                    state.space.rigidBodySet,
-                    false,
-                )
-            }
-            is State.Removed -> throw IllegalStateException("$this is not added to a space")
-        }
-    }
-
     override fun toString() = when (val state = state) {
         is State.Added -> "RapierCollider[${state.handle}]"
-        is State.Removed -> "RapierCollider[0x%x]".format(state.coll.memory().address())
+        is State.Removed -> "RapierCollider[0x%x]".format(state.coll.address())
     }
 
     override fun equals(other: Any?) = other is RapierCollider && state == other.state

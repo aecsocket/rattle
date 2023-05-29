@@ -44,10 +44,6 @@ interface Collider : Destroyable {
 
     fun write(block: Consumer<Write>) = write { block.accept(it) }
 
-    fun addTo(space: PhysicsSpace)
-
-    fun remove()
-
     interface Access {
         val handle: Collider
 

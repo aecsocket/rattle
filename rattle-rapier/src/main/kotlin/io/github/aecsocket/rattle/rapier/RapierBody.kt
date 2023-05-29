@@ -20,6 +20,18 @@ class RapierBody internal constructor(
         ) : State
     }
 
+    private val destroyed = DestroyFlag()
+
+    override fun destroy() {
+        when (val state = state) {
+            is State.Removed -> {
+                destroyed()
+                state.body.drop()
+            }
+            is State.Added -> throw IllegalStateException("$this is still added to ${state.space}")
+        }
+    }
+
     fun <R> read(block: (RapierBody.Read) -> R): R {
         return when (val state = state) {
             is State.Removed -> block(Read(state.body))
@@ -48,36 +60,9 @@ class RapierBody internal constructor(
 
     override fun <R> writeBody(block: (RigidBody.Write) -> R) = write(block)
 
-    override fun addTo(space: PhysicsSpace) {
-        space as RapierSpace
-        when (val state = state) {
-            is State.Added -> throw IllegalStateException("$this is attempting to be added to $space but is already added to ${state.space}")
-            is State.Removed -> {
-                val handle = space.rigidBodySet.insert(state.body)
-                this.state = State.Added(space, RigidBodyHandle(ArenaKey(handle)))
-            }
-        }
-    }
-
-    override fun remove() {
-        when (val state = state) {
-            is State.Added -> {
-                state.space.rigidBodySet.remove(
-                    state.handle.key.id,
-                    state.space.islands,
-                    state.space.colliderSet,
-                    state.space.impulseJointSet,
-                    state.space.multibodyJointSet,
-                    false,
-                )
-            }
-            is State.Removed -> throw IllegalStateException("$this is not added to a space")
-        }
-    }
-
     override fun toString() = when (val state = state) {
         is State.Added -> "RapierBody[${state.handle}]"
-        is State.Removed -> "RapierBody[0x%x]".format(state.body.memory().address())
+        is State.Removed -> "RapierBody[0x%x]".format(state.body.address())
     }
 
     override fun equals(other: Any?) = other is RapierBody && state == other.state

@@ -5,6 +5,7 @@ import io.github.aecsocket.rattle.Iso
 import io.github.aecsocket.rattle.Quat
 import io.github.aecsocket.rattle.Vec
 import rapier.Droppable
+import rapier.Native
 import rapier.geometry.CoefficientCombineRule
 import rapier.math.AngVector
 import rapier.math.Isometry
@@ -14,6 +15,8 @@ import java.lang.foreign.SegmentAllocator
 
 // TODO Java 20: just use Arena directly
 typealias Arena = java.lang.foreign.MemorySession
+
+fun Native.address() = memory().address().toRawLongValue()
 
 fun <R> pushArena(block: (arena: Arena) -> R): R =
     Arena.openConfined().use(block)

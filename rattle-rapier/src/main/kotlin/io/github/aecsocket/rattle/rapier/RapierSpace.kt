@@ -72,6 +72,35 @@ class RapierSpace internal constructor(
     override val colliders = object : PhysicsSpace.Container<Collider> {
         override val count: Int
             get() = colliderSet.size().toInt()
+
+        override fun add(value: Collider) {
+            value as RapierCollider
+            when (val state = value.state) {
+                is RapierCollider.State.Added -> throw IllegalStateException("$value is attempting to be added to ${this@RapierSpace} but is already added to ${state.space}")
+                is RapierCollider.State.Removed -> {
+                    val handle = colliderSet.insert(state.coll)
+                    value.state = RapierCollider.State.Added(this@RapierSpace, ColliderHandle(ArenaKey(handle)))
+                }
+            }
+        }
+
+        override fun remove(value: Collider) {
+            value as RapierCollider
+            when (val state = value.state) {
+                is RapierCollider.State.Added -> {
+                    if (this@RapierSpace != state.space)
+                        throw IllegalStateException("$value is attempting to be removed from ${this@RapierSpace} but is added to ${state.space}")
+                    val coll = colliderSet.remove(
+                        state.handle.key.id,
+                        islands,
+                        rigidBodySet,
+                        false,
+                    ) ?: throw IllegalStateException("$value does not exist in ${this@RapierSpace}")
+                    value.state = RapierCollider.State.Removed(coll)
+                }
+                is RapierCollider.State.Removed -> throw IllegalStateException("$value is not added to a space")
+            }
+        }
     }
 
     override val bodies = object : PhysicsSpace.ActiveContainer<RigidBody> {
@@ -80,9 +109,40 @@ class RapierSpace internal constructor(
 
         override val activeCount: Int
             get() = count // TODO
+
+        override fun add(value: RigidBody) {
+            value as RapierBody
+            when (val state = value.state) {
+                is RapierBody.State.Added -> throw IllegalStateException("$value is attempting to be added to ${this@RapierSpace} but is already added to ${state.space}")
+                is RapierBody.State.Removed -> {
+                    val handle = rigidBodySet.insert(state.body)
+                    value.state = RapierBody.State.Added(this@RapierSpace, RigidBodyHandle(ArenaKey(handle)))
+                }
+            }
+        }
+
+        override fun remove(value: RigidBody) {
+            value as RapierBody
+            when (val state = value.state) {
+                is RapierBody.State.Added -> {
+                    if (this@RapierSpace != state.space)
+                        throw IllegalStateException("$value is attempting to be removed from ${this@RapierSpace} but is added to ${state.space}")
+                    val body = rigidBodySet.remove(
+                        state.handle.key.id,
+                        islands,
+                        colliderSet,
+                        impulseJointSet,
+                        multibodyJointSet,
+                        false,
+                    ) ?: throw IllegalStateException("$value does not exist in ${this@RapierSpace}")
+                    value.state = RapierBody.State.Removed(body)
+                }
+                is RapierBody.State.Removed -> throw IllegalStateException("$value is not added to a space")
+            }
+        }
     }
 
-    override fun toString() = "RapierSpace[0x%x]".format(pipeline.memory().address())
+    override fun toString() = "RapierSpace[0x%x]".format(pipeline.address())
 
     override fun equals(other: Any?) = other is RapierSpace && pipeline.memory() == other.pipeline.memory()
 

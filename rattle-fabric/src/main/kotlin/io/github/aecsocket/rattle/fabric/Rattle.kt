@@ -56,22 +56,22 @@ object Rattle : AlexandriaMod<RattleHook.Settings>(rattleManifest), RattleHook<S
 
         override fun physicsOrNull(world: ServerLevel): Sync<FabricWorldPhysics>? {
             world as LevelPhysicsAccess
-            return world.rattle_getPhysics()?.let { Locked(it) }
+            return world.rattle_getPhysics()
         }
 
         override fun physicsOrCreate(world: ServerLevel): Sync<FabricWorldPhysics> {
             world as LevelPhysicsAccess
             val physics = world.rattle_getPhysics() ?: run {
-                val physics = RattleHook.createWorldPhysics(
+                val physics = Locked(RattleHook.createWorldPhysics(
                     Rattle,
                     settings.worlds.forLevel(world),
                 ) { space, terrain, entities ->
                     FabricWorldPhysics(world, space, terrain, entities)
-                }
+                })
                 world.rattle_setPhysics(physics)
                 physics
             }
-            return Locked(physics)
+            return physics
         }
 
         fun onTick() {
