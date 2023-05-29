@@ -12,7 +12,7 @@ class FabricWorldPhysics(
     override val terrain: TerrainStrategy,
     override val entities: EntityStrategy,
 ) : WorldPhysics<ServerLevel> {
-    fun onTick() {
+    override fun onPhysicsStep() {
         // todo
     }
 

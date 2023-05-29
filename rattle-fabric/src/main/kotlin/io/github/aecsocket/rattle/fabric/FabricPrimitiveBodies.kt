@@ -1,6 +1,7 @@
 package io.github.aecsocket.rattle.fabric
 
 import io.github.aecsocket.alexandria.Render
+import io.github.aecsocket.alexandria.fabric.extension.toDVec
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.fabric.mixin.DisplayAccess
 import net.minecraft.server.level.ServerLevel
@@ -13,16 +14,19 @@ import org.joml.Quaternionf
 
 class FabricPrimitiveBodies : PrimitiveBodies<ServerLevel> {
     data class Body(
+        val world: ServerLevel,
         val entity: ItemDisplay,
         val body: RigidBody,
         val collider: Collider,
         val render: Render?,
-    )
+    ) {
+        var nextPosition: Iso = Iso(entity.position().toDVec())
+    }
 
-    private val bodies = ArrayList<Body>()
+    private val instances = ArrayList<Body>()
 
     override val count: Int
-        get() = bodies.size
+        get() = instances.size
 
     override fun create(
         world: ServerLevel,
@@ -52,7 +56,8 @@ class FabricPrimitiveBodies : PrimitiveBodies<ServerLevel> {
             }
         }
 
-        bodies += Body(
+        instances += Body(
+            world = world,
             entity = entity,
             body = body,
             collider = collider,
@@ -61,21 +66,31 @@ class FabricPrimitiveBodies : PrimitiveBodies<ServerLevel> {
     }
 
     override fun destroyAll() {
-        bodies.forEach { instance ->
+        instances.forEach { instance ->
             instance.entity.remove(Entity.RemovalReason.DISCARDED)
+            instance.world.physicsOrNull()?.withLock { (physics) ->
+                instance.body.remove()
+                instance.collider.remove()
+            }
             // instance.render?.despawn() // todo
         }
-        bodies.clear()
+        instances.clear()
     }
 
-    fun onTick() {
-        bodies.forEach { instance ->
-            val (translation, rotation) = instance.body.readBody { it.position }
+    override fun onTick() {
+        instances.toList().forEach { instance ->
+            val (translation, rotation) = instance.nextPosition
             instance.entity.moveTo(translation.x, translation.y, translation.z)
             instance.entity.entityData.set(
                 DisplayAccess.getDataLeftRotationId(),
                 rotation.run { Quaternionf(x, y, z, w) },
             )
+        }
+    }
+
+    override fun onPhysicsStep() {
+        instances.forEach { instance ->
+            instance.nextPosition = instance.body.readBody { it.position }
         }
     }
 }

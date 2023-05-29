@@ -25,22 +25,30 @@ import org.spongepowered.configurate.ConfigurationOptions
 import org.spongepowered.configurate.kotlin.dataClassFieldDiscoverer
 import org.spongepowered.configurate.kotlin.extensions.get
 import org.spongepowered.configurate.objectmapping.ObjectMapper
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
 @Suppress("UnstableApiUsage")
 object Rattle : AlexandriaMod<RattleHook.Settings>(rattleManifest), RattleHook<ServerLevel> {
     class Server(private val server: MinecraftServer) : RattleServer<ServerLevel, CommandSourceStack> {
-        val adventure = FabricServerAudiences.of(server)
-        val bossBars = ServerBossBarListener(adventure)
         override val primitiveBodies = FabricPrimitiveBodies()
         override val engineTimings = timestampedList<Long>(0)
+
+        val adventure = FabricServerAudiences.of(server)
+        val bossBars = ServerBossBarListener(adventure)
         val renders = DisplayRenders()
-        val stepping = AtomicBoolean(false)
+
+        private val stepping = AtomicBoolean(false)
+        private val executor = Executors.newSingleThreadExecutor()
 
         override val rattle get() = Rattle
 
         override val worlds: Iterable<ServerLevel>
             get() = server.allLevels
+
+        override fun runTask(task: Runnable) {
+            executor.submit(task)
+        }
 
         override fun playerData(sender: CommandSourceStack) = (sender.entity as? ServerPlayer)?.rattle()
 
@@ -67,31 +75,16 @@ object Rattle : AlexandriaMod<RattleHook.Settings>(rattleManifest), RattleHook<S
         }
 
         fun onTick() {
-            if (stepping.getAndSet(true)) return
-
-            val start = System.nanoTime()
-
-            RattleEvents.BEFORE_STEP.invoker().beforeStep(this)
-            primitiveBodies.onTick()
-
-            // SAFETY: we lock all worlds in a batch at once, so no other thread can access it
-            // we batch process all our worlds under lock, then we batch release all locks
-            // no other thread should have access to our worlds while we're working
-            val locks = worlds.mapNotNull { world -> physicsOrNull(world) }
-            val worlds = locks.map { it.lock() }
-
-            worlds.forEach { it.onTick() }
-            engine.stepSpaces(
-                0.05 * settings.timeStepMultiplier,
-                worlds.map { it.physics },
+            RattleServer.onTick(
+                server = this,
+                stepping = stepping,
+                beforeStep = { RattleEvents.BEFORE_STEP.invoker().beforeStep(this) },
+                engineTimings = engineTimings,
             )
+        }
 
-            locks.forEach { it.unlock() }
-
-            val end = System.nanoTime()
-            engineTimings += (end - start)
-
-            stepping.set(false)
+        fun onDestroy() {
+            RattleServer.onDestroy(this, executor)
         }
     }
 
@@ -110,6 +103,7 @@ object Rattle : AlexandriaMod<RattleHook.Settings>(rattleManifest), RattleHook<S
         get() = mEngine
     lateinit var messages: MessageProxy<RattleMessages>
         private set
+
     var server: Server? = null
 
     override fun onInitialize() {
@@ -122,7 +116,7 @@ object Rattle : AlexandriaMod<RattleHook.Settings>(rattleManifest), RattleHook<S
         }
 
         ServerLifecycleEvents.SERVER_STOPPING.register { server ->
-            RattleServer.onDestroy(server.rattle())
+            server.rattle().onDestroy()
         }
 
         PlayerLocales.CHANGED_EVENT.register { player, newLocale ->

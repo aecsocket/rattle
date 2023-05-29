@@ -25,4 +25,9 @@ public abstract class ServerPlayerMixin implements RattlePlayerAccess {
     public @NotNull FabricRattlePlayer rattle_getData() {
         return data;
     }
+
+    @Inject(method = "tick", at = @At("TAIL"))
+    public void tick(CallbackInfo ci) {
+        data.onTick();
+    }
 }

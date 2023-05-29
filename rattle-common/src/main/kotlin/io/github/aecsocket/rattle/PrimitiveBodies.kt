@@ -17,4 +17,8 @@ interface PrimitiveBodies<W> {
     )
 
     fun destroyAll()
+
+    fun onTick()
+
+    fun onPhysicsStep()
 }

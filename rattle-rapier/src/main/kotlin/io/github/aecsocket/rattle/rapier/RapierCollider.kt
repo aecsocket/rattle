@@ -31,9 +31,7 @@ class RapierMaterial(
     override val restitution: Real,
     override val frictionCombine: CoeffCombineRule,
     override val restitutionCombine: CoeffCombineRule,
-) : PhysicsMaterial {
-    override fun destroy() {}
-}
+) : PhysicsMaterial
 
 @JvmInline
 value class ColliderHandle(val key: ArenaKey)

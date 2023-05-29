@@ -11,7 +11,7 @@ enum class CoeffCombineRule {
     MAX,
 }
 
-interface PhysicsMaterial : Destroyable {
+interface PhysicsMaterial {
     val friction: Real
 
     val restitution: Real

@@ -61,4 +61,6 @@ interface WorldPhysics<W> : Destroyable {
     operator fun component1() = physics
 
     operator fun component2() = world
+
+    fun onPhysicsStep()
 }
