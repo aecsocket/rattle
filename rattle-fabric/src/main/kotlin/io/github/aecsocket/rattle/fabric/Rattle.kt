@@ -108,8 +108,8 @@ object Rattle : AlexandriaMod<RattleHook.Settings>(rattleManifest), RattleHook<S
 
     override fun onInitialize() {
         super.onInitialize()
-        RattleHook.onInit(this) { mEngine = it }
         FabricRattleCommand(this)
+        RattleHook.onInit(this) { mEngine = it }
 
         ServerLifecycleEvents.SERVER_STARTING.register { server ->
             this.server = server.rattle()
