@@ -1,10 +1,10 @@
 package io.github.aecsocket.rattle.fabric.mixin;
 
 import io.github.aecsocket.rattle.fabric.FabricRattlePlayer;
+import io.github.aecsocket.rattle.fabric.RattleMod;
 import io.github.aecsocket.rattle.fabric.RattlePlayerAccess;
 import net.minecraft.server.level.ServerPlayer;
 import org.jetbrains.annotations.NotNull;
-import org.lwjgl.system.CallbackI;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -18,7 +18,7 @@ public abstract class ServerPlayerMixin implements RattlePlayerAccess {
 
     @Inject(method = "<init>", at = @At("TAIL"))
     public void init(CallbackInfo ci) {
-        data = new FabricRattlePlayer((ServerPlayer) (Object) this);
+        data = new FabricRattlePlayer(RattleMod.api(), (ServerPlayer) (Object) this);
     }
 
     @Override

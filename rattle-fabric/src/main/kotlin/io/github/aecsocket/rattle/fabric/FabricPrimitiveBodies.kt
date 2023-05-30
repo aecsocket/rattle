@@ -12,55 +12,73 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import org.joml.Quaternionf
 
-class FabricPrimitiveBodies : PrimitiveBodies<ServerLevel> {
-    data class Body(
+class FabricPrimitiveBodies(
+    private val rattle: RattleMod,
+) : PrimitiveBodies<ServerLevel> {
+    data class Instance(
         val world: ServerLevel,
         val entity: ItemDisplay,
-        val body: RigidBody,
+        val shape: Shape,
         val collider: Collider,
+        val body: RigidBody,
         val render: Render?,
     ) {
         var nextPosition: Iso = Iso(entity.position().toDVec())
     }
 
-    private val instances = ArrayList<Body>()
+    private val instances = ArrayList<Instance>()
 
     override val count: Int
         get() = instances.size
 
-    override fun create(
-        world: ServerLevel,
-        geom: Geometry,
-        body: RigidBody,
-        collider: Collider,
-        visibility: Visibility,
-    ) {
-        val (translation) = body.readBody { it.position }
+    override fun create(location: Location<ServerLevel>, desc: PrimitiveBodyDesc) {
+        val (world, translation) = location
+        val shape = rattle.engine.createShape(desc.geometry)
+        val collider = rattle.engine.createCollider(
+            shape = shape,
+            material = desc.material,
+            mass = desc.mass,
+        )
+        val position = Iso(translation)
+        val body = when (desc) {
+            is PrimitiveBodyDesc.Fixed -> rattle.engine.createFixedBody(
+                position = position,
+            )
+            is PrimitiveBodyDesc.Moving -> rattle.engine.createMovingBody(
+                position = position,
+                isCcdEnabled = desc.isCcdEnabled,
+                gravityScale = desc.gravityScale,
+                linearDamping = desc.linearDamping,
+                angularDamping = desc.angularDamping,
+            )
+        }
+
         val entity = ItemDisplay(EntityType.ITEM_DISPLAY, world)
         entity.moveTo(translation.x, translation.y, translation.z, 0.0f, 0.0f)
         entity.getSlot(0).set(ItemStack(Items.STONE))
         world.addFreshEntity(entity)
 
-        val render: Render? = when (visibility) {
+        val render: Render? = when (desc.visibility) {
             Visibility.VISIBLE -> {
-                null
+                null // TODO
             }
             Visibility.INVISIBLE -> null
         }
 
-        world.physicsOrCreate().withLock { (physics) ->
-            physics.colliders.add(collider)
+        location.world.physicsOrCreate().withLock { (physics) ->
             physics.bodies.add(body)
+            physics.colliders.add(collider)
             collider.write { coll ->
                 coll.parent = body
             }
         }
 
-        instances += Body(
-            world = world,
+        instances += Instance(
+            world = location.world,
             entity = entity,
-            body = body,
+            shape = shape,
             collider = collider,
+            body = body,
             render = render,
         )
     }
@@ -74,6 +92,7 @@ class FabricPrimitiveBodies : PrimitiveBodies<ServerLevel> {
             }
             instance.collider.destroy()
             instance.body.destroy()
+            instance.shape.destroy()
             // instance.render?.despawn() // todo
         }
         instances.clear()
@@ -92,7 +111,10 @@ class FabricPrimitiveBodies : PrimitiveBodies<ServerLevel> {
 
     override fun onPhysicsStep() {
         instances.forEach { instance ->
-            instance.nextPosition = instance.body.readBody { it.position }
+            instance.body.readBody { rb ->
+                if (rb.isSleeping) return@readBody
+                instance.nextPosition = rb.position
+            }
         }
     }
 }

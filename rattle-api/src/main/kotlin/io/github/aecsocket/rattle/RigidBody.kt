@@ -21,12 +21,20 @@ interface RigidBody : Destroyable {
         val handle: RigidBody
 
         val position: Iso
+
+        val colliders: Collection<Collider>
+
+        val isSleeping: Boolean
     }
 
     interface Read : Access
 
     interface Write : Access {
         override var position: Iso
+
+        fun sleep()
+
+        fun wakeUp(strong: Boolean)
     }
 }
 
@@ -70,8 +78,6 @@ interface MovingBody : RigidBody {
 
         val angularDamping: Real
 
-        val isSleeping: Boolean
-
         val kineticEnergy: Real
 
         val appliedForce: Vec
@@ -95,10 +101,6 @@ interface MovingBody : RigidBody {
         override var linearDamping: Real
 
         override var angularDamping: Real
-
-        fun sleep()
-
-        fun wakeUp(strong: Boolean)
 
         fun applyForce(force: Vec)
 

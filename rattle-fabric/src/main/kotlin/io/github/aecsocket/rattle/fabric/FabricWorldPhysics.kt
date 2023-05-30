@@ -1,9 +1,10 @@
 package io.github.aecsocket.rattle.fabric
 
-import io.github.aecsocket.rattle.EntityStrategy
+import io.github.aecsocket.rattle.DestroyFlag
+import io.github.aecsocket.rattle.world.EntityStrategy
 import io.github.aecsocket.rattle.PhysicsSpace
-import io.github.aecsocket.rattle.TerrainStrategy
-import io.github.aecsocket.rattle.WorldPhysics
+import io.github.aecsocket.rattle.world.TerrainStrategy
+import io.github.aecsocket.rattle.world.WorldPhysics
 import net.minecraft.server.level.ServerLevel
 
 class FabricWorldPhysics(
@@ -12,14 +13,21 @@ class FabricWorldPhysics(
     override val terrain: TerrainStrategy,
     override val entities: EntityStrategy,
 ) : WorldPhysics<ServerLevel> {
-    override fun onPhysicsStep() {
-        // todo
-    }
+    private val destroyed = DestroyFlag()
 
-    override fun destroy() {
+    internal fun destroy() {
+        destroyed()
         world as LevelPhysicsAccess
-        // unassign ourselves from our world
         world.rattle_setPhysics(null)
         physics.destroy()
+    }
+
+    fun onTick() {
+
+    }
+
+    override fun onPhysicsStep() {
+        terrain.onPhysicsStep()
+        entities.onPhysicsStep()
     }
 }

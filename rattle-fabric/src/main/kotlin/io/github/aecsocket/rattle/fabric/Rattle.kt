@@ -25,23 +25,31 @@ import org.spongepowered.configurate.ConfigurationOptions
 import org.spongepowered.configurate.kotlin.dataClassFieldDiscoverer
 import org.spongepowered.configurate.kotlin.extensions.get
 import org.spongepowered.configurate.objectmapping.ObjectMapper
-import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
-@Suppress("UnstableApiUsage")
-object Rattle : AlexandriaMod<RattleHook.Settings>(rattleManifest), RattleHook<ServerLevel> {
-    class Server(private val server: MinecraftServer) : RattleServer<ServerLevel, CommandSourceStack> {
-        override val primitiveBodies = FabricPrimitiveBodies()
-        override val engineTimings = timestampedList<Long>(0)
+lateinit var Rattle: RattleMod
+    private set
 
+@Suppress("UnstableApiUsage")
+class RattleMod : AlexandriaMod<RattleHook.Settings>(rattleManifest), RattleHook<ServerLevel> {
+    companion object {
+        @JvmStatic
+        fun api() = Rattle
+    }
+
+    class Server(
+        override val rattle: RattleMod,
+        private val server: MinecraftServer,
+    ) : RattleServer<ServerLevel, CommandSourceStack> {
         val adventure = FabricServerAudiences.of(server)
         val bossBars = ServerBossBarListener(adventure)
         val renders = DisplayRenders()
 
-        private val stepping = AtomicBoolean(false)
-        private val executor = Executors.newSingleThreadExecutor()
+        override val primitiveBodies = FabricPrimitiveBodies(rattle)
+        override val engineTimings = timestampedList<Long>(0)
 
-        override val rattle get() = Rattle
+        private val stepping = AtomicBoolean(false)
+        private val executor = RattleServer.createExecutor(rattle)
 
         override val worlds: Iterable<ServerLevel>
             get() = server.allLevels
@@ -64,7 +72,7 @@ object Rattle : AlexandriaMod<RattleHook.Settings>(rattleManifest), RattleHook<S
             val physics = world.rattle_getPhysics() ?: run {
                 val physics = Locked(RattleHook.createWorldPhysics(
                     Rattle,
-                    settings.worlds.forLevel(world),
+                    rattle.settings.worlds.forLevel(world),
                 ) { space, terrain, entities ->
                     FabricWorldPhysics(world, space, terrain, entities)
                 })
@@ -78,7 +86,9 @@ object Rattle : AlexandriaMod<RattleHook.Settings>(rattleManifest), RattleHook<S
             RattleServer.onTick(
                 server = this,
                 stepping = stepping,
-                beforeStep = { RattleEvents.BEFORE_STEP.invoker().beforeStep(this) },
+                beforeStep = { dt ->
+                    RattleEvents.BEFORE_STEP.invoker().beforeStep(this, dt)
+                },
                 engineTimings = engineTimings,
             )
         }
@@ -106,10 +116,17 @@ object Rattle : AlexandriaMod<RattleHook.Settings>(rattleManifest), RattleHook<S
 
     var server: Server? = null
 
+    init {
+        Rattle = this
+    }
+
     override fun onInitialize() {
         super.onInitialize()
         FabricRattleCommand(this)
-        RattleHook.onInit(this) { mEngine = it }
+        RattleHook.onInit(
+            rattle = this,
+            setEngine = { mEngine = it },
+        )
 
         ServerLifecycleEvents.SERVER_STARTING.register { server ->
             this.server = server.rattle()

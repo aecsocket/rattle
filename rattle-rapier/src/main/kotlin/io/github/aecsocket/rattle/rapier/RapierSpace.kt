@@ -3,6 +3,8 @@ package io.github.aecsocket.rattle.rapier
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.RigidBody
 import rapier.dynamics.*
+import rapier.dynamics.joint.impulse.ImpulseJointSet
+import rapier.dynamics.joint.multibody.MultibodyJointSet
 import rapier.geometry.BroadPhase
 import rapier.geometry.ColliderSet
 import rapier.geometry.NarrowPhase
@@ -36,7 +38,7 @@ class RapierSpace internal constructor(
             gravity.copyFrom(settings.gravity)
         }
 
-    fun createIntegrationParametersDesc() = IntegrationParametersDesc.ofDefault(arena).apply {
+    fun createIntegrationParametersDesc() = IntegrationParametersDesc.create(arena).apply {
         erp = engine.settings.integration.erp
         dampingRatio = engine.settings.integration.dampingRatio
         jointErp = engine.settings.integration.jointErp
@@ -69,9 +71,18 @@ class RapierSpace internal constructor(
         arena.close()
     }
 
-    override val colliders = object : PhysicsSpace.Container<Collider> {
+    override val colliders = object : PhysicsSpace.SingleContainer<Collider> {
         override val count: Int
             get() = colliderSet.size().toInt()
+
+        override fun all(): Collection<Collider> {
+            return colliderSet.all().map {
+                RapierCollider(RapierCollider.State.Added(
+                    space = this@RapierSpace,
+                    handle = ColliderHandle(it.handle),
+                ))
+            }
+        }
 
         override fun add(value: Collider) {
             value as RapierCollider
@@ -79,7 +90,7 @@ class RapierSpace internal constructor(
                 is RapierCollider.State.Added -> throw IllegalStateException("$value is attempting to be added to ${this@RapierSpace} but is already added to ${state.space}")
                 is RapierCollider.State.Removed -> {
                     val handle = colliderSet.insert(state.coll)
-                    value.state = RapierCollider.State.Added(this@RapierSpace, ColliderHandle(ArenaKey(handle)))
+                    value.state = RapierCollider.State.Added(this@RapierSpace, ColliderHandle(handle))
                 }
             }
         }
@@ -91,7 +102,7 @@ class RapierSpace internal constructor(
                     if (this@RapierSpace != state.space)
                         throw IllegalStateException("$value is attempting to be removed from ${this@RapierSpace} but is added to ${state.space}")
                     val coll = colliderSet.remove(
-                        state.handle.key.id,
+                        state.handle.id,
                         islands,
                         rigidBodySet,
                         false,
@@ -108,7 +119,25 @@ class RapierSpace internal constructor(
             get() = rigidBodySet.size().toInt()
 
         override val activeCount: Int
-            get() = count // TODO
+            get() = islands.activeDynamicBodies.size
+
+        override fun all(): Collection<RigidBody> {
+            return rigidBodySet.all().map {
+                RapierBody(RapierBody.State.Added(
+                    space = this@RapierSpace,
+                    handle = RigidBodyHandle(it.handle),
+                ))
+            }
+        }
+
+        override fun active(): Collection<RigidBody> {
+            return islands.activeDynamicBodies.map {
+                RapierBody(RapierBody.State.Added(
+                    space = this@RapierSpace,
+                    handle = RigidBodyHandle(it),
+                ))
+            }
+        }
 
         override fun add(value: RigidBody) {
             value as RapierBody
@@ -116,7 +145,7 @@ class RapierSpace internal constructor(
                 is RapierBody.State.Added -> throw IllegalStateException("$value is attempting to be added to ${this@RapierSpace} but is already added to ${state.space}")
                 is RapierBody.State.Removed -> {
                     val handle = rigidBodySet.insert(state.body)
-                    value.state = RapierBody.State.Added(this@RapierSpace, RigidBodyHandle(ArenaKey(handle)))
+                    value.state = RapierBody.State.Added(this@RapierSpace, RigidBodyHandle(handle))
                 }
             }
         }
@@ -128,7 +157,7 @@ class RapierSpace internal constructor(
                     if (this@RapierSpace != state.space)
                         throw IllegalStateException("$value is attempting to be removed from ${this@RapierSpace} but is added to ${state.space}")
                     val body = rigidBodySet.remove(
-                        state.handle.key.id,
+                        state.handle.id,
                         islands,
                         colliderSet,
                         impulseJointSet,
@@ -138,6 +167,33 @@ class RapierSpace internal constructor(
                     value.state = RapierBody.State.Removed(body)
                 }
                 is RapierBody.State.Removed -> throw IllegalStateException("$value is not added to a space")
+            }
+        }
+    }
+
+    override val impulseJoints = object : PhysicsSpace.JointContainer<ImpulseJoint> {
+        override val count: Int
+            get() = impulseJointSet.size().toInt()
+
+        override fun all(): Collection<ImpulseJoint> {
+            return impulseJointSet.all().map {
+                RapierJoint(RapierJoint.State.Impulse(
+                    space = this@RapierSpace,
+                    handle = JointHandle(it.handle),
+                ))
+            }
+        }
+
+        override fun add(value: ImpulseJoint, bodyA: RigidBody, bodyB: RigidBody) {
+            value as RapierJoint
+            bodyA as RapierBody
+            bodyB as RapierBody
+            when (val state = value.state) {
+                is RapierJoint.State.Impulse -> throw IllegalStateException("$value is attempting to be added to ${this@RapierSpace} but is already added to ${state.space} as an impulse joint")
+                is RapierJoint.State.Multibody -> throw IllegalStateException("$value is attempting to be added to ${this@RapierSpace} but is already added to ${state.space} as a multibody joint")
+                is RapierJoint.State.Removed -> {
+                    TODO()
+                }
             }
         }
     }

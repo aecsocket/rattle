@@ -1,6 +1,7 @@
 package io.github.aecsocket.rattle.rapier
 
 import io.github.aecsocket.rattle.*
+import rapier.data.ArenaKey
 import rapier.shape.SharedShape
 
 class RapierShape internal constructor(
@@ -34,7 +35,9 @@ class RapierMaterial(
 ) : PhysicsMaterial
 
 @JvmInline
-value class ColliderHandle(val key: ArenaKey)
+value class ColliderHandle(val id: Long) {
+    override fun toString(): String = ArenaKey.asString(id)
+}
 
 class RapierCollider internal constructor(
     var state: State,
@@ -65,16 +68,16 @@ class RapierCollider internal constructor(
     override fun <R> read(block: (Collider.Read) -> R): R {
         return when (val state = state) {
             is State.Removed -> block(Read(state.coll))
-            is State.Added -> block(Read(state.space.colliderSet.get(state.handle.key.id)
-                ?: throw IllegalArgumentException("No collider with ID ${state.handle.key}")))
+            is State.Added -> block(Read(state.space.colliderSet.get(state.handle.id)
+                ?: throw IllegalArgumentException("No collider with ID ${state.handle}")))
         }
     }
 
     override fun <R> write(block: (Collider.Write) -> R): R {
         return when (val state = state) {
             is State.Removed -> block(Write(state.coll))
-            is State.Added -> block(Write(state.space.colliderSet.getMut(state.handle.key.id)
-                ?: throw IllegalArgumentException("No collider with ID ${state.handle.key}")))
+            is State.Added -> block(Write(state.space.colliderSet.getMut(state.handle.id)
+                ?: throw IllegalArgumentException("No collider with ID ${state.handle}")))
         }
     }
 
@@ -119,11 +122,17 @@ class RapierCollider internal constructor(
                 is State.Added -> coll.parent?.let { parentKey ->
                     RapierBody(RapierBody.State.Added(
                         space = state.space,
-                        handle = RigidBodyHandle(ArenaKey(parentKey)),
+                        handle = RigidBodyHandle(parentKey),
                     ))
                 }
                 is State.Removed -> null
             }
+
+        override fun bounds(): Aabb {
+            return pushArena { arena ->
+                coll.computeAabb(arena).toAabb()
+            }
+        }
     }
 
     private inner class Read(coll: rapier.geometry.Collider) : Access(coll), Collider.Read
@@ -174,14 +183,14 @@ class RapierCollider internal constructor(
                             is RapierBody.State.Added -> {
                                 if (state.space != parentState.space)
                                     throw IllegalArgumentException("Attempting to attach $value (in ${parentState.space}) to $handle (in ${state.space})")
-                                parentState.handle.key.id
+                                parentState.handle.id
                             }
                             is RapierBody.State.Removed -> throw IllegalStateException("Attempting to attach $parent, which is not in a space, to $this")
                         }
                     }
 
                     state.space.colliderSet.setParent(
-                        state.handle.key.id,
+                        state.handle.id,
                         parentHandle,
                         state.space.rigidBodySet,
                     )

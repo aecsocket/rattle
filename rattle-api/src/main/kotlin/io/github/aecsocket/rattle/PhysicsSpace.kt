@@ -10,19 +10,35 @@ interface PhysicsSpace : Destroyable {
 
     var settings: Settings
 
-    val colliders: Container<Collider>
+    val colliders: SingleContainer<Collider>
 
     val bodies: ActiveContainer<RigidBody>
+
+    val impulseJoints: JointContainer<ImpulseJoint>
+
+    val multibodyJoints: JointContainer<MultibodyJoint>
 
     interface Container<T> {
         val count: Int
 
+        fun all(): Collection<T>
+    }
+
+    interface SingleContainer<T> : Container<T> {
         fun add(value: T)
 
         fun remove(value: T)
     }
 
-    interface ActiveContainer<T> : Container<T> {
+    interface ActiveContainer<T> : SingleContainer<T> {
         val activeCount: Int
+
+        fun active(): Collection<T>
+    }
+
+    interface JointContainer<T> : Container<T> {
+        fun add(value: T, bodyA: RigidBody, bodyB: RigidBody)
+
+        fun remove(value: T)
     }
 }

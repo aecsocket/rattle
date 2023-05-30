@@ -11,6 +11,11 @@ enum class CoeffCombineRule {
     MAX,
 }
 
+enum class PhysicsMode {
+    SOLID,
+    SENSOR,
+}
+
 interface PhysicsMaterial {
     val friction: Real
 
@@ -58,6 +63,8 @@ interface Collider : Destroyable {
         val relativePosition: Iso
 
         val parent: RigidBody?
+
+        fun bounds(): Aabb
     }
 
     interface Read : Access

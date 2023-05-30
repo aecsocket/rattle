@@ -3,17 +3,12 @@ package io.github.aecsocket.rattle.rapier
 import io.github.aecsocket.rattle.*
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import rapier.Rapier
-import rapier.data.ArenaKey
 import rapier.dynamics.RigidBodyBuilder
 import rapier.dynamics.RigidBodyType
+import rapier.dynamics.joint.GenericJoint
 import rapier.geometry.ColliderBuilder
 import rapier.pipeline.PhysicsPipeline
 import rapier.shape.SharedShape
-
-@JvmInline
-value class ArenaKey(val id: Long) {
-    override fun toString(): String = ArenaKey.asString(id)
-}
 
 class RapierEngine(var settings: Settings) : PhysicsEngine {
     @ConfigSerializable
@@ -98,7 +93,7 @@ class RapierEngine(var settings: Settings) : PhysicsEngine {
         material: PhysicsMaterial,
         position: Iso,
         mass: Mass,
-        isSensor: Boolean,
+        physics: PhysicsMode,
     ): Collider {
         shape as RapierShape
         val coll = pushArena { arena ->
@@ -108,7 +103,10 @@ class RapierEngine(var settings: Settings) : PhysicsEngine {
                 .frictionCombineRule(material.frictionCombine.convert())
                 .restitutionCombineRule(material.restitutionCombine.convert())
                 .position(position.toIsometry(arena))
-                .sensor(isSensor)
+                .sensor(when (physics) {
+                    PhysicsMode.SOLID -> false
+                    PhysicsMode.SENSOR -> true
+                })
                 .use {
                     when (mass) {
                         is Mass.Constant -> it.mass(mass.mass)
@@ -164,6 +162,35 @@ class RapierEngine(var settings: Settings) : PhysicsEngine {
                     }
                 }
         })
+    }
+
+    private fun createJoint(axes: JointAxes): RapierJoint {
+        val joint = GenericJoint.create(0).apply {
+            var lockedAxes = 0
+            axes.forEach { (axis, state) ->
+                val rAxis = axis.convert()
+
+                when (state) {
+                    is AxisState.Locked -> {
+                        lockedAxes = lockedAxes or rAxis.ordinal
+                    }
+                    is AxisState.Limited -> {
+                        setLimits(rAxis, state.min, state.max)
+                    }
+                    is AxisState.Free -> {}
+                }
+            }
+            lockAxes(lockedAxes.toByte())
+        }
+        return RapierJoint(RapierJoint.State.Removed(joint))
+    }
+
+    override fun createImpulseJoint(axes: JointAxes): ImpulseJoint {
+        return createJoint(axes)
+    }
+
+    override fun createMultibodyJoint(axes: JointAxes): MultibodyJoint {
+        return createJoint(axes)
     }
 
     override fun createSpace(settings: PhysicsSpace.Settings): PhysicsSpace {

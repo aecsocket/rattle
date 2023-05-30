@@ -19,6 +19,9 @@ dependencies {
 
 tasks {
     withType<KotlinCompile> {
-        compilerOptions.freeCompilerArgs.add("-Xcontext-receivers")
+        compilerOptions.freeCompilerArgs.addAll(listOf(
+            "-Xcontext-receivers",
+            "-Xjsr305=strict",
+        ))
     }
 }

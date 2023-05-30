@@ -13,14 +13,17 @@ import io.github.aecsocket.glossa.messageProxy
 import io.github.aecsocket.rattle.rapier.RapierEngine
 import io.github.aecsocket.rattle.stats.MutableTimestampedList
 import io.github.aecsocket.rattle.stats.TimestampedList
+import io.github.aecsocket.rattle.world.*
 import net.kyori.adventure.audience.Audience
 import net.kyori.adventure.key.Key
 import net.kyori.adventure.text.format.TextColor
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import java.util.*
 import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 val rattleManifest = AlexandriaManifest(
     id = "rattle",
@@ -49,6 +52,7 @@ interface RattleHook<W> : AlexandriaHook {
 
         @ConfigSerializable
         data class Jobs(
+            val workerThreads: Int = 0,
             val threadTerminateTime: Double = 10.0,
         )
     }
@@ -117,7 +121,19 @@ interface RattleServer<W, C : Audience> {
     fun hasPhysics(world: W) = physicsOrNull(world) != null
 
     companion object {
-        fun <W> onDestroy(server: RattleServer<W, *>, executor: ExecutorService) {
+        fun createExecutor(rattle: RattleHook<*>): ExecutorService {
+            val executorId = AtomicInteger(1)
+            return Executors.newFixedThreadPool(
+                numThreads(rattle.settings.jobs.workerThreads, 4),
+            ) { task ->
+                Thread(task, "Physics-Worker-${executorId.getAndIncrement()}")
+            }
+        }
+
+        fun <W> onDestroy(
+            server: RattleServer<W, *>,
+            executor: ExecutorService,
+        ) {
             val settings = server.rattle.settings
 
             executor.shutdown()
@@ -141,7 +157,7 @@ interface RattleServer<W, C : Audience> {
         fun <W> onTick(
             server: RattleServer<W, *>,
             stepping: AtomicBoolean,
-            beforeStep: () -> Unit,
+            beforeStep: (Real) -> Unit,
             engineTimings: MutableTimestampedList<Long>,
         ) {
             server.primitiveBodies.onTick()
@@ -150,7 +166,8 @@ interface RattleServer<W, C : Audience> {
                 if (stepping.getAndSet(true)) return@runTask
                 val start = System.nanoTime()
 
-                beforeStep()
+                val dt = 0.05 * server.rattle.settings.timeStepMultiplier
+                beforeStep(dt)
                 server.primitiveBodies.onPhysicsStep()
 
                 // SAFETY: we lock all worlds in a batch at once, so no other thread can access it
@@ -161,10 +178,7 @@ interface RattleServer<W, C : Audience> {
                 val worlds = locks.map { it.lock() }
 
                 worlds.forEach { it.onPhysicsStep() }
-                server.rattle.engine.stepSpaces(
-                    0.05 * server.rattle.settings.timeStepMultiplier,
-                    worlds.map { it.physics },
-                )
+                server.rattle.engine.stepSpaces(dt, worlds.map { it.physics })
 
                 locks.forEach { it.unlock() }
 

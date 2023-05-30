@@ -9,6 +9,7 @@ typealias Quat = DQuat
 typealias Mat = DMat3
 typealias Iso = DIso3
 typealias Affine = DAffine3
+typealias Aabb = DAabb3
 
 const val DEFAULT_FRICTION: Real = 0.5
 const val DEFAULT_RESTITUTION: Real = 0.0
@@ -47,7 +48,7 @@ interface PhysicsEngine : Destroyable {
         material: PhysicsMaterial,
         position: Iso = Iso(),
         mass: Mass = Mass.Density(1.0),
-        isSensor: Boolean = false,
+        physics: PhysicsMode = PhysicsMode.SOLID,
     ): Collider
 
     fun createFixedBody(
@@ -66,11 +67,15 @@ interface PhysicsEngine : Destroyable {
         sleeping: Sleeping = Sleeping.Enabled(false),
     ): MovingBody
 
+    fun createImpulseJoint(axes: JointAxes): ImpulseJoint
+
+    fun createMultibodyJoint(axes: JointAxes): MultibodyJoint
+
     fun createSpace(settings: PhysicsSpace.Settings): PhysicsSpace
 
     fun stepSpaces(dt: Real, spaces: Collection<PhysicsSpace>)
 }
 
-fun numThreads(raw: Int) = if (raw > 0) raw else {
-    max(Runtime.getRuntime().availableProcessors() - 2, 1)
+fun numThreads(raw: Int, target: Int) = if (raw > 0) raw else {
+    max(Runtime.getRuntime().availableProcessors() - 2, target)
 }

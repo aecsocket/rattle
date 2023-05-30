@@ -1,9 +1,6 @@
 package io.github.aecsocket.rattle.rapier
 
-import io.github.aecsocket.rattle.CoeffCombineRule
-import io.github.aecsocket.rattle.Iso
-import io.github.aecsocket.rattle.Quat
-import io.github.aecsocket.rattle.Vec
+import io.github.aecsocket.rattle.*
 import rapier.Droppable
 import rapier.Native
 import rapier.geometry.CoefficientCombineRule
@@ -12,9 +9,12 @@ import rapier.math.Isometry
 import rapier.math.Rotation
 import rapier.math.Vector
 import java.lang.foreign.SegmentAllocator
+import java.util.EnumSet
 
 // TODO Java 20: just use Arena directly
 typealias Arena = java.lang.foreign.MemorySession
+
+typealias RAabb = rapier.math.Aabb
 
 fun Native.address() = memory().address().toRawLongValue()
 
@@ -44,6 +44,9 @@ fun Rotation.toQuat() = Quat(x, y, z, w)
 fun Iso.toIsometry(alloc: SegmentAllocator) = Isometry.of(alloc, rotation.toRotation(alloc), translation.toVector(alloc))
 fun Isometry.toIso() = Iso(translation.toVec(), rotation.toQuat())
 
+fun Aabb.toRapier(alloc: SegmentAllocator) = RAabb.of(alloc, min.toVector(alloc), max.toVector(alloc))
+fun RAabb.toAabb() = Aabb(min.toVec(), max.toVec())
+
 fun CoeffCombineRule.convert() = when (this) {
     CoeffCombineRule.AVERAGE  -> CoefficientCombineRule.AVERAGE
     CoeffCombineRule.MIN      -> CoefficientCombineRule.MIN
@@ -55,4 +58,13 @@ fun CoefficientCombineRule.convert() = when (this) {
     CoefficientCombineRule.MIN      -> CoeffCombineRule.MIN
     CoefficientCombineRule.MULTIPLY -> CoeffCombineRule.MULTIPLY
     CoefficientCombineRule.MAX      -> CoeffCombineRule.MAX
+}
+
+fun JointAxis.convert() = when (this) {
+    JointAxis.X     -> rapier.dynamics.joint.JointAxis.X
+    JointAxis.Y     -> rapier.dynamics.joint.JointAxis.Y
+    JointAxis.Z     -> rapier.dynamics.joint.JointAxis.Z
+    JointAxis.ANG_X -> rapier.dynamics.joint.JointAxis.ANG_X
+    JointAxis.ANG_Y -> rapier.dynamics.joint.JointAxis.ANG_Y
+    JointAxis.ANG_Z -> rapier.dynamics.joint.JointAxis.ANG_Z
 }

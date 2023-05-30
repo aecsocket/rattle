@@ -4,13 +4,17 @@ import io.github.aecsocket.alexandria.hook.fallbackLocale
 import io.github.aecsocket.rattle.RattleMessages
 import io.github.aecsocket.rattle.RattlePlayer
 import net.kyori.adventure.bossbar.BossBar
+import net.kyori.adventure.identity.Identity
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 
 @Suppress("UnstableApiUsage")
-class FabricRattlePlayer(player: ServerPlayer) : RattlePlayer<ServerLevel, ServerPlayer>(player.server.rattle(), player) {
+class FabricRattlePlayer(
+    rattle: RattleMod,
+    player: ServerPlayer,
+) : RattlePlayer<ServerLevel, ServerPlayer>(player.server.rattle(), player) {
     val rattle = player.server.rattle()
-    override var messages: RattleMessages = Rattle.messages.forLocale(fallbackLocale)
+    override var messages: RattleMessages = rattle.messages.forLocale(player.get(Identity.LOCALE).orElse(fallbackLocale))
 
     override val world: ServerLevel
         get() = player.getLevel()

@@ -29,6 +29,7 @@ private const val DESTROY = "destroy"
 private const val ENABLED = "enabled"
 private const val FIXED = "fixed"
 private const val FRICTION = "friction"
+private const val GRAVITY_SCALE = "gravity-scale"
 private const val HALF_EXTENT = "half-extent"
 private const val HALF_HEIGHT = "half-height"
 private const val LIN_DAMP = "lin-damp"
@@ -130,6 +131,10 @@ abstract class RattleCommand<C : Audience, W>(
 
                         literal(MOVING)
                             .flag(manager.flagBuilder(CCD))
+                            .flag(manager.flagBuilder(GRAVITY_SCALE)
+                                .withAliases("g")
+                                .withArgument(RealArgument.builder<C>(GRAVITY_SCALE).withMin(0))
+                            )
                             .flag(manager.flagBuilder(LIN_DAMP)
                                 .withArgument(RealArgument.builder<C>(LIN_DAMP).withMin(0))
                             )
@@ -223,8 +228,7 @@ abstract class RattleCommand<C : Audience, W>(
 
     private fun bodyCreate(
         ctx: CommandContext<C>,
-        geom: Geometry,
-        createBody: (Iso) -> RigidBody,
+        createDesc: (PhysicsMaterial, Mass, Visibility) -> PrimitiveBodyDesc,
     ): BodyCreateInfo {
         val server = ctx.server
         val location = ctx.getLocation(LOCATION)
@@ -237,26 +241,19 @@ abstract class RattleCommand<C : Audience, W>(
         val restitution = ctx.flag(RESTITUTION) ?: DEFAULT_RESTITUTION
         val virtual = ctx.hasFlag(VIRTUAL)
 
-        val shape = rattle.engine.createShape(geom)
         val material = rattle.engine.createMaterial(
             friction = friction,
             restitution = restitution,
         )
+        val visibility = if (virtual) Visibility.INVISIBLE else Visibility.VISIBLE
 
         repeat(count) {
             val offset = (Random.nextDVec3() * 2.0 - 1.0) * spread
-            val position = Iso(location.position + offset)
+            val position = location.position + offset
 
             server.primitiveBodies.create(
-                world = location.world,
-                geom = geom,
-                body = createBody(position),
-                collider = rattle.engine.createCollider(
-                    shape = shape,
-                    material = material,
-                    mass = mass,
-                ),
-                visibility = if (virtual) Visibility.INVISIBLE else Visibility.VISIBLE,
+                location = Location(location.world, position),
+                desc = createDesc(material, mass, visibility),
             )
         }
 
@@ -272,8 +269,13 @@ abstract class RattleCommand<C : Audience, W>(
         ctx: CommandContext<C>,
         geom: Geometry,
     ): BodyCreateInfo {
-        return bodyCreate(ctx, geom) { position ->
-            rattle.engine.createFixedBody(position)
+        return bodyCreate(ctx) { material, mass, visibility ->
+            PrimitiveBodyDesc.Fixed(
+                geometry = geom,
+                material = material,
+                mass = mass,
+                visibility = visibility,
+            )
         }
     }
 
@@ -282,12 +284,17 @@ abstract class RattleCommand<C : Audience, W>(
         geom: Geometry,
     ): BodyCreateInfo {
         val ccd = ctx.hasFlag(CCD)
+        val gravityScale = ctx.flag(GRAVITY_SCALE) ?: 1.0
         val linDamp = ctx.flag(LIN_DAMP) ?: DEFAULT_LINEAR_DAMPING
         val angDamp = ctx.flag(ANG_DAMP) ?: DEFAULT_ANGULAR_DAMPING
-        return bodyCreate(ctx, geom) { position ->
-            rattle.engine.createMovingBody(
-                position = position,
+        return bodyCreate(ctx) { material, mass, visibility ->
+            PrimitiveBodyDesc.Moving(
+                geometry = geom,
+                material = material,
+                mass = mass,
+                visibility = visibility,
                 isCcdEnabled = ccd,
+                gravityScale = gravityScale,
                 linearDamping = linDamp,
                 angularDamping = angDamp,
             )

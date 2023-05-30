@@ -1,10 +1,13 @@
 package io.github.aecsocket.rattle.rapier
 
 import io.github.aecsocket.rattle.*
+import rapier.data.ArenaKey
 import rapier.dynamics.RigidBodyType
 
 @JvmInline
-value class RigidBodyHandle(val key: ArenaKey)
+value class RigidBodyHandle(val id: Long) {
+    override fun toString(): String = ArenaKey.asString(id)
+}
 
 class RapierBody internal constructor(
     var state: State,
@@ -35,8 +38,8 @@ class RapierBody internal constructor(
     fun <R> read(block: (RapierBody.Read) -> R): R {
         return when (val state = state) {
             is State.Removed -> block(Read(state.body))
-            is State.Added -> block(Read(state.space.rigidBodySet.get(state.handle.key.id)
-                ?: throw IllegalArgumentException("No body with ID ${state.handle.key}")))
+            is State.Added -> block(Read(state.space.rigidBodySet.get(state.handle.id)
+                ?: throw IllegalArgumentException("No body with ID ${state.handle}")))
         }
     }
 
@@ -49,8 +52,8 @@ class RapierBody internal constructor(
     fun <R> write(block: (RapierBody.Write) -> R): R {
         return when (val state = state) {
             is State.Removed -> block(Write(state.body))
-            is State.Added -> block(Write(state.space.rigidBodySet.getMut(state.handle.key.id)
-                ?: throw IllegalArgumentException("No body with ID ${state.handle.key}")))
+            is State.Added -> block(Write(state.space.rigidBodySet.getMut(state.handle.id)
+                ?: throw IllegalArgumentException("No body with ID ${state.handle}")))
         }
     }
 
@@ -77,6 +80,17 @@ class RapierBody internal constructor(
         override val position: Iso
             get() = pushArena { arena ->
                 body.getPosition(arena).toIso()
+            }
+
+        override val colliders: Collection<Collider>
+            get() = when (val state = state) {
+                is State.Added -> body.colliders.map {
+                    RapierCollider(RapierCollider.State.Added(
+                        space = state.space,
+                        handle = ColliderHandle(it),
+                    ))
+                }
+                is State.Removed -> emptyList()
             }
 
         override val isKinematic: Boolean
