@@ -54,7 +54,7 @@ object NoOpEntityStrategy : EntityStrategy {
  * concerned, read-only. However, they do still contain methods (`enable`, `disable`) which
  * mutate their internal state, therefore they must still be locked by some mechanism. We
  * wouldn't want a terrain strategy to stop working in the middle of processing a physics step.
- * Therefore, its locking is controlled by the WorldPhysics' container (Synchronized and the like).
+ * Therefore, its locking is controlled by the WorldPhysics' container (Sync and the like).
  */
 interface WorldPhysics<W> : Destroyable {
     val world: W

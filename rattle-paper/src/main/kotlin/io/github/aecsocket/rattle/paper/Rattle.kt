@@ -74,7 +74,7 @@ class PaperRattle : AlexandriaPlugin<RattleHook.Settings>(
         override val worlds: Iterable<World>
             get() = Bukkit.getWorlds()
 
-        override val primitiveBodies = PaperPrimitiveBodies()
+        override val primitiveBodies = PaperPrimitiveBodies(this@PaperRattle)
 
         override fun callBeforeStep(dt: Real) {
             RattleEvents.BeforePhysicsStep(dt).callEvent()

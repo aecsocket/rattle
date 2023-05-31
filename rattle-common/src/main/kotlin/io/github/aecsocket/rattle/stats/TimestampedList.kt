@@ -16,7 +16,7 @@ interface MutableTimestampedList<T> : TimestampedList<T> {
     operator fun plusAssign(value: T) = add(value)
 }
 
-private class TimestampedListImpl<T>(override var buffer: Long) : MutableTimestampedList<T> {
+class TimestampedListImpl<T> internal constructor(override var buffer: Long) : MutableTimestampedList<T> {
     private data class Entry<T>(
         val at: Long,
         val value: T,

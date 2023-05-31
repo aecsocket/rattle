@@ -196,7 +196,14 @@ class RapierSpace internal constructor(
                 }
             }
         }
+
+        override fun remove(value: ImpulseJoint) {
+            TODO("Not yet implemented")
+        }
     }
+
+    override val multibodyJoints: PhysicsSpace.JointContainer<MultibodyJoint>
+        get() = TODO("Not yet implemented")
 
     override fun toString() = "RapierSpace[0x%x]".format(pipeline.address())
 

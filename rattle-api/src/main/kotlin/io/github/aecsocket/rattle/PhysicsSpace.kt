@@ -11,7 +11,16 @@ enum class LinAxis {
     Z
 }
 
+/**
+ * An independent object storing simulation data for a set of physics structures. This takes ownership of objects like
+ * [RigidBody] and [Collider] instances, and allows manipulating and querying the internal structures. An instance
+ * can be created through [PhysicsEngine.createSpace].
+ */
 interface PhysicsSpace : Destroyable {
+    /**
+     * Simulation parameters for a physics space.
+     * @param gravity The gravity **acceleration** applied to all bodies, in meters/sec.
+     */
     @ConfigSerializable
     data class Settings(
         val gravity: Vec = Vec(0.0, -9.81, 0.0),

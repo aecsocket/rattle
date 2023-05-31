@@ -48,6 +48,7 @@ import io.github.aecsocket.rattle.*
  * The amount that the AABB is expanded by is determined by:
  * - a constant factor defined in the settings - this is a single scalar on which each axis of the AABB
  *   is expanded by. This acts as a "radius" rather than a "diameter" of the box.
+ * - a variable factor defined as a multiplier of a body's current velocity
  *
  * # Structures
  *
@@ -74,7 +75,9 @@ abstract class DefaultTerrainStrategy<S>(
 
     class Slice(
     ) {
-        fun colliders(): List<Collider>
+        fun colliders(): List<Collider> {
+            TODO()
+        }
     }
 
     private class Slices {
@@ -132,8 +135,8 @@ abstract class DefaultTerrainStrategy<S>(
         toRemove += slices.withLock { it.slices.keys.toMutableSet() }
         toSnapshot.clear()
 
-        fun forCollider(coll: Collider.Access) {
-            val bounds = computeBounds(coll)
+        fun forCollider(rb: RigidBody.Read, coll: Collider.Read) {
+            val bounds = computeBounds(rb, coll)
             val sliceCoords = enclosedPoints(bounds / 16.0).toSet()
             toRemove -= sliceCoords
             toSnapshot += sliceCoords
@@ -143,7 +146,7 @@ abstract class DefaultTerrainStrategy<S>(
             aBody.read { body ->
                 body.colliders.forEach { aColl ->
                     aColl.read { coll ->
-                        forCollider(coll)
+                        forCollider(body, coll)
                     }
                 }
             }
@@ -186,8 +189,10 @@ abstract class DefaultTerrainStrategy<S>(
         )
     }
 
-    private fun computeBounds(coll: Collider.Access): Aabb {
+    private fun computeBounds(body: RigidBody.Read, coll: Collider.Read): Aabb {
         val bounds = coll.bounds()
+        // TODO constant scaling
+        // TODO velocity scaling
         return bounds
     }
 
@@ -201,6 +206,7 @@ abstract class DefaultTerrainStrategy<S>(
 
     private fun buildSliceBodies(snapshots: List<SliceSnapshot>) {
         snapshots.forEach { snapshot ->
+            // TODO
         }
     }
 }
