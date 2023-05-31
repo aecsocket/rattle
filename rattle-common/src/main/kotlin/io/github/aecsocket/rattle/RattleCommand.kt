@@ -241,7 +241,7 @@ abstract class RattleCommand<C : Audience, W>(
         val restitution = ctx.flag(RESTITUTION) ?: DEFAULT_RESTITUTION
         val virtual = ctx.hasFlag(VIRTUAL)
 
-        val material = rattle.engine.createMaterial(
+        val material = PhysicsMaterial(
             friction = friction,
             restitution = restitution,
         )

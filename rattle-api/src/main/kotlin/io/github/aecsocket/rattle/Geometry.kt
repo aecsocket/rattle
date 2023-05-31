@@ -46,17 +46,61 @@ data class Box(
     }
 }
 
-// TODO figure out axes
-///**
-// * A "swept sphere" shape, defined by a half-height and a radius. The
-// */
-//@ConfigSerializable
-//data class Capsule(
-//    val halfHeight: Real,
-//    val radius: Real,
-//) : ConvexGeometry {
-//    init {
-//        require(halfHeight > 0.0) { "requires halfHeight > 0.0" }
-//        require(radius > 0.0) { "requires radius > 0.0" }
-//    }
-//}
+/**
+ * A "swept sphere" shape centered around zero defined by an axis, half-height and radius.
+ * @param axis The axis in which the half-height stretches.
+ * @param halfHeight The half-height of the capsule, up to the start of the hemisphere "caps" of the capsule.
+ *                   If this were 0 (which is invalid), the shape would be a sphere defined by [radius].
+ *                   Must be greater than 0.
+ * @param radius The radius of the hemisphere caps of the capsule. Must be greater than 0.
+ */
+@ConfigSerializable
+data class Capsule(
+    val axis: LinAxis,
+    val halfHeight: Real,
+    val radius: Real,
+) : ConvexGeometry {
+    init {
+        require(halfHeight > 0.0) { "requires halfHeight > 0.0" }
+        require(radius > 0.0) { "requires radius > 0.0" }
+    }
+}
+
+/**
+ * A cylinder shape centered around zero, with its length along the **Y** axis, defined by a half-height and radius.
+ *
+ * **Note:** the axis that the cylinder rests on cannot be defined here. Instead, transform the collider that the
+ * shape is placed on.
+ * @param halfHeight The half-height of the cylinder. Must be greater than 0.
+ * @param radius The radius of the cylinder. Must be greater than 0.
+ */
+@ConfigSerializable
+data class Cylinder(
+    val halfHeight: Real,
+    val radius: Real,
+) : ConvexGeometry {
+    init {
+        require(halfHeight > 0.0) { "requires halfHeight > 0.0" }
+        require(radius > 0.0) { "requires radius > 0.0" }
+    }
+}
+
+/**
+ * A cone shape centered around zero, with its length along the **Y** axis, defined by a half-height and radius.
+ * The shape starts at its largest radius at the bottom, and approaches zero at the top.
+ *
+ * **Note:** the axis that the cone rests on cannot be defined here. Instead, transform the collider that the
+ * shape is placed on.
+ * @param halfHeight The half-height of the cone. Must be greater than 0.
+ * @param radius The radius of the cone. Must be greater than 0.
+ */
+@ConfigSerializable
+data class Cone(
+    val halfHeight: Real,
+    val radius: Real,
+) : ConvexGeometry {
+    init {
+        require(halfHeight > 0.0) { "requires halfHeight > 0.0" }
+        require(radius > 0.0) { "requires radius > 0.0" }
+    }
+}

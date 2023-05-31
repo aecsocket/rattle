@@ -30,14 +30,14 @@ sealed interface PrimitiveBodyDesc {
     ) : PrimitiveBodyDesc
 }
 
+interface PrimitiveBodyHandle
+
 interface PrimitiveBodies<W> {
     val count: Int
 
-    fun create(location: Location<W>, desc: PrimitiveBodyDesc)
+    fun create(location: Location<W>, desc: PrimitiveBodyDesc): PrimitiveBodyHandle
+
+    fun destroy(handle: PrimitiveBodyHandle)
 
     fun destroyAll()
-
-    fun onTick()
-
-    fun onPhysicsStep()
 }

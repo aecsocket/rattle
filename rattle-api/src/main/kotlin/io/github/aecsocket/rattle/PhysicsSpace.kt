@@ -2,6 +2,15 @@ package io.github.aecsocket.rattle
 
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 
+/**
+ * A linear axis in 3D space.
+ */
+enum class LinAxis {
+    X,
+    Y,
+    Z
+}
+
 interface PhysicsSpace : Destroyable {
     @ConfigSerializable
     data class Settings(

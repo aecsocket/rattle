@@ -7,6 +7,7 @@ import rapier.dynamics.RigidBodyBuilder
 import rapier.dynamics.joint.GenericJoint
 import rapier.geometry.ColliderBuilder
 import rapier.pipeline.PhysicsPipeline
+import rapier.shape.Segment
 import rapier.shape.SharedShape
 
 class RapierEngine(var settings: Settings) : PhysicsEngine {
@@ -57,18 +58,35 @@ class RapierEngine(var settings: Settings) : PhysicsEngine {
                 is Box -> SharedShape.of(
                     rapier.shape.Cuboid.of(arena, geom.halfExtent.toVector(arena))
                 )
-                // TODO figure out axes
-//                is Capsule -> SharedShape.of(
-//                    rapier.shape.Capsule.of(
-//                        arena,
-//                        rapier.shape.Segment.of(
-//                            arena,
-//                            Vec(0.0, -geom.halfHeight, 0.0).toVector(arena),
-//                            Vec(0.0,  geom.halfHeight, 0.0).toVector(arena),
-//                        ),
-//                        geom.radius,
-//                    )
-//                )
+                is Capsule -> SharedShape.of(
+                    rapier.shape.Capsule.of(
+                        arena,
+                        when (geom.axis) {
+                            LinAxis.X -> Segment.of(
+                                arena,
+                                Vec(-geom.halfHeight, 0.0, 0.0).toVector(arena),
+                                Vec( geom.halfHeight, 0.0, 0.0).toVector(arena),
+                            )
+                            LinAxis.Y -> Segment.of(
+                                arena,
+                                Vec(0.0, -geom.halfHeight, 0.0).toVector(arena),
+                                Vec(0.0,  geom.halfHeight, 0.0).toVector(arena),
+                            )
+                            LinAxis.Z -> Segment.of(
+                                arena,
+                                Vec(0.0, 0.0, -geom.halfHeight).toVector(arena),
+                                Vec(0.0, 0.0,  geom.halfHeight).toVector(arena),
+                            )
+                        },
+                        geom.radius,
+                    )
+                )
+                is Cylinder -> SharedShape.of(
+                    rapier.shape.Cylinder.of(arena, geom.halfHeight, geom.radius)
+                )
+                is Cone -> SharedShape.of(
+                    rapier.shape.Cone.of(arena, geom.halfHeight, geom.radius)
+                )
             }
         }
         return RapierShape(handle)
