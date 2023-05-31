@@ -20,19 +20,8 @@ class RapierShape internal constructor(
         return this
     }
 
-    override fun destroy() {
-        release()
-    }
-
     override fun toString() = "RapierShape[0x%x]".format(handle.address())
 }
-
-class RapierMaterial(
-    override val friction: Real,
-    override val restitution: Real,
-    override val frictionCombine: CoeffCombineRule,
-    override val restitutionCombine: CoeffCombineRule,
-) : PhysicsMaterial
 
 @JvmInline
 value class ColliderHandle(val id: Long) {
@@ -97,7 +86,7 @@ class RapierCollider internal constructor(
             get() = RapierShape(coll.shape)
 
         override val material: PhysicsMaterial
-            get() = RapierMaterial(
+            get() = PhysicsMaterial(
                 friction = coll.friction,
                 restitution = coll.restitution,
                 frictionCombine = coll.frictionCombineRule.convert(),
@@ -109,8 +98,11 @@ class RapierCollider internal constructor(
                 coll.getPosition(arena).toIso()
             }
 
-        override val isSensor: Boolean
-            get() = coll.isSensor
+        override val physicsMode: PhysicsMode
+            get() = when (coll.isSensor) {
+                false -> PhysicsMode.SOLID
+                true -> PhysicsMode.SENSOR
+            }
 
         override val relativePosition: Iso
             get() = pushArena { arena ->
@@ -148,7 +140,6 @@ class RapierCollider internal constructor(
         override var material: PhysicsMaterial
             get() = super.material
             set(value) {
-                value as RapierMaterial
                 coll.friction = value.friction
                 coll.restitution = value.restitution
                 coll.frictionCombineRule = value.frictionCombine.convert()
@@ -161,10 +152,13 @@ class RapierCollider internal constructor(
                 coll.setPosition(value.toIsometry(arena))
             }
 
-        override var isSensor: Boolean
-            get() = super.isSensor
+        override var physicsMode: PhysicsMode
+            get() = super.physicsMode
             set(value) {
-                coll.isSensor = value
+                coll.isSensor = when (value) {
+                    PhysicsMode.SOLID -> false
+                    PhysicsMode.SENSOR -> true
+                }
             }
 
         override var relativePosition: Iso

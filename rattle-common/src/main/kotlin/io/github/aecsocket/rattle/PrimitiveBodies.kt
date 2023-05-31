@@ -6,20 +6,20 @@ enum class Visibility {
 }
 
 sealed interface PrimitiveBodyDesc {
-    val geometry: Geometry
+    val geom: Geometry
     val material: PhysicsMaterial
     val mass: Mass
     val visibility: Visibility
 
     data class Fixed(
-        override val geometry: Geometry,
+        override val geom: Geometry,
         override val material: PhysicsMaterial,
         override val mass: Mass = Mass.Density(1.0),
         override val visibility: Visibility = Visibility.VISIBLE,
     ) : PrimitiveBodyDesc
 
     data class Moving(
-        override val geometry: Geometry,
+        override val geom: Geometry,
         override val material: PhysicsMaterial,
         override val mass: Mass = Mass.Density(1.0),
         override val visibility: Visibility = Visibility.VISIBLE,

@@ -93,8 +93,11 @@ class RapierBody internal constructor(
                 is State.Removed -> emptyList()
             }
 
-        override val isKinematic: Boolean
-            get() = body.isKinematic
+        override val movingMode: MovingMode
+            get() = when (body.isKinematic) {
+                false -> MovingMode.DYNAMIC
+                true -> MovingMode.KINEMATIC
+            }
 
         override val isCcdEnabled: Boolean
             get() = body.isCcdEnabled
@@ -148,13 +151,14 @@ class RapierBody internal constructor(
                 body.setPosition(value.toIsometry(arena), false)
             }
 
-        override var isKinematic: Boolean
-            get() = super.isKinematic
+        override var movingMode: MovingMode
+            get() = super.movingMode
             set(value) {
                 val oldType = body.bodyType
-                val newType =
-                    if (value) RigidBodyType.KINEMATIC_POSITION_BASED
-                    else RigidBodyType.DYNAMIC
+                val newType = when (value) {
+                    MovingMode.DYNAMIC -> RigidBodyType.DYNAMIC
+                    MovingMode.KINEMATIC -> RigidBodyType.KINEMATIC_POSITION_BASED
+                }
                 if (oldType == newType) return
                 body.setBodyType(newType, false)
             }

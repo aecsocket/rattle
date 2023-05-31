@@ -49,20 +49,6 @@ class RapierEngine(var settings: Settings) : PhysicsEngine {
         destroyed()
     }
 
-    override fun createMaterial(
-        friction: Real,
-        restitution: Real,
-        frictionCombine: CoeffCombineRule,
-        restitutionCombine: CoeffCombineRule,
-    ): PhysicsMaterial {
-        return RapierMaterial(
-            friction,
-            restitution,
-            frictionCombine,
-            restitutionCombine,
-        )
-    }
-
     override fun createShape(geom: Geometry): Shape {
         val handle = pushArena { arena ->
             when (geom) {
@@ -72,17 +58,18 @@ class RapierEngine(var settings: Settings) : PhysicsEngine {
                 is Box -> SharedShape.of(
                     rapier.shape.Cuboid.of(arena, geom.halfExtent.toVector(arena))
                 )
-                is Capsule -> SharedShape.of(
-                    rapier.shape.Capsule.of(
-                        arena,
-                        rapier.shape.Segment.of(
-                            arena,
-                            Vec(0.0, -geom.halfHeight, 0.0).toVector(arena),
-                            Vec(0.0,  geom.halfHeight, 0.0).toVector(arena),
-                        ),
-                        geom.radius,
-                    )
-                )
+                // TODO figure out axes
+//                is Capsule -> SharedShape.of(
+//                    rapier.shape.Capsule.of(
+//                        arena,
+//                        rapier.shape.Segment.of(
+//                            arena,
+//                            Vec(0.0, -geom.halfHeight, 0.0).toVector(arena),
+//                            Vec(0.0,  geom.halfHeight, 0.0).toVector(arena),
+//                        ),
+//                        geom.radius,
+//                    )
+//                )
             }
         }
         return RapierShape(handle)
@@ -157,7 +144,7 @@ class RapierEngine(var settings: Settings) : PhysicsEngine {
                         is Sleeping.Disabled -> canSleep(false)
                         is Sleeping.Enabled -> {
                             canSleep(true)
-                            sleeping(sleeping.state)
+                            sleeping(sleeping.sleeping)
                         }
                     }
                 }

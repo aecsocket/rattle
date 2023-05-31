@@ -271,7 +271,7 @@ abstract class RattleCommand<C : Audience, W>(
     ): BodyCreateInfo {
         return bodyCreate(ctx) { material, mass, visibility ->
             PrimitiveBodyDesc.Fixed(
-                geometry = geom,
+                geom = geom,
                 material = material,
                 mass = mass,
                 visibility = visibility,
@@ -289,7 +289,7 @@ abstract class RattleCommand<C : Audience, W>(
         val angDamp = ctx.flag(ANG_DAMP) ?: DEFAULT_ANGULAR_DAMPING
         return bodyCreate(ctx) { material, mass, visibility ->
             PrimitiveBodyDesc.Moving(
-                geometry = geom,
+                geom = geom,
                 material = material,
                 mass = mass,
                 visibility = visibility,

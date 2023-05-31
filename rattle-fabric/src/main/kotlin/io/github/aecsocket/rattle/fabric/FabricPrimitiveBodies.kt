@@ -33,7 +33,7 @@ class FabricPrimitiveBodies(
 
     override fun create(location: Location<ServerLevel>, desc: PrimitiveBodyDesc) {
         val (world, translation) = location
-        val shape = rattle.engine.createShape(desc.geometry)
+        val shape = rattle.engine.createShape(desc.geom)
         val collider = rattle.engine.createCollider(
             shape = shape,
             material = desc.material,
