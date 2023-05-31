@@ -11,20 +11,22 @@ interface WorldHook {
     fun onPhysicsStep() {}
 }
 
-interface TerrainStrategy : WorldHook {
+interface TerrainStrategy : WorldHook, Destroyable {
 
 }
 
 object NoOpTerrainStrategy : TerrainStrategy {
+    override fun destroy() {}
     override fun enable() {}
     override fun disable() {}
 }
 
-interface EntityStrategy : WorldHook {
+interface EntityStrategy : WorldHook, Destroyable {
 
 }
 
 object NoOpEntityStrategy : EntityStrategy {
+    override fun destroy() {}
     override fun enable() {}
     override fun disable() {}
 }
@@ -54,7 +56,7 @@ object NoOpEntityStrategy : EntityStrategy {
  * wouldn't want a terrain strategy to stop working in the middle of processing a physics step.
  * Therefore, its locking is controlled by the WorldPhysics' container (Synchronized and the like).
  */
-interface WorldPhysics<W> {
+interface WorldPhysics<W> : Destroyable {
     val world: W
     val physics: PhysicsSpace
     val terrain: TerrainStrategy

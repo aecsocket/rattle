@@ -1,6 +1,7 @@
-package io.github.aecsocket.rattle
+package io.github.aecsocket.rattle.impl
 
 import io.github.aecsocket.glossa.component
+import io.github.aecsocket.rattle.RattleMessages
 import io.github.aecsocket.rattle.stats.formatTiming
 import io.github.aecsocket.rattle.stats.timingStatsOf
 import net.kyori.adventure.audience.Audience
@@ -32,7 +33,7 @@ abstract class RattlePlayer<W, P : Audience>(
         }
     }
 
-    fun onTick() {
+    fun tick() {
         val world = world
         statsBar?.let { statsBar ->
             val (median, best5, worst5) = timingStatsOf(

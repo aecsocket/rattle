@@ -5,14 +5,14 @@ import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerQuitEvent
 import org.bukkit.event.world.WorldUnloadEvent
 
-internal class RattleListener(private val rattle: RattlePlugin) : Listener {
+internal class RattleListener(private val rattle: PaperRattle) : Listener {
     @EventHandler
-    fun on(event: PlayerQuitEvent) {
-        rattle.removePlayerData(event.player)
+    fun on(event: WorldUnloadEvent) {
+        rattle.destroyWorld(event.world)
     }
 
     @EventHandler
-    fun on(event: WorldUnloadEvent) {
-        rattle.removeWorld(event.world)
+    fun on(event: PlayerQuitEvent) {
+        rattle.destroyPlayerData(event.player)
     }
 }

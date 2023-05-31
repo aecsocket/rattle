@@ -9,6 +9,9 @@ import io.github.aecsocket.alexandria.sync.Locked
 import io.github.aecsocket.alexandria.sync.Sync
 import io.github.aecsocket.glossa.MessageProxy
 import io.github.aecsocket.rattle.*
+import io.github.aecsocket.rattle.impl.RattleHook
+import io.github.aecsocket.rattle.impl.RattleServer
+import io.github.aecsocket.rattle.impl.rattleManifest
 import io.github.aecsocket.rattle.rapier.RapierEngine
 import io.github.aecsocket.rattle.stats.timestampedList
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents
@@ -58,7 +61,7 @@ class RattleMod : AlexandriaMod<RattleHook.Settings>(rattleManifest), RattleHook
             executor.submit(task)
         }
 
-        override fun playerData(sender: CommandSourceStack) = (sender.entity as? ServerPlayer)?.rattle()
+        override fun asPlayer(sender: CommandSourceStack) = (sender.entity as? ServerPlayer)?.rattle()
 
         override fun key(world: ServerLevel) = world.dimension().key()
 
@@ -70,7 +73,8 @@ class RattleMod : AlexandriaMod<RattleHook.Settings>(rattleManifest), RattleHook
         override fun physicsOrCreate(world: ServerLevel): Sync<FabricWorldPhysics> {
             world as LevelPhysicsAccess
             val physics = world.rattle_getPhysics() ?: run {
-                val physics = Locked(RattleHook.createWorldPhysics(
+                val physics = Locked(
+                    Rattle.createWorldPhysics(
                     Rattle,
                     rattle.settings.worlds.forLevel(world),
                 ) { space, terrain, entities ->
@@ -123,7 +127,7 @@ class RattleMod : AlexandriaMod<RattleHook.Settings>(rattleManifest), RattleHook
     override fun onInitialize() {
         super.onInitialize()
         FabricRattleCommand(this)
-        RattleHook.onInit(
+        Rattle.onInit(
             rattle = this,
             setEngine = { mEngine = it },
         )
@@ -145,14 +149,14 @@ class RattleMod : AlexandriaMod<RattleHook.Settings>(rattleManifest), RattleHook
         }
     }
 
-    override fun loadSettings(node: ConfigurationNode) = node.get() ?: RattleHook.Settings()
+    override fun loadSettings(node: ConfigurationNode) = node.get() ?: Rattle.Settings()
 
     override fun onLoad(log: Log) {
-        RattleHook.onLoad(this, { messages = it }, server?.engineTimings)
+        Rattle.onLoad(this, { messages = it }, server?.engineTimings)
     }
 
     override fun onReload(log: Log) {
-        RattleHook.onReload(this, mEngine)
+        Rattle.onReload(this, mEngine)
     }
 }
 

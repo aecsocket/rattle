@@ -6,14 +6,14 @@ import cloud.commandframework.context.CommandContext
 import io.github.aecsocket.alexandria.paper.commandManager
 import io.github.aecsocket.alexandria.paper.extension.position
 import io.github.aecsocket.rattle.RattleCommand
-import io.github.aecsocket.rattle.RattleServer
+import io.github.aecsocket.rattle.impl.RattleServer
 import org.bukkit.Location
 import org.bukkit.World
 import org.bukkit.command.CommandSender
 
 internal class PaperRattleCommand(
-    private val rattle: RattlePlugin,
-) : RattleCommand<CommandSender, World>(rattle, rattle.messages, commandManager(rattle)) {
+    private val rattle: PaperRattle,
+) : RattleCommand<CommandSender, World>(rattle.rattle, rattle.messages, commandManager(rattle)) {
     override fun locationArgumentOf(key: String) =
         LocationArgument.of<CommandSender>(key)
 
@@ -31,5 +31,5 @@ internal class PaperRattleCommand(
     override fun CommandContext<CommandSender>.getWorld(key: String) = get<World>(key)
 
     override val CommandContext<CommandSender>.server: RattleServer<World, CommandSender>
-        get() = rattle
+        get() = rattle.rattleServer
 }

@@ -41,3 +41,21 @@ interface PrimitiveBodies<W> {
 
     fun destroyAll()
 }
+
+abstract class AbstractPrimitiveBodies<W> : PrimitiveBodies<W> {
+    fun onPhysicsStep() {
+
+    }
+
+    override fun create(location: Location<W>, desc: PrimitiveBodyDesc): PrimitiveBodyHandle {
+        TODO("Not yet implemented")
+    }
+
+    override fun destroy(handle: PrimitiveBodyHandle) {
+        TODO("Not yet implemented")
+    }
+
+    override fun destroyAll() {
+        TODO("Not yet implemented")
+    }
+}

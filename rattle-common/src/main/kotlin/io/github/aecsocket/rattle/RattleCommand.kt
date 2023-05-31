@@ -4,6 +4,7 @@ import cloud.commandframework.CommandManager
 import cloud.commandframework.arguments.CommandArgument
 import cloud.commandframework.arguments.standard.BooleanArgument
 import cloud.commandframework.arguments.standard.DoubleArgument
+import cloud.commandframework.arguments.standard.EnumArgument
 import cloud.commandframework.arguments.standard.IntegerArgument
 import cloud.commandframework.context.CommandContext
 import io.github.aecsocket.alexandria.extension.flag
@@ -11,6 +12,8 @@ import io.github.aecsocket.alexandria.extension.hasFlag
 import io.github.aecsocket.alexandria.hook.AlexandriaCommand
 import io.github.aecsocket.glossa.MessageProxy
 import io.github.aecsocket.klam.nextDVec3
+import io.github.aecsocket.rattle.impl.RattleHook
+import io.github.aecsocket.rattle.impl.RattleServer
 import io.github.aecsocket.rattle.stats.formatTiming
 import io.github.aecsocket.rattle.stats.timingStatsOf
 import net.kyori.adventure.audience.Audience
@@ -18,6 +21,7 @@ import kotlin.random.Random
 
 private const val ALL = "all"
 private const val ANG_DAMP = "ang-damp"
+private const val AXIS = "axis"
 private const val BODY = "body"
 private const val BOX = "box"
 private const val CAPSULE = "capsule"
@@ -48,10 +52,10 @@ private const val WORLD = "world"
 typealias RealArgument<C> = DoubleArgument<C>
 
 abstract class RattleCommand<C : Audience, W>(
-    private val rattle: RattleHook<W>,
+    private val rattle: RattleHook,
     private val messages: MessageProxy<RattleMessages>,
     manager: CommandManager<C>,
-) : AlexandriaCommand<C>(rattle, manager) {
+) : AlexandriaCommand<C>(rattle.ax, manager) {
     protected abstract fun locationArgumentOf(key: String): CommandArgument<C, *>
 
     protected abstract fun CommandContext<C>.getLocation(key: String): Location<W>
@@ -123,6 +127,7 @@ abstract class RattleCommand<C : Audience, W>(
                                 )
                                 manager.command(
                                     literal(CAPSULE)
+                                        .argument(EnumArgument.of(LinAxis::class.java, AXIS))
                                         .argument(RealArgument.of(HALF_HEIGHT))
                                         .argument(RealArgument.of(RADIUS))
                                         .axHandler(::bodyCreateFixedCapsule)
@@ -154,6 +159,7 @@ abstract class RattleCommand<C : Audience, W>(
                                 )
                                 manager.command(
                                     literal(CAPSULE)
+                                        .argument(EnumArgument.of(LinAxis::class.java, AXIS))
                                         .argument(RealArgument.of(HALF_HEIGHT))
                                         .argument(RealArgument.of(RADIUS))
                                         .axHandler(::bodyCreateMovingCapsule)
@@ -311,6 +317,7 @@ abstract class RattleCommand<C : Audience, W>(
 
     private fun capsuleGeom(ctx: CommandContext<C>): Geometry {
         return Capsule(
+            ctx.get(AXIS),
             ctx.get(HALF_HEIGHT),
             ctx.get(RADIUS),
         )
@@ -420,7 +427,7 @@ abstract class RattleCommand<C : Audience, W>(
 
     private fun statsEnable(ctx: CommandContext<C>) {
         val server = ctx.server
-        val sender = server.playerData(ctx.sender) ?: mustBePlayer(ctx.sender)
+        val sender = server.asPlayer(ctx.sender) ?: mustBePlayer(ctx.sender)
         val enabled = ctx.get<Boolean>(ENABLED)
 
         sender.showStatsBar(enabled)

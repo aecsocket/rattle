@@ -15,12 +15,15 @@ class PaperWorldPhysics(
 ) : WorldPhysics<World> {
     private val destroyed = DestroyFlag()
 
-    internal fun destroy() {
+    override fun destroy() {
         destroyed()
         physics.destroy()
+        terrain.destroy()
+        entities.destroy()
     }
 
     override fun onPhysicsStep() {
         terrain.onPhysicsStep()
+        entities.onPhysicsStep()
     }
 }
