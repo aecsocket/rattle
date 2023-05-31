@@ -43,6 +43,8 @@ interface RefCounted {
  * The entry point to the physics system; an engine represents the manager of all physics resources and
  * structures. An engine is tied to a specific physics backend, and allows creating native objects to interface
  * with the physics backend.
+ *
+ * The units used throughout the engine are metric: **meters, radians, seconds, kilograms**.
  */
 interface PhysicsEngine : Destroyable {
     /**
@@ -79,36 +81,28 @@ interface PhysicsEngine : Destroyable {
     ): Collider
 
     /**
-     * Creates a non-moving from the specified parameters.
+     * Creates a body from the specified parameters.
      * @param position The absolute position of this body in the world.
-     */
-    fun createFixedBody(
-        position: Iso,
-    ): FixedBody
-
-    /**
-     * Creates a movable body (dynamic or kinematic) from the specified parameters.
-     * @param position The absolute position of this body in the world.
-     * @param movingMode If this body is dynamic or kinematic (see [MovingMode]).
-     * @param isCcdEnabled If continuous collision detection is enabled (see [MovingBody]).
+     * @param type The dynamics type of this body (see [RigidBodyType]).
      * @param linearVelocity The starting linear velocity, in m/s.
      * @param angularVelocity The starting angular velocity, in rad/s.
+     * @param isCcdEnabled If continuous collision detection is enabled (see [MovingBody]).
      * @param gravityScale The gravity multiplier for this body.
      * @param linearDamping The linear damping (see [MovingBody]).
      * @param angularDamping The angular damping (see [MovingBody]).
      * @param sleeping The sleep parameters (see [Sleeping]).
      */
-    fun createMovingBody(
+    fun createBody(
         position: Iso,
-        movingMode: MovingMode = MovingMode.DYNAMIC,
-        isCcdEnabled: Boolean = false,
+        type: RigidBodyType,
         linearVelocity: Vec = Vec.Zero,
         angularVelocity: Vec = Vec.Zero,
+        isCcdEnabled: Boolean = false,
         gravityScale: Real = 1.0,
         linearDamping: Real = DEFAULT_LINEAR_DAMPING,
         angularDamping: Real = DEFAULT_ANGULAR_DAMPING,
         sleeping: Sleeping = Sleeping.Enabled(false),
-    ): MovingBody
+    ): RigidBody
 
     fun createImpulseJoint(axes: JointAxes): ImpulseJoint
 

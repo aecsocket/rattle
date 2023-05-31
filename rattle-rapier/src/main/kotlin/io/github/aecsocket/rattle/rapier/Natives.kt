@@ -46,6 +46,19 @@ fun Isometry.toIso() = Iso(translation.toVec(), rotation.toQuat())
 fun Aabb.toRapier(alloc: SegmentAllocator) = RAabb.of(alloc, min.toVector(alloc), max.toVector(alloc))
 fun RAabb.toAabb() = Aabb(min.toVec(), max.toVec())
 
+fun RigidBodyType.convert() = when (this) {
+    RigidBodyType.FIXED     -> rapier.dynamics.RigidBodyType.FIXED
+    RigidBodyType.DYNAMIC   -> rapier.dynamics.RigidBodyType.DYNAMIC
+    RigidBodyType.KINEMATIC -> rapier.dynamics.RigidBodyType.KINEMATIC_POSITION_BASED
+}
+
+fun rapier.dynamics.RigidBodyType.convert() = when (this) {
+    rapier.dynamics.RigidBodyType.FIXED                    -> RigidBodyType.FIXED
+    rapier.dynamics.RigidBodyType.DYNAMIC                  -> RigidBodyType.DYNAMIC
+    rapier.dynamics.RigidBodyType.KINEMATIC_POSITION_BASED -> RigidBodyType.KINEMATIC
+    rapier.dynamics.RigidBodyType.KINEMATIC_VELOCITY_BASED -> RigidBodyType.KINEMATIC
+}
+
 fun CoeffCombineRule.convert() = when (this) {
     CoeffCombineRule.AVERAGE  -> CoefficientCombineRule.AVERAGE
     CoeffCombineRule.MIN      -> CoefficientCombineRule.MIN

@@ -111,8 +111,8 @@ class FabricPrimitiveBodies(
 
     override fun onPhysicsStep() {
         instances.forEach { instance ->
-            instance.body.readBody { rb ->
-                if (rb.isSleeping) return@readBody
+            instance.body.read { rb ->
+                if (rb.isSleeping) return@read
                 instance.nextPosition = rb.position
             }
         }

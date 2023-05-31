@@ -140,7 +140,7 @@ abstract class DefaultTerrainStrategy<S>(
         }
 
         physics.bodies.active().forEach { aBody ->
-            aBody.readBody { body ->
+            aBody.read { body ->
                 body.colliders.forEach { aColl ->
                     aColl.read { coll ->
                         forCollider(coll)

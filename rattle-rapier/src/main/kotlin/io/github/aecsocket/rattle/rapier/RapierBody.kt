@@ -2,7 +2,6 @@ package io.github.aecsocket.rattle.rapier
 
 import io.github.aecsocket.rattle.*
 import rapier.data.ArenaKey
-import rapier.dynamics.RigidBodyType
 
 @JvmInline
 value class RigidBodyHandle(val id: Long) {
@@ -11,7 +10,7 @@ value class RigidBodyHandle(val id: Long) {
 
 class RapierBody internal constructor(
     var state: State,
-) : RigidBody, FixedBody, MovingBody {
+) : RigidBody {
     sealed interface State {
         data class Removed(
             val body: rapier.dynamics.RigidBody.Mut,
@@ -35,7 +34,7 @@ class RapierBody internal constructor(
         }
     }
 
-    fun <R> read(block: (RapierBody.Read) -> R): R {
+    override fun <R> read(block: (RigidBody.Read) -> R): R {
         return when (val state = state) {
             is State.Removed -> block(Read(state.body))
             is State.Added -> block(Read(state.space.rigidBodySet.get(state.handle.id)
@@ -43,25 +42,13 @@ class RapierBody internal constructor(
         }
     }
 
-    override fun <R> readMoving(block: (MovingBody.Read) -> R) = read(block)
-
-    override fun <R> readFixed(block: (FixedBody.Read) -> R) = read(block)
-
-    override fun <R> readBody(block: (RigidBody.Read) -> R) = read(block)
-
-    fun <R> write(block: (RapierBody.Write) -> R): R {
+    override fun <R> write(block: (RigidBody.Write) -> R): R {
         return when (val state = state) {
             is State.Removed -> block(Write(state.body))
             is State.Added -> block(Write(state.space.rigidBodySet.getMut(state.handle.id)
                 ?: throw IllegalArgumentException("No body with ID ${state.handle}")))
         }
     }
-
-    override fun <R> writeMoving(block: (MovingBody.Write) -> R) = write(block)
-
-    override fun <R> writeFixed(block: (FixedBody.Write) -> R) = write(block)
-
-    override fun <R> writeBody(block: (RigidBody.Write) -> R) = write(block)
 
     override fun toString() = when (val state = state) {
         is State.Added -> "RapierBody[${state.handle}]"
@@ -74,13 +61,11 @@ class RapierBody internal constructor(
 
     open inner class Access(
         internal open val body: rapier.dynamics.RigidBody,
-    ) : FixedBody.Access, MovingBody.Access {
+    ) : RigidBody.Access {
         override val handle get() = this@RapierBody
 
-        override val position: Iso
-            get() = pushArena { arena ->
-                body.getPosition(arena).toIso()
-            }
+        override val type: RigidBodyType
+            get() = body.bodyType.convert()
 
         override val colliders: Collection<Collider>
             get() = when (val state = state) {
@@ -93,14 +78,10 @@ class RapierBody internal constructor(
                 is State.Removed -> emptyList()
             }
 
-        override val movingMode: MovingMode
-            get() = when (body.isKinematic) {
-                false -> MovingMode.DYNAMIC
-                true -> MovingMode.KINEMATIC
+        override val position: Iso
+            get() = pushArena { arena ->
+                body.getPosition(arena).toIso()
             }
-
-        override val isCcdEnabled: Boolean
-            get() = body.isCcdEnabled
 
         override val linearVelocity: Vec
             get() = pushArena { arena ->
@@ -111,6 +92,12 @@ class RapierBody internal constructor(
             get() = pushArena { arena ->
                 body.getAngularVelocity(arena).toVec()
             }
+
+        override val isCcdEnabled: Boolean
+            get() = body.isCcdEnabled
+
+        override val isCcdActive: Boolean
+            get() = body.isCcdActive
 
         override val gravityScale: Real
             get() = body.gravityScale
@@ -124,9 +111,6 @@ class RapierBody internal constructor(
         override val isSleeping: Boolean
             get() = body.isSleeping
 
-        override val kineticEnergy: Real
-            get() = body.kineticEnergy
-
         override val appliedForce: Vec
             get() = pushArena { arena ->
                 body.getUserForce(arena).toVec()
@@ -136,29 +120,30 @@ class RapierBody internal constructor(
             get() = pushArena { arena ->
                 body.getUserTorque(arena).toVec()
             }
+
+        override fun kineticEnergy(): Real {
+            return body.kineticEnergy
+        }
     }
 
     inner class Read(
         body: rapier.dynamics.RigidBody,
-    ) : Access(body), FixedBody.Read, MovingBody.Read
+    ) : Access(body), RigidBody.Read
 
     inner class Write(
         override val body: rapier.dynamics.RigidBody.Mut,
-    ) : Access(body), FixedBody.Write, MovingBody.Write {
+    ) : Access(body), RigidBody.Write {
         override var position: Iso
             get() = super.position
             set(value) = pushArena { arena ->
                 body.setPosition(value.toIsometry(arena), false)
             }
 
-        override var movingMode: MovingMode
-            get() = super.movingMode
+        override var type: RigidBodyType
+            get() = super.type
             set(value) {
                 val oldType = body.bodyType
-                val newType = when (value) {
-                    MovingMode.DYNAMIC -> RigidBodyType.DYNAMIC
-                    MovingMode.KINEMATIC -> RigidBodyType.KINEMATIC_POSITION_BASED
-                }
+                val newType = value.convert()
                 if (oldType == newType) return
                 body.setBodyType(newType, false)
             }
@@ -243,9 +228,9 @@ class RapierBody internal constructor(
             }
         }
 
-        override fun kinematicTarget(position: Iso) {
+        override fun kinematicMoveTo(to: Iso) {
             pushArena { arena ->
-                body.setNextKinematicPosition(position.toIsometry(arena))
+                body.setNextKinematicPosition(to.toIsometry(arena))
             }
         }
     }

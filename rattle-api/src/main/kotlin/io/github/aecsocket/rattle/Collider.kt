@@ -75,7 +75,7 @@ data class PhysicsMaterial(
  */
 sealed interface Mass {
     /**
-     * The mass properties will be calculated based on the shape's volume and the given [density].
+     * The mass properties will be calculated based on the shape's volume and the given [density], with a default of 1.
      * - Mass is calculated
      * - Density is provided
      * - Inertia tensor is calculated
@@ -88,7 +88,7 @@ sealed interface Mass {
     }
 
     /**
-     * The mass properties will be calculated based on a fixed [mass].
+     * The mass properties will be calculated based on a fixed [mass], in kilograms.
      * - Mass is provided
      * - Density is calculated
      * - Inertia tensor is calculated

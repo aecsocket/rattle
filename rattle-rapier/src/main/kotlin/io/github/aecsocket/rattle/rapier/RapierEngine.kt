@@ -4,7 +4,6 @@ import io.github.aecsocket.rattle.*
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import rapier.Rapier
 import rapier.dynamics.RigidBodyBuilder
-import rapier.dynamics.RigidBodyType
 import rapier.dynamics.joint.GenericJoint
 import rapier.geometry.ColliderBuilder
 import rapier.pipeline.PhysicsPipeline
@@ -105,37 +104,23 @@ class RapierEngine(var settings: Settings) : PhysicsEngine {
         return RapierCollider(RapierCollider.State.Removed(coll))
     }
 
-    private fun createBody(builder: RigidBodyBuilder): RapierBody {
-        val body = builder.use { it.build() }
-        return RapierBody(RapierBody.State.Removed(body))
-    }
-
-    override fun createFixedBody(
+    override fun createBody(
         position: Iso,
-    ): FixedBody {
-        return createBody(pushArena { arena ->
-            RigidBodyBuilder.fixed()
-                .position(position.toIsometry(arena))
-        })
-    }
-
-    override fun createMovingBody(
-        position: Iso,
-        isKinematic: Boolean,
-        isCcdEnabled: Boolean,
+        type: RigidBodyType,
         linearVelocity: Vec,
         angularVelocity: Vec,
+        isCcdEnabled: Boolean,
         gravityScale: Real,
         linearDamping: Real,
         angularDamping: Real,
-        sleeping: Sleeping,
-    ): MovingBody {
-        return createBody(pushArena { arena ->
-            RigidBodyBuilder.of(if (isKinematic) RigidBodyType.KINEMATIC_POSITION_BASED else RigidBodyType.DYNAMIC)
+        sleeping: Sleeping
+    ): RigidBody {
+        val body = pushArena { arena ->
+            RigidBodyBuilder.of(type.convert())
                 .position(position.toIsometry(arena))
-                .ccdEnabled(isCcdEnabled)
                 .linvel(linearVelocity.toVector(arena))
                 .angvel(angularVelocity.toAngVector(arena))
+                .ccdEnabled(isCcdEnabled)
                 .gravityScale(gravityScale)
                 .linearDamping(linearDamping)
                 .angularDamping(angularDamping)
@@ -148,7 +133,9 @@ class RapierEngine(var settings: Settings) : PhysicsEngine {
                         }
                     }
                 }
-        })
+                .use { it.build() }
+        }
+        return RapierBody(RapierBody.State.Removed(body))
     }
 
     private fun createJoint(axes: JointAxes): RapierJoint {
