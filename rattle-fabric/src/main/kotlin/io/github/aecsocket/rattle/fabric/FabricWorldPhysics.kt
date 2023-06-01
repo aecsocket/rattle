@@ -30,4 +30,8 @@ class FabricWorldPhysics(
         entities.onPhysicsStep()
         simpleBodies.onPhysicsStep()
     }
+
+    fun onTick() {
+        simpleBodies.onTick()
+    }
 }

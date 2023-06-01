@@ -1,8 +1,8 @@
 package io.github.aecsocket.rattle
 
 import io.github.aecsocket.alexandria.ArenaKey
-import io.github.aecsocket.alexandria.Render
 import io.github.aecsocket.alexandria.genArena
+import io.github.aecsocket.alexandria.sync.Locked
 import io.github.aecsocket.rattle.impl.RattlePlatform
 
 enum class Visibility {
@@ -35,21 +35,22 @@ interface SimpleBodies<W> {
 }
 
 abstract class AbstractSimpleBodies<W>(
-    private val world: W,
+    val world: W,
+    // SAFETY: while a caller has access to a SimpleBodies object, they also have access to the containing
+    // WorldPhysics, and therefore the PhysicsSpace is locked
+    private val physics: PhysicsSpace,
     private val platform: RattlePlatform<W, *>,
 ) : SimpleBodies<W>, Destroyable {
-    private inner class Instance(
+    inner class Instance(
         val shape: Shape,
         val body: RigidBody,
         val collider: Collider,
-        val render: Render?,
     ) {
         var nextPosition: Iso? = null
-        private val destroyed = DestroyFlag()
+        val destroyed = DestroyFlag()
 
-        fun destroy() {
+        internal fun destroy() {
             destroyed()
-            // todo despawn render
             platform.rattle.runTask {
                 platform.physicsOrNull(world)?.withLock { (physics) ->
                     physics.colliders.remove(collider)
@@ -63,19 +64,21 @@ abstract class AbstractSimpleBodies<W>(
     }
 
     @JvmInline
-    value class Key(val key: ArenaKey) : SimpleBodyKey
+    private value class Key(val key: ArenaKey) : SimpleBodyKey
 
     private val destroyed = DestroyFlag()
-    private val instances = genArena<Instance>()
+    protected val instances = Locked(genArena<Instance>())
 
     override val count: Int
-        get() = instances.size
+        get() = instances.withLock { it.size }
 
     fun onPhysicsStep() {
-        instances.forEach { (_, instance) ->
-            instance.body.read { rb ->
-                if (!rb.isSleeping) {
-                    instance.nextPosition = rb.position
+        instances.withLock { instances ->
+            instances.forEach { (_, instance) ->
+                instance.body.read { rb ->
+                    if (!rb.isSleeping) {
+                        instance.nextPosition = rb.position
+                    }
                 }
             }
         }
@@ -85,6 +88,13 @@ abstract class AbstractSimpleBodies<W>(
         destroyed()
         destroyAll()
     }
+
+    protected abstract fun createVisual(
+        position: Iso,
+        desc: SimpleBodyDesc,
+        instance: Instance,
+        instanceKey: ArenaKey,
+    )
 
     override fun create(position: Iso, desc: SimpleBodyDesc): SimpleBodyKey {
         val engine = platform.rattle.engine
@@ -103,36 +113,40 @@ abstract class AbstractSimpleBodies<W>(
             material = desc.material,
             mass = desc.mass,
         )
-        val render: Render? = null // TODO
 
         val instance = Instance(
             shape = shape,
             body = body,
             collider = collider,
-            render = render,
         )
-        val key = instances.insert(instance)
-
-        platform.rattle.runTask {
-            platform.physicsOrCreate(world).withLock { (physics) ->
-                physics.bodies.add(body)
-                physics.colliders.add(collider)
-                collider.write { it.parent = body }
-            }
+        val key = instances.withLock { it.insert(instance) }
+        when (desc.visibility) {
+            Visibility.VISIBLE -> createVisual(position, desc, instance, key)
+            Visibility.INVISIBLE -> {}
         }
+
+        physics.bodies.add(body)
+        physics.colliders.add(collider)
+        collider.write { it.parent = body }
 
         return Key(key)
     }
 
+    fun destroy(key: ArenaKey) {
+        instances.withLock { it.remove(key) }?.destroy()
+    }
+
     override fun destroy(key: SimpleBodyKey) {
         key as Key
-        instances.remove(key.key)?.destroy()
+        destroy(key.key)
     }
 
     override fun destroyAll() {
-        instances.forEach { (_, instance) ->
-            instance.destroy()
+        instances.withLock { instances ->
+            instances.forEach { (_, instance) ->
+                instance.destroy()
+            }
+            instances.clear()
         }
-        instances.clear()
     }
 }

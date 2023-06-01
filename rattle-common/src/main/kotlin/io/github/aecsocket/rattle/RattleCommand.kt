@@ -213,17 +213,18 @@ abstract class RattleCommand<C : Audience, W>(
         val messages = messages.forAudience(sender)
         val world = ctx.getWorld(WORLD)
 
-        // block the command/main thread until physics world has been fully destroyed
-        // this will wait until stepping and updates are complete
-        server.physicsOrNull(world)?.withLock { physics ->
-            physics.destroy()
-        } ?: error(messages.error.space.doesNotExist(
+        val lock = server.physicsOrNull(world) ?: error(messages.error.space.doesNotExist(
             world = server.key(world).asString()
         ))
+        rattle.runTask {
+            lock.withLock { physics ->
+                physics.destroy()
+            }
 
-        messages.command.space.destroy(
-            world = server.key(world).asString(),
-        ).sendTo(sender)
+            messages.command.space.destroy(
+                world = server.key(world).asString(),
+            ).sendTo(sender)
+        }
     }
 
     private data class BodyCreateInfo(
@@ -254,14 +255,16 @@ abstract class RattleCommand<C : Audience, W>(
         )
         val visibility = if (virtual) Visibility.INVISIBLE else Visibility.VISIBLE
 
-        server.physicsOrCreate(location.world).withLock { physics ->
-            repeat(count) {
-                val offset = (Random.nextDVec3() * 2.0 - 1.0) * spread
+        rattle.runTask {
+            server.physicsOrCreate(location.world).withLock { physics ->
+                repeat(count) {
+                    val offset = (Random.nextDVec3() * 2.0 - 1.0) * spread
 
-                physics.simpleBodies.create(
-                    position = Iso(location.position + offset),
-                    desc = createDesc(material, mass, visibility),
-                )
+                    physics.simpleBodies.create(
+                        position = Iso(location.position + offset),
+                        desc = createDesc(material, mass, visibility),
+                    )
+                }
             }
         }
 
@@ -316,7 +319,7 @@ abstract class RattleCommand<C : Audience, W>(
     }
 
     private fun boxGeom(ctx: CommandContext<C>): Geometry {
-        return Box(Vec(ctx.get(HALF_EXTENT)))
+        return Box(Vec(ctx.get<Real>(HALF_EXTENT)))
     }
 
     private fun capsuleGeom(ctx: CommandContext<C>): Geometry {
@@ -387,16 +390,20 @@ abstract class RattleCommand<C : Audience, W>(
         val messages = messages.forAudience(sender)
         val world = ctx.getWorld(WORLD)
 
-        server.physicsOrNull(world)?.withLock { physics ->
-            val count = physics.simpleBodies.count
-            physics.simpleBodies.destroyAll()
-            messages.command.body.destroy.all(
-                world = server.key(world).asString(),
-                count = count,
-            ).sendTo(sender)
-        } ?: error(messages.error.space.doesNotExist(
+        val lock = server.physicsOrNull(world) ?: error(messages.error.space.doesNotExist(
             world = server.key(world).asString()
         ))
+
+        rattle.runTask {
+            lock.withLock { physics ->
+                val count = physics.simpleBodies.count
+                physics.simpleBodies.destroyAll()
+                messages.command.body.destroy.all(
+                    world = server.key(world).asString(),
+                    count = count,
+                ).sendTo(sender)
+            }
+        }
     }
 
     private fun stats(ctx: CommandContext<C>) {
@@ -424,13 +431,19 @@ abstract class RattleCommand<C : Audience, W>(
         ).sendTo(sender)
 
         worlds.forEach { world ->
-            world.withLock { (physics, world) ->
-                messages.command.stats.space(
-                    world = server.key(world).asString(),
-                    numColliders = physics.colliders.count,
-                    numBodies = physics.bodies.count,
-                    numActiveBodies = physics.bodies.activeCount,
-                ).sendTo(sender)
+            // if the physics engine is under heavy load, it might take us a while to fetch stats for a space
+            // during this time, we don't want to lock and block the main thread
+            // scheduling a task will mean that the order the spaces are printed in is non-deterministic
+            // but that's fine
+            rattle.runTask {
+                world.withLock { (physics, world) ->
+                    messages.command.stats.space(
+                        world = server.key(world).asString(),
+                        numColliders = physics.colliders.count,
+                        numBodies = physics.bodies.count,
+                        numActiveBodies = physics.bodies.activeCount,
+                    ).sendTo(sender)
+                }
             }
         }
     }

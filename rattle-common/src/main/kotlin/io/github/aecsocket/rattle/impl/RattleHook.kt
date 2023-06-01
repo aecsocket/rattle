@@ -82,14 +82,14 @@ abstract class RattleHook {
     }
 
     fun destroy(log: Log, platform: RattlePlatform<*, *>?) {
+        platform?.destroy(log)
+
         executor.shutdown()
         log.info { "Waiting ${settings.jobs.threadTerminateTime} sec for physics jobs" }
         if (!executor.awaitTermination((settings.jobs.threadTerminateTime * 1000).toLong(), TimeUnit.MILLISECONDS)) {
             executor.shutdownNow()
             log.warn { "Could not wait for physics jobs to finish" }
         }
-
-        platform?.destroy(log)
 
         engine.destroy()
     }

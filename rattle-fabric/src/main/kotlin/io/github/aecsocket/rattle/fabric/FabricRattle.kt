@@ -3,7 +3,6 @@ package io.github.aecsocket.rattle.fabric
 import io.github.aecsocket.alexandria.fabric.AlexandriaMod
 import io.github.aecsocket.alexandria.fabric.extension.alexandriaFabricSerializers
 import io.github.aecsocket.alexandria.fabric.extension.forLevel
-import io.github.aecsocket.alexandria.fabric.render.DisplayRenders
 import io.github.aecsocket.alexandria.hook.AlexandriaHook
 import io.github.aecsocket.alexandria.log.Log
 import io.github.aecsocket.alexandria.log.trace
@@ -13,16 +12,10 @@ import io.github.aecsocket.glossa.Glossa
 import io.github.aecsocket.glossa.MessageProxy
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.impl.RattleHook
-import io.github.aecsocket.rattle.impl.RattlePlatform
 import io.github.aecsocket.rattle.impl.rattleManifest
-import io.github.aecsocket.rattle.rapier.RapierEngine
-import io.github.aecsocket.rattle.stats.timestampedList
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
-import net.kyori.adventure.platform.fabric.FabricServerAudiences
 import net.kyori.adventure.platform.fabric.PlayerLocales
-import net.kyori.adventure.platform.fabric.impl.server.ServerBossBarListener
-import net.minecraft.commands.CommandSourceStack
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
@@ -31,7 +24,6 @@ import org.spongepowered.configurate.ConfigurationOptions
 import org.spongepowered.configurate.kotlin.dataClassFieldDiscoverer
 import org.spongepowered.configurate.kotlin.extensions.get
 import org.spongepowered.configurate.objectmapping.ObjectMapper
-import java.util.concurrent.atomic.AtomicBoolean
 
 lateinit var Rattle: FabricRattle
     private set
@@ -124,7 +116,13 @@ class FabricRattle : AlexandriaMod<RattleHook.Settings>(
             val physics = Locked(platform.createWorldPhysics(
                 settings.worlds.forLevel(world),
             ) { physics, terrain, entities ->
-                FabricWorldPhysics(world, physics, terrain, entities, FabricSimpleBodies(world, platform))
+                FabricWorldPhysics(
+                    world,
+                    physics,
+                    terrain,
+                    entities,
+                    FabricSimpleBodies(world, physics, platform),
+                )
             })
             world.rattle_setPhysics(physics)
             physics

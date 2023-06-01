@@ -13,7 +13,6 @@ import io.github.aecsocket.glossa.MessageProxy
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.impl.RattleHook
 import io.github.aecsocket.rattle.impl.rattleManifest
-import io.github.aecsocket.rattle.stats.TimestampedList
 import org.bukkit.World
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
@@ -133,7 +132,14 @@ class PaperRattle : AlexandriaPlugin<RattleHook.Settings>(
             Locked(platform.createWorldPhysics(
                 settings.worlds.forWorld(world),
             ) { physics, terrain, entities ->
-                PaperWorldPhysics(this, world, physics, terrain, entities, PaperSimpleBodies(world, this))
+                PaperWorldPhysics(
+                    this,
+                    world,
+                    physics,
+                    terrain,
+                    entities,
+                    PaperSimpleBodies(world, physics, this),
+                )
             })
         }
 
