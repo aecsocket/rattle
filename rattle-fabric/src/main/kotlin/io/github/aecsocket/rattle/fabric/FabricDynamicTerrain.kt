@@ -12,7 +12,7 @@ class FabricDynamicTerrain(
 ) : DynamicTerrain(rattle.rattle, physics) {
     private val toSnapshot = ArrayList<IVec3>()
 
-    override fun scheduleToSnapshot(sectionPos: List<IVec3>) {
+    override fun scheduleToSnapshot(sectionPos: Iterable<IVec3>) {
         toSnapshot += sectionPos
     }
 

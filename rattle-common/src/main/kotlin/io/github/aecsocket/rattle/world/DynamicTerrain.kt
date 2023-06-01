@@ -5,6 +5,7 @@ import io.github.aecsocket.alexandria.sync.Locked
 import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.impl.RattleHook
+import java.lang.Exception
 
 interface TerrainLayer {
     object Solid : TerrainLayer
@@ -78,79 +79,74 @@ abstract class DynamicTerrain(
         val colliders: List<ColliderHandle>,
     )
 
-    data class Section(
-        val pos: IVec3,
-        val layers: Map<TerrainLayer, SectionLayer>,
-    ) {
-        fun colliders(): List<ColliderHandle> =
-            layers.flatMap { (_, layer) -> layer.colliders }
-    }
+    sealed interface Section {
+        val pos: IVec3
 
-    class SectionSnapshot(
-        val pos: IVec3,
-        val blocks: Array<out Block>,
-    ) {
-        init {
-            require(blocks.size == BLOCKS_IN_SECTION) { "requires blocks.size == BLOCKS_IN_SECTION" }
+        data class Pending(
+            override val pos: IVec3,
+        ) : Section
+
+        class Snapshot(
+            override val pos: IVec3,
+            val blocks: Array<out Block>,
+        ) : Section {
+            init {
+                require(blocks.size == BLOCKS_IN_SECTION) { "requires blocks.size == BLOCKS_IN_SECTION" }
+            }
+        }
+
+        data class Built(
+            override val pos: IVec3,
+            val layers: Map<TerrainLayer, SectionLayer>,
+        ) : Section {
+            fun colliders(): List<ColliderHandle> =
+                layers.flatMap { (_, layer) -> layer.colliders }
         }
     }
 
     private inner class Sections {
-        private val mSections: MutableMap<IVec3, Section> = HashMap()
-        val sections: Map<IVec3, Section>
-            get() = mSections
+        private val mMap: MutableMap<IVec3, Section> = HashMap()
+        val map: Map<IVec3, Section>
+            get() = mMap
+
+        operator fun get(pos: IVec3) = mMap[pos]
 
         fun add(section: Section) {
-            mSections[section.pos] = section
+            mMap[section.pos] = section
         }
 
         fun remove(pos: IVec3): Section? {
-            val section = mSections.remove(pos) ?: return null
+            val section = mMap.remove(pos) ?: return null
             return section
         }
 
         fun destroy() {
-            println(physics.colliders.all())
-
-            println("summary of shape refs:")
-            val refs = HashSet<Shape>()
-            mSections.forEach { (_, s) -> s.colliders().forEach { c ->
-                physics.colliders.read(c)?.shape?.let { refs += it }
-            } }
-            refs.forEach { shape ->
-                println("  $shape = ${shape.refCount}")
-            }
-            println("done")
-
-
-            mSections.forEach { (_, section) ->
-                section.colliders().forEach { coll ->
-                    physics.colliders.remove(coll)?.destroy()
+            mMap.forEach { (_, section) ->
+                when (section) {
+                    is Section.Built -> {
+                        section.colliders().forEach { coll ->
+                            physics.colliders.remove(coll)?.destroy()
+                        }
+                    }
+                    else -> {}
                 }
             }
-            mSections.clear()
-
-            println("afterwards:")
-            refs.forEach { shape ->
-                println("  $shape = ${shape.refCount}")
-            }
-            println("-- end of --")
+            mMap.clear()
         }
     }
 
     private var enabled = true
 
     private val sections = Locked(Sections())
+    protected val toCreate = Locked(HashSet<IVec3>())
 
     // cached fields, to avoid reallocating all the time
     // SAFETY: the update methods will only be called in a specific order (hopefully),
     // so these fields will not be modified in unexpected ways
     private val toRemove = HashSet<IVec3>()
-    private val toSnapshot = ArrayList<IVec3>()
+    private val toSnapshot = HashSet<IVec3>()
 
-    protected val toCreate = Locked(ArrayList<SectionSnapshot>())
-
-    protected abstract fun scheduleToSnapshot(sectionPos: List<IVec3>)
+    protected abstract fun scheduleToSnapshot(sectionPos: Iterable<IVec3>)
 
     override fun enable() {
         enabled = true
@@ -169,22 +165,22 @@ abstract class DynamicTerrain(
     override fun onPhysicsStep() {
         if (!enabled) return
 
-        // find chunk sections which bodies are intersecting
-
         toRemove.clear()
         // clone the key set, so it's not modified while we're using it
-        toRemove += sections.withLock { it.sections.keys.toMutableSet() }
+        toRemove += sections.withLock { it.map.keys.toMutableSet() }
         toSnapshot.clear()
 
+        // find chunk sections which bodies are intersecting
         fun forCollider(body: RigidBody.Read, coll: Collider.Read) {
             val bounds = computeBounds(body, coll)
             val sectionPos = enclosedPoints(bounds / 16.0).toSet()
+
             toRemove -= sectionPos
-            // only schedule snapshotting for sections that aren't already created (in `sections`)
-            // or sections that are being generated (in `toSnapshot`)
+            // only schedule snapshotting for sections that aren't already created or going to be generated
             sections.withLock { sections ->
                 sectionPos.forEach { pos ->
-                    if (!sections.sections.contains(pos) && !toSnapshot.contains(pos)) {
+                    if (!sections.map.contains(pos)) {
+                        sections.add(Section.Pending(pos))
                         toSnapshot += pos
                     }
                 }
@@ -201,9 +197,10 @@ abstract class DynamicTerrain(
             }
         }
 
-        scheduleToSnapshot(toSnapshot)
+        // clone the toSnapshot set and send the positions off to be snapshot
+        scheduleToSnapshot(toSnapshot.toSet())
 
-        // fetch and clear the pending snapshots to build
+        // fetch and clear the pending positions of snapshots to build
         val toCreate = toCreate.withLock { toCreate ->
             toCreate.toList().also { toCreate.clear() }
         }
@@ -211,12 +208,17 @@ abstract class DynamicTerrain(
         sections.withLock { sections ->
             // remove old sections
             toRemove.forEach { pos ->
-                sections.remove(pos)?.let { destroySection(it) }
+                sections.remove(pos)?.let {
+                    destroySection(it)
+                }
             }
 
             // build up new sections
-            toCreate.forEach { snapshot ->
-                sections.add(createSection(snapshot))
+            toCreate.forEach { pos ->
+                when (val section = sections[pos]) {
+                    is Section.Snapshot -> sections.add(createSection(section))
+
+                }
             }
         }
     }
@@ -252,6 +254,7 @@ abstract class DynamicTerrain(
                     is Block.Fluid -> PhysicsMode.SENSOR
                 },
             ).let { physics.colliders.add(it) }
+            println(" · adding coll $coll")
 
             val layer = when (block) {
                 is Block.Solid -> TerrainLayer.Solid

@@ -30,7 +30,7 @@ class PaperDynamicTerrain(
 
     // SAFETY: scheduleToSnapshot will only be called sequentially, so byXZ will no longer be in use
     // by the next time the method is invoked
-    private val byXZ = HashMap<IVec2, MutableList<Int>>()
+    private val byXZ = HashMap<IVec2, MutableSet<Int>>()
 
     override fun destroy() {
         super.destroy()
@@ -43,10 +43,10 @@ class PaperDynamicTerrain(
         }
     }
 
-    override fun scheduleToSnapshot(sectionPos: List<IVec3>) {
+    override fun scheduleToSnapshot(sectionPos: Iterable<IVec3>) {
         byXZ.clear()
         sectionPos.forEach { pos ->
-            byXZ.computeIfAbsent(pos.xz) { ArrayList() } += pos.y
+            byXZ.computeIfAbsent(pos.xz) { HashSet() } += pos.y
         }
 
         println("scheduling $sectionPos = $byXZ")
