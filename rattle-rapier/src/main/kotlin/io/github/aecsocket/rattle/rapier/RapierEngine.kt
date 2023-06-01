@@ -98,7 +98,7 @@ class RapierEngine(var settings: Settings) : PhysicsEngine {
         position: Iso,
         mass: Mass,
         physics: PhysicsMode,
-    ): Collider {
+    ): Collider.Own {
         shape as RapierShape
         val coll = pushArena { arena ->
             // do not manually acquire the shape here; Rapier will increment the Arc ref count itself
@@ -120,7 +120,7 @@ class RapierEngine(var settings: Settings) : PhysicsEngine {
                     it.build()
                 }
         }
-        return RapierCollider(RapierCollider.State.Removed(coll))
+        return RapierCollider.Own(coll)
     }
 
     override fun createBody(
@@ -133,7 +133,7 @@ class RapierEngine(var settings: Settings) : PhysicsEngine {
         linearDamping: Real,
         angularDamping: Real,
         sleeping: Sleeping
-    ): RigidBody {
+    ): RigidBody.Own {
         val body = pushArena { arena ->
             RigidBodyBuilder.of(type.convert())
                 .position(position.toIsometry(arena))
@@ -154,7 +154,7 @@ class RapierEngine(var settings: Settings) : PhysicsEngine {
                 }
                 .use { it.build() }
         }
-        return RapierBody(RapierBody.State.Removed(body))
+        return RapierRigidBody.Own(body)
     }
 
     private fun createJoint(axes: JointAxes): RapierJoint {

@@ -1,7 +1,5 @@
 package io.github.aecsocket.rattle
 
-import java.util.function.Consumer
-
 /**
  * A baked, physics-ready form of a [Geometry]. You can use this object as the shape of a [Collider], however
  * cannot get the original values of the [Geometry] back.
@@ -111,54 +109,21 @@ sealed interface Mass {
 }
 
 /**
+ * A key used to index into a [PhysicsSpace] to gain a reference, mutable or immutable, to a [Collider].
+ */
+interface ColliderHandle
+
+/**
  * A physical volume in space which can be collided with by other physics structures. This holds a shape
  * and physics properties, and may be attached to a [PhysicsSpace] to simulate it inside that space.
  * A collider may also be attached (parented) to a [RigidBody], which will make the collider determine its
  * position based on its parent body.
- *
- * This object may **not** be [destroy]'ed if it is attached to a [PhysicsSpace].
- *
- * To access the properties of this object, use the [read] and [write] methods to gain immutable and mutable
- * access respectively to the data. Do **not** store the [Access] objects, as they may be invalid later.
  */
-interface Collider : Destroyable {
+object Collider {
     /**
-     * Gain immutable access to the properties of this object.
-     *
-     * Do **not** store the [Read] object, as it may be invalid later.
+     * Immutable interface for a [Collider].
      */
-    fun <R> read(block: (Read) -> R): R
-
-    /**
-     * Gain immutable access to the properties of this object.
-     *
-     * Do **not** store the [Read] object, as it may be invalid later.
-     */
-    fun read(block: Consumer<Read>) = read { block.accept(it) }
-
-    /**
-     * Gain mutable access to the properties of this object.
-     *
-     * Do **not** store the [Write] object, as it may be invalid later.
-     */
-    fun <R> write(block: (Write) -> R): R
-
-    /**
-     * Gain mutable access to the properties of this object.
-     *
-     * Do **not** store the [Write] object, as it may be invalid later.
-     */
-    fun write(block: Consumer<Write>) = write { block.accept(it) }
-
-    /**
-     * Provides immutable access to the properties of this object.
-     */
-    interface Access {
-        /**
-         * The underlying collider.
-         */
-        val handle: Collider
-
+    interface Read {
         /**
          * The shape.
          */
@@ -186,9 +151,9 @@ interface Collider : Destroyable {
         val relativePosition: Iso
 
         /**
-         * Which body this collider will follow.
+         * The handle of which body this collider will follow (see [Collider]).
          */
-        val parent: RigidBody?
+        val parent: RigidBodyHandle?
 
         /**
          * The world-space bounding box of this collider, determined by its shape and position.
@@ -197,14 +162,9 @@ interface Collider : Destroyable {
     }
 
     /**
-     * Provides immutable access to the properties of this object.
+     * Mutable interface for a [Collider].
      */
-    interface Read : Access
-
-    /**
-     * Provides mutable access to the properties of this object.
-     */
-    interface Write : Access {
+    interface Write : Read {
         override var shape: Shape
 
         override var material: PhysicsMaterial
@@ -214,7 +174,10 @@ interface Collider : Destroyable {
         override var physicsMode: PhysicsMode
 
         override var relativePosition: Iso
-
-        override var parent: RigidBody?
     }
+
+    /**
+     * Mutable owned interface for a [Collider].
+     */
+    interface Own : Write, Destroyable
 }

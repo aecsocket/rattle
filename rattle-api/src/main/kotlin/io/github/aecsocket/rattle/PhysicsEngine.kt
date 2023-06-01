@@ -34,9 +34,9 @@ interface Destroyable {
 interface RefCounted {
     val refCount: Long
 
-    fun acquire(): RefCounted
+    fun acquire()
 
-    fun release(): RefCounted
+    fun release()
 }
 
 /**
@@ -78,7 +78,7 @@ interface PhysicsEngine : Destroyable {
         position: Iso = Iso(),
         mass: Mass = Mass.Density(1.0),
         physics: PhysicsMode = PhysicsMode.SOLID,
-    ): Collider
+    ): Collider.Own
 
     /**
      * Creates a body from the specified parameters.
@@ -102,7 +102,7 @@ interface PhysicsEngine : Destroyable {
         linearDamping: Real = DEFAULT_LINEAR_DAMPING,
         angularDamping: Real = DEFAULT_ANGULAR_DAMPING,
         sleeping: Sleeping = Sleeping.Enabled(false),
-    ): RigidBody
+    ): RigidBody.Own
 
     fun createImpulseJoint(axes: JointAxes): ImpulseJoint
 

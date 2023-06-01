@@ -43,8 +43,8 @@ abstract class AbstractSimpleBodies<W>(
 ) : SimpleBodies<W>, Destroyable {
     inner class Instance(
         val shape: Shape,
-        val body: RigidBody,
-        val collider: Collider,
+        val body: RigidBodyHandle,
+        val collider: ColliderHandle,
     ) {
         var nextPosition: Iso? = null
         val destroyed = DestroyFlag()
@@ -53,11 +53,9 @@ abstract class AbstractSimpleBodies<W>(
             destroyed()
             platform.rattle.runTask {
                 platform.physicsOrNull(world)?.withLock { (physics) ->
-                    physics.colliders.remove(collider)
-                    physics.bodies.remove(body)
+                    physics.colliders.remove(collider)?.destroy()
+                    physics.bodies.remove(body)?.destroy()
                 }
-                collider.destroy()
-                body.destroy()
                 shape.release()
             }
         }
@@ -67,7 +65,7 @@ abstract class AbstractSimpleBodies<W>(
     private value class Key(val key: ArenaKey) : SimpleBodyKey
 
     private val destroyed = DestroyFlag()
-    protected val instances = Locked(genArena<Instance>())
+    private val instances = Locked(genArena<Instance>())
 
     override val count: Int
         get() = instances.withLock { it.size }
@@ -75,9 +73,9 @@ abstract class AbstractSimpleBodies<W>(
     fun onPhysicsStep() {
         instances.withLock { instances ->
             instances.forEach { (_, instance) ->
-                instance.body.read { rb ->
-                    if (!rb.isSleeping) {
-                        instance.nextPosition = rb.position
+                physics.bodies.read(instance.body)?.let { body ->
+                    if (!body.isSleeping) {
+                        instance.nextPosition = body.position
                     }
                 }
             }
@@ -107,12 +105,13 @@ abstract class AbstractSimpleBodies<W>(
             gravityScale = desc.gravityScale,
             linearDamping = desc.linearDamping,
             angularDamping = desc.angularDamping,
-        )
+        ).let { physics.bodies.add(it) }
         val collider = engine.createCollider(
             shape = shape,
             material = desc.material,
             mass = desc.mass,
-        )
+        ).let { physics.colliders.add(it) }
+        physics.attach(collider, body)
 
         val instance = Instance(
             shape = shape,
@@ -124,10 +123,6 @@ abstract class AbstractSimpleBodies<W>(
             Visibility.VISIBLE -> createVisual(position, desc, instance, key)
             Visibility.INVISIBLE -> {}
         }
-
-        physics.bodies.add(body)
-        physics.colliders.add(collider)
-        collider.write { it.parent = body }
 
         return Key(key)
     }

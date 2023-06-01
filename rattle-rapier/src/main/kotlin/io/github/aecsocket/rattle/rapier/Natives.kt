@@ -20,6 +20,38 @@ fun Addressable.addr() = address().toRawLongValue()
 
 fun Native.addr() = memory().addr()
 
+abstract class RapierNative {
+    abstract val handle: Native
+
+    abstract val nativeType: String
+
+    override fun toString() = "$nativeType[0x%x]".format(handle.addr())
+
+    override fun equals(other: Any?) = other is RapierNative && handle == other.handle
+
+    override fun hashCode() = handle.hashCode()
+}
+
+abstract class RapierRefCounted : RapierNative(), RefCounted {
+    abstract override val handle: rapier.RefCounted
+
+    override val refCount: Long
+        get() = handle.strongCount()
+
+    override fun acquire() {
+        handle.acquire()
+    }
+
+    override fun release() {
+        handle.release()
+    }
+
+    // equality and hashing is done by keying the underlying shape, **not** the ref-counting (Arc) object
+    override fun equals(other: Any?) = other is RapierRefCounted && handle.refData() == other.handle.refData()
+
+    override fun hashCode() = handle.refData().hashCode()
+}
+
 fun <R> pushArena(block: (arena: Arena) -> R): R =
     Arena.openConfined().use(block)
 

@@ -75,14 +75,14 @@ abstract class DynamicTerrain(
 ) : TerrainStrategy {
     data class SectionLayer(
         val terrain: TerrainLayer,
-        val colliders: List<Collider>,
+        val colliders: List<ColliderHandle>,
     )
 
     data class Section(
         val pos: IVec3,
         val layers: Map<TerrainLayer, SectionLayer>,
     ) {
-        fun colliders(): List<Collider> =
+        fun colliders(): List<ColliderHandle> =
             layers.flatMap { (_, layer) -> layer.colliders }
     }
 
@@ -115,9 +115,7 @@ abstract class DynamicTerrain(
             println("summary of shape refs:")
             val refs = HashSet<Shape>()
             mSections.forEach { (_, s) -> s.colliders().forEach { c ->
-                c.read { coll ->
-                    refs += coll.shape
-                }
+                physics.colliders.read(c)?.shape?.let { refs += it }
             } }
             refs.forEach { shape ->
                 println("  $shape = ${shape.refCount}")
@@ -127,9 +125,7 @@ abstract class DynamicTerrain(
 
             mSections.forEach { (_, section) ->
                 section.colliders().forEach { coll ->
-                    physics.colliders.remove(coll)
-                    println("freeing $coll")
-                    coll.destroy()
+                    physics.colliders.remove(coll)?.destroy()
                 }
             }
             mSections.clear()
@@ -195,10 +191,10 @@ abstract class DynamicTerrain(
             }
         }
 
-        physics.bodies.active().forEach { aBody ->
-            aBody.read { body ->
-                body.colliders.forEach { aColl ->
-                    aColl.read { coll ->
+        physics.bodies.active().forEach { bodyKey ->
+            physics.bodies.read(bodyKey)?.let { body ->
+                body.colliders.forEach { collKey ->
+                    physics.colliders.read(collKey)?.let { coll ->
                         forCollider(body, coll)
                     }
                 }
@@ -236,7 +232,7 @@ abstract class DynamicTerrain(
         val start = System.nanoTime()
 
         class SectionLayerData {
-            val colliders = ArrayList<Collider>()
+            val colliders = ArrayList<ColliderHandle>()
         }
 
         val layers = HashMap<TerrainLayer, SectionLayerData>()
@@ -255,9 +251,7 @@ abstract class DynamicTerrain(
                     is Block.Solid -> PhysicsMode.SOLID
                     is Block.Fluid -> PhysicsMode.SENSOR
                 },
-            )
-            println("made new coll $coll")
-            physics.colliders.add(coll)
+            ).let { physics.colliders.add(it) }
 
             val layer = when (block) {
                 is Block.Solid -> TerrainLayer.Solid

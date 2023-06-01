@@ -2,6 +2,7 @@ package io.github.aecsocket.rattle.rapier
 
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.RigidBody
+import rapier.Native
 import rapier.dynamics.*
 import rapier.dynamics.joint.impulse.ImpulseJointSet
 import rapier.dynamics.joint.multibody.MultibodyJointSet
@@ -14,11 +15,12 @@ import rapier.pipeline.QueryPipeline
 class RapierSpace internal constructor(
     val engine: RapierEngine,
     settings: PhysicsSpace.Settings,
-) : PhysicsSpace {
+) : RapierNative(), PhysicsSpace {
+    override val nativeType get() = "RapierSpace"
+
     private val destroyed = DestroyFlag()
 
     val arena: Arena = Arena.openShared()
-
     val pipeline = PhysicsPipeline.create()
     val islands = IslandManager.create()
     val broadPhase = BroadPhase.create()
@@ -31,6 +33,9 @@ class RapierSpace internal constructor(
     val queryPipeline = QueryPipeline.create()
 
     val gravity = settings.gravity.toVector(arena)
+
+    override val handle: Native
+        get() = pipeline
 
     override var settings = settings
         set(value) {
@@ -71,145 +76,134 @@ class RapierSpace internal constructor(
         arena.close()
     }
 
-    override val colliders = object : PhysicsSpace.SingleContainer<Collider> {
+    override val colliders = object : PhysicsSpace.SingleContainer<Collider.Read, Collider.Write, Collider.Own, ColliderHandle> {
         override val count: Int
             get() = colliderSet.size().toInt()
 
-        override fun all(): Collection<Collider> {
-            return colliderSet.all().map {
-                RapierCollider(RapierCollider.State.Added(
-                    space = this@RapierSpace,
-                    handle = ColliderHandle(it.handle),
-                ))
-            }
+        override fun read(handle: ColliderHandle): Collider.Read? {
+            handle as RapierColliderHandle
+            return colliderSet.get(handle.id)?.let { RapierCollider.Read(it, this@RapierSpace) }
         }
 
-        override fun add(value: Collider) {
-            value as RapierCollider
-            when (val state = value.state) {
-                is RapierCollider.State.Added -> throw IllegalStateException("$value is attempting to be added to ${this@RapierSpace} but is already added to ${state.space}")
-                is RapierCollider.State.Removed -> {
-                    val handle = colliderSet.insert(state.coll)
-                    value.state = RapierCollider.State.Added(this@RapierSpace, ColliderHandle(handle))
-                }
-            }
+        override fun write(handle: ColliderHandle): Collider.Write? {
+            handle as RapierColliderHandle
+            return colliderSet.getMut(handle.id)?.let { RapierCollider.Write(it, this@RapierSpace) }
         }
 
-        override fun remove(value: Collider) {
-            value as RapierCollider
-            when (val state = value.state) {
-                is RapierCollider.State.Added -> {
-                    if (this@RapierSpace != state.space)
-                        throw IllegalStateException("$value is attempting to be removed from ${this@RapierSpace} but is added to ${state.space}")
-                    println("removing coll ${state.handle} = ${state.handle.id}")
-                    val coll = colliderSet.remove(
-                        state.handle.id,
-                        islands,
-                        rigidBodySet,
-                        false,
-                    ) ?: throw IllegalStateException("$value does not exist in ${this@RapierSpace}")
-                    println("... which has memory $coll")
-                    value.state = RapierCollider.State.Removed(coll)
-                }
-                is RapierCollider.State.Removed -> throw IllegalStateException("$value is not added to a space")
+        override fun all(): Collection<ColliderHandle> {
+            return colliderSet.all().map { RapierColliderHandle(it.handle) }
+        }
+
+        override fun add(value: Collider.Own): ColliderHandle {
+            value as RapierCollider.Own
+            value.space?.let { existing ->
+                throw IllegalStateException("$value is attempting to be added to ${this@RapierSpace} but is already in $existing")
             }
+            value.space = this@RapierSpace
+            return RapierColliderHandle(colliderSet.insert(value.handle))
+        }
+
+        override fun remove(handle: ColliderHandle): Collider.Own? {
+            handle as RapierColliderHandle
+            return colliderSet.remove(
+                handle.id,
+                islands,
+                rigidBodySet,
+                false,
+            )?.let { RapierCollider.Own(it, null) }
         }
     }
 
-    override val bodies = object : PhysicsSpace.ActiveContainer<RigidBody> {
+    override val bodies = object : PhysicsSpace.ActiveContainer<RigidBody.Read, RigidBody.Write, RigidBody.Own, RigidBodyHandle> {
         override val count: Int
             get() = rigidBodySet.size().toInt()
 
         override val activeCount: Int
             get() = islands.activeDynamicBodies.size
 
-        override fun all(): Collection<RigidBody> {
-            return rigidBodySet.all().map {
-                RapierBody(RapierBody.State.Added(
-                    space = this@RapierSpace,
-                    handle = RigidBodyHandle(it.handle),
-                ))
-            }
+        override fun read(handle: RigidBodyHandle): RigidBody.Read? {
+            handle as RapierRigidBodyHandle
+            return rigidBodySet.get(handle.id)?.let { RapierRigidBody.Read(it, this@RapierSpace) }
         }
 
-        override fun active(): Collection<RigidBody> {
-            return islands.activeDynamicBodies.map {
-                RapierBody(RapierBody.State.Added(
-                    space = this@RapierSpace,
-                    handle = RigidBodyHandle(it),
-                ))
-            }
+        override fun write(handle: RigidBodyHandle): RigidBody.Write? {
+            handle as RapierRigidBodyHandle
+            return rigidBodySet.getMut(handle.id)?.let { RapierRigidBody.Write(it, this@RapierSpace) }
         }
 
-        override fun add(value: RigidBody) {
-            value as RapierBody
-            when (val state = value.state) {
-                is RapierBody.State.Added -> throw IllegalStateException("$value is attempting to be added to ${this@RapierSpace} but is already added to ${state.space}")
-                is RapierBody.State.Removed -> {
-                    val handle = rigidBodySet.insert(state.body)
-                    value.state = RapierBody.State.Added(this@RapierSpace, RigidBodyHandle(handle))
-                }
-            }
+        override fun all(): Collection<RigidBodyHandle> {
+            return rigidBodySet.all().map { RapierRigidBodyHandle(it.handle) }
         }
 
-        override fun remove(value: RigidBody) {
-            value as RapierBody
-            when (val state = value.state) {
-                is RapierBody.State.Added -> {
-                    if (this@RapierSpace != state.space)
-                        throw IllegalStateException("$value is attempting to be removed from ${this@RapierSpace} but is added to ${state.space}")
-                    val body = rigidBodySet.remove(
-                        state.handle.id,
-                        islands,
-                        colliderSet,
-                        impulseJointSet,
-                        multibodyJointSet,
-                        false,
-                    ) ?: throw IllegalStateException("$value does not exist in ${this@RapierSpace}")
-                    value.state = RapierBody.State.Removed(body)
-                }
-                is RapierBody.State.Removed -> throw IllegalStateException("$value is not added to a space")
+        override fun active(): Collection<RigidBodyHandle> {
+            return islands.activeDynamicBodies.map { RapierRigidBodyHandle(it) }
+        }
+
+        override fun add(value: RigidBody.Own): RigidBodyHandle {
+            value as RapierRigidBody.Own
+            value.space?.let { existing ->
+                throw IllegalStateException("$value is attempting to be added to ${this@RapierSpace} but is already in $existing")
             }
+            value.space = this@RapierSpace
+            return RapierRigidBodyHandle(rigidBodySet.insert(value.handle))
+        }
+
+        override fun remove(handle: RigidBodyHandle): RigidBody.Own? {
+            handle as RapierRigidBodyHandle
+            return rigidBodySet.remove(
+                handle.id,
+                islands,
+                colliderSet,
+                impulseJointSet,
+                multibodyJointSet,
+                false,
+            )?.let { RapierRigidBody.Own(it, null) }
         }
     }
 
-    override val impulseJoints = object : PhysicsSpace.JointContainer<ImpulseJoint> {
-        override val count: Int
-            get() = impulseJointSet.size().toInt()
-
-        override fun all(): Collection<ImpulseJoint> {
-            return impulseJointSet.all().map {
-                RapierJoint(RapierJoint.State.Impulse(
-                    space = this@RapierSpace,
-                    handle = JointHandle(it.handle),
-                ))
-            }
-        }
-
-        override fun add(value: ImpulseJoint, bodyA: RigidBody, bodyB: RigidBody) {
-            value as RapierJoint
-            bodyA as RapierBody
-            bodyB as RapierBody
-            when (val state = value.state) {
-                is RapierJoint.State.Impulse -> throw IllegalStateException("$value is attempting to be added to ${this@RapierSpace} but is already added to ${state.space} as an impulse joint")
-                is RapierJoint.State.Multibody -> throw IllegalStateException("$value is attempting to be added to ${this@RapierSpace} but is already added to ${state.space} as a multibody joint")
-                is RapierJoint.State.Removed -> {
-                    TODO()
-                }
-            }
-        }
-
-        override fun remove(value: ImpulseJoint) {
-            TODO("Not yet implemented")
-        }
+    override fun attach(coll: ColliderHandle, to: RigidBodyHandle) {
+        coll as RapierColliderHandle
+        to as RapierRigidBodyHandle
+        colliderSet.setParent(coll.id, to.id, rigidBodySet)
     }
 
-    override val multibodyJoints: PhysicsSpace.JointContainer<MultibodyJoint>
-        get() = TODO("Not yet implemented")
+    override fun detach(coll: ColliderHandle) {
+        coll as RapierColliderHandle
+        colliderSet.setParent(coll.id, null, rigidBodySet)
+    }
 
-    override fun toString() = "RapierSpace[0x%x]".format(pipeline.addr())
-
-    override fun equals(other: Any?) = other is RapierSpace && pipeline.memory() == other.pipeline.memory()
-
-    override fun hashCode() = pipeline.memory().hashCode()
+//
+//    override val impulseJoints = object : PhysicsSpace.JointContainer<ImpulseJoint> {
+//        override val count: Int
+//            get() = impulseJointSet.size().toInt()
+//
+//        override fun all(): Collection<ImpulseJoint> {
+//            return impulseJointSet.all().map {
+//                RapierJoint(RapierJoint.State.Impulse(
+//                    space = this@RapierSpace,
+//                    handle = JointHandle(it.handle),
+//                ))
+//            }
+//        }
+//
+//        override fun add(value: ImpulseJoint, bodyA: RigidBody, bodyB: RigidBody) {
+//            value as RapierJoint
+//            bodyA as RapierRigidBody
+//            bodyB as RapierRigidBody
+//            when (val state = value.state) {
+//                is RapierJoint.State.Impulse -> throw IllegalStateException("$value is attempting to be added to ${this@RapierSpace} but is already added to ${state.space} as an impulse joint")
+//                is RapierJoint.State.Multibody -> throw IllegalStateException("$value is attempting to be added to ${this@RapierSpace} but is already added to ${state.space} as a multibody joint")
+//                is RapierJoint.State.Removed -> {
+//                    TODO()
+//                }
+//            }
+//        }
+//
+//        override fun remove(value: ImpulseJoint) {
+//            TODO("Not yet implemented")
+//        }
+//    }
+//
+//    override val multibodyJoints: PhysicsSpace.JointContainer<MultibodyJoint>
+//        get() = TODO("Not yet implemented")
 }

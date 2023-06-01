@@ -5,164 +5,96 @@ import rapier.data.ArenaKey
 import rapier.shape.SharedShape
 
 class RapierShape internal constructor(
-    val handle: SharedShape
-) : Shape, RefCounted {
-    override val refCount: Long
-        get() = handle.strongCount()
-
-    override fun acquire(): RapierShape {
-        handle.acquire()
-        return this
-    }
-
-    override fun release(): RapierShape {
-        handle.release()
-        return this
-    }
-
-    // equality and hashing is done by keying the underlying shape, **not** the ref-counting (Arc) object
-    private fun data() = handle.refData()
-
-    override fun toString() = "RapierShape[0x%x]".format(data().addr())
-
-    override fun hashCode() = data().hashCode()
-
-    override fun equals(other: Any?) = other is RapierShape && data() == other.data()
+    override val handle: SharedShape,
+) : RapierRefCounted(), Shape {
+    override val nativeType get() = "RapierShape"
 }
 
-@JvmInline
-value class ColliderHandle(val id: Long) {
+data class RapierColliderHandle(val id: Long) : ColliderHandle {
     override fun toString(): String = ArenaKey.asString(id)
 }
 
-class RapierCollider internal constructor(
-    var state: State,
-) : Collider {
-    sealed interface State {
-        data class Removed(
-            val coll: rapier.geometry.Collider.Mut,
-        ) : State
-
-        data class Added(
-            val space: RapierSpace,
-            val handle: ColliderHandle,
-        ) : State
-    }
-
-    private val destroyed = DestroyFlag()
-
-    override fun destroy() {
-        when (val state = state) {
-            is State.Removed -> {
-                destroyed()
-                state.coll.drop()
-            }
-            is State.Added -> throw IllegalStateException("$this is still added to ${state.space}")
-        }
-    }
-
-    override fun <R> read(block: (Collider.Read) -> R): R {
-        return when (val state = state) {
-            is State.Removed -> block(Read(state.coll))
-            is State.Added -> block(Read(state.space.colliderSet.get(state.handle.id)
-                ?: throw IllegalArgumentException("No collider with ID ${state.handle}")))
-        }
-    }
-
-    override fun <R> write(block: (Collider.Write) -> R): R {
-        return when (val state = state) {
-            is State.Removed -> block(Write(state.coll))
-            is State.Added -> block(Write(state.space.colliderSet.getMut(state.handle.id)
-                ?: throw IllegalArgumentException("No collider with ID ${state.handle}")))
-        }
-    }
-
-    override fun toString() = when (val state = state) {
-        is State.Added -> "RapierCollider[${state.handle}]"
-        is State.Removed -> "RapierCollider[0x%x]".format(state.coll.addr())
-    }
-
-    override fun equals(other: Any?) = other is RapierCollider && state == other.state
-
-    override fun hashCode() = state.hashCode()
-
-    private open inner class Access(open val coll: rapier.geometry.Collider) : Collider.Access {
-        override val handle get() = this@RapierCollider
-
+object RapierCollider {
+    sealed class Base(
+        override val handle: rapier.geometry.Collider,
+        var space: RapierSpace? = null,
+    ) : RapierNative(), Collider.Read {
         override val shape: Shape
-            get() = RapierShape(coll.shape)
+            get() = RapierShape(handle.shape)
 
         override val material: PhysicsMaterial
             get() = PhysicsMaterial(
-                friction = coll.friction,
-                restitution = coll.restitution,
-                frictionCombine = coll.frictionCombineRule.convert(),
-                restitutionCombine = coll.restitutionCombineRule.convert(),
+                friction = handle.friction,
+                restitution = handle.restitution,
+                frictionCombine = handle.frictionCombineRule.convert(),
+                restitutionCombine = handle.restitutionCombineRule.convert(),
             )
 
         override val position: Iso
             get() = pushArena { arena ->
-                coll.getPosition(arena).toIso()
+                handle.getPosition(arena).toIso()
             }
 
         override val physicsMode: PhysicsMode
-            get() = when (coll.isSensor) {
+            get() = when (handle.isSensor) {
                 false -> PhysicsMode.SOLID
                 true -> PhysicsMode.SENSOR
             }
 
         override val relativePosition: Iso
             get() = pushArena { arena ->
-                coll.getPositionWrtParent(arena)?.toIso() ?: Iso()
+                handle.getPositionWrtParent(arena)?.toIso() ?: Iso()
             }
 
-        override val parent: RigidBody?
-            get() = when (val state = state) {
-                is State.Added -> coll.parent?.let { parentKey ->
-                    RapierBody(RapierBody.State.Added(
-                        space = state.space,
-                        handle = RigidBodyHandle(parentKey),
-                    ))
-                }
-                is State.Removed -> null
-            }
+        override val parent: RigidBodyHandle?
+            get() = handle.parent?.let { RapierRigidBodyHandle(it) }
 
         override fun bounds(): Aabb {
             return pushArena { arena ->
-                coll.computeAabb(arena).toAabb()
+                handle.computeAabb(arena).toAabb()
             }
         }
     }
 
-    private inner class Read(coll: rapier.geometry.Collider) : Access(coll), Collider.Read
+    class Read internal constructor(
+        handle: rapier.geometry.Collider,
+        space: RapierSpace? = null,
+    ) : Base(handle, space) {
+        override val nativeType get() = "RapierCollider.Read"
+    }
 
-    private inner class Write(override val coll: rapier.geometry.Collider.Mut) : Access(coll), Collider.Write {
+    open class Write internal constructor(
+        override val handle: rapier.geometry.Collider.Mut,
+        space: RapierSpace? = null,
+    ) : Base(handle, space), Collider.Write {
+        override val nativeType get() = "RapierCollider.Write"
+
         override var shape: Shape
             get() = super.shape
             set(value) {
                 value as RapierShape
-                coll.shape = value.handle
+                handle.shape = value.handle
             }
 
         override var material: PhysicsMaterial
             get() = super.material
             set(value) {
-                coll.friction = value.friction
-                coll.restitution = value.restitution
-                coll.frictionCombineRule = value.frictionCombine.convert()
-                coll.restitutionCombineRule = value.restitutionCombine.convert()
+                handle.friction = value.friction
+                handle.restitution = value.restitution
+                handle.frictionCombineRule = value.frictionCombine.convert()
+                handle.restitutionCombineRule = value.restitutionCombine.convert()
             }
 
         override var position: Iso
             get() = super.position
             set(value) = pushArena { arena ->
-                coll.setPosition(value.toIsometry(arena))
+                handle.setPosition(value.toIsometry(arena))
             }
 
         override var physicsMode: PhysicsMode
             get() = super.physicsMode
             set(value) {
-                coll.isSensor = when (value) {
+                handle.isSensor = when (value) {
                     PhysicsMode.SOLID -> false
                     PhysicsMode.SENSOR -> true
                 }
@@ -171,32 +103,24 @@ class RapierCollider internal constructor(
         override var relativePosition: Iso
             get() = super.relativePosition
             set(value) = pushArena { arena ->
-                coll.setPositionWrtParent(value.toIsometry(arena))
+                handle.setPositionWrtParent(value.toIsometry(arena))
             }
+    }
 
-        override var parent: RigidBody?
-            get() = super.parent
-            set(value) = when (val state = state) {
-                is State.Added -> {
-                    val parentHandle = value?.let { parent ->
-                        parent as RapierBody
-                        when (val parentState = parent.state) {
-                            is RapierBody.State.Added -> {
-                                if (state.space != parentState.space)
-                                    throw IllegalArgumentException("Attempting to attach $value (in ${parentState.space}) to $handle (in ${state.space})")
-                                parentState.handle.id
-                            }
-                            is RapierBody.State.Removed -> throw IllegalStateException("Attempting to attach $parent, which is not in a space, to $this")
-                        }
-                    }
+    class Own internal constructor(
+        handle: rapier.geometry.Collider.Mut,
+        space: RapierSpace? = null,
+    ) : Write(handle, space), Collider.Own {
+        override val nativeType get() = "RapierCollider.Own"
 
-                    state.space.colliderSet.setParent(
-                        state.handle.id,
-                        parentHandle,
-                        state.space.rigidBodySet,
-                    )
-                }
-                is State.Removed -> throw IllegalStateException("$this is not added to a space")
+        private val destroyed = DestroyFlag()
+
+        override fun destroy() {
+            destroyed()
+            space?.let { space ->
+                throw IllegalStateException("Attempting to remove $this while still attached to $space")
             }
+            handle.drop()
+        }
     }
 }

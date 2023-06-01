@@ -1,7 +1,5 @@
 package io.github.aecsocket.rattle
 
-import java.util.function.Consumer
-
 /**
  * The default multiplier to slow a [RigidBody]'s linear velocity down by on every physics step.
  */
@@ -50,13 +48,13 @@ sealed interface Sleeping {
 }
 
 /**
+ * A key used to index into a [PhysicsSpace] to gain a reference, mutable or immutable, to a [RigidBody].
+ */
+interface RigidBodyHandle
+
+/**
  * A physics structure which simulates dynamics - velocity, forces, friction, etc. - when attached to a [PhysicsSpace].
  * A body may have [Collider]s attached to it, which provide the physical collision shape used in contact response.
- *
- * This object may **not** be [destroy]'ed if it is attached to a [PhysicsSpace].
- *
- * To access the properties of this object, use the [read] and [write] methods to gain immutable and mutable
- * access respectively to the data. Do **not** store the [Access] objects, as they may be invalid later.
  *
  * # Body type
  *
@@ -98,53 +96,20 @@ sealed interface Sleeping {
  * - [Access.linearDamping] - the multiplier for the linear velocity (default [DEFAULT_LINEAR_DAMPING]).
  * - [Access.angularDamping] - the multiplier for the angular velocity (default [DEFAULT_ANGULAR_DAMPING]).
  */
-interface RigidBody : Destroyable {
+object RigidBody {
     /**
-     * Gain immutable access to the properties of this object.
-     *
-     * Do **not** store the [Read] object, as it may be invalid later.
+     * Immutable interface for a [RigidBody].
      */
-    fun <R> read(block: (Read) -> R): R
-
-    /**
-     * Gain immutable access to the properties of this object.
-     *
-     * Do **not** store the [Read] object, as it may be invalid later.
-     */
-    fun read(block: Consumer<Read>) = read { block.accept(it) }
-
-    /**
-     * Gain mutable access to the properties of this object.
-     *
-     * Do **not** store the [Write] object, as it may be invalid later.
-     */
-    fun <R> write(block: (Write) -> R): R
-
-    /**
-     * Gain mutable access to the properties of this object.
-     *
-     * Do **not** store the [Write] object, as it may be invalid later.
-     */
-    fun write(block: Consumer<Write>) = write { block.accept(it) }
-
-    /**
-     * Provides immutable access to the properties of this object.
-     */
-    interface Access {
-        /**
-         * The underlying body.
-         */
-        val handle: RigidBody
-
+    interface Read {
         /**
          * The body type (see [RigidBody]).
          */
         val type: RigidBodyType
 
         /**
-         * The colliders attached to this body.
+         * The handles to colliders attached to this body.
          */
-        val colliders: Collection<Collider>
+        val colliders: Collection<ColliderHandle>
 
         // TODO: how does center of mass work??
         /**
@@ -210,14 +175,9 @@ interface RigidBody : Destroyable {
     }
 
     /**
-     * Provides immutable access to the properties of this object.
+     * Mutable interface for a [RigidBody].
      */
-    interface Read : Access
-
-    /**
-     * Provides mutable access to the properties of this object.
-     */
-    interface Write : Access {
+    interface Write : Read {
         override var type: RigidBodyType
 
         // TODO center of mass
@@ -297,4 +257,9 @@ interface RigidBody : Destroyable {
          */
         fun wakeUp(strong: Boolean)
     }
+
+    /**
+     * Mutable owned interface for a [RigidBody].
+     */
+    interface Own : Write, Destroyable
 }
