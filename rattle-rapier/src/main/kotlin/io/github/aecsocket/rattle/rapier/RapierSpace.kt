@@ -101,12 +101,14 @@ class RapierSpace internal constructor(
                 is RapierCollider.State.Added -> {
                     if (this@RapierSpace != state.space)
                         throw IllegalStateException("$value is attempting to be removed from ${this@RapierSpace} but is added to ${state.space}")
+                    println("removing coll ${state.handle} = ${state.handle.id}")
                     val coll = colliderSet.remove(
                         state.handle.id,
                         islands,
                         rigidBodySet,
                         false,
                     ) ?: throw IllegalStateException("$value does not exist in ${this@RapierSpace}")
+                    println("... which has memory $coll")
                     value.state = RapierCollider.State.Removed(coll)
                 }
                 is RapierCollider.State.Removed -> throw IllegalStateException("$value is not added to a space")
@@ -205,7 +207,7 @@ class RapierSpace internal constructor(
     override val multibodyJoints: PhysicsSpace.JointContainer<MultibodyJoint>
         get() = TODO("Not yet implemented")
 
-    override fun toString() = "RapierSpace[0x%x]".format(pipeline.address())
+    override fun toString() = "RapierSpace[0x%x]".format(pipeline.addr())
 
     override fun equals(other: Any?) = other is RapierSpace && pipeline.memory() == other.pipeline.memory()
 

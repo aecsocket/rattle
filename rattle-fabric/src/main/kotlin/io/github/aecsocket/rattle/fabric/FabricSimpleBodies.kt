@@ -12,9 +12,9 @@ import net.minecraft.world.item.Items
 
 class FabricSimpleBodies(
     world: ServerLevel,
-    physics: PhysicsSpace,
     platform: FabricRattlePlatform,
-) : AbstractSimpleBodies<ServerLevel>(world, physics, platform) {
+    physics: PhysicsSpace,
+) : AbstractSimpleBodies<ServerLevel>(world, platform, physics) {
     private inner class RenderInstance(
         val render: ItemRender,
         val instance: Instance,

@@ -1,6 +1,5 @@
 package io.github.aecsocket.rattle.paper
 
-import io.github.aecsocket.rattle.AbstractSimpleBodies
 import io.github.aecsocket.rattle.DestroyFlag
 import io.github.aecsocket.rattle.world.EntityStrategy
 import io.github.aecsocket.rattle.PhysicsSpace

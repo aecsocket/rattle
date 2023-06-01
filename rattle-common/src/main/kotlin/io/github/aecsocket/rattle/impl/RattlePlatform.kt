@@ -80,15 +80,4 @@ abstract class RattlePlatform<W, C>(
             }
         }
     }
-
-    fun <T : WorldPhysics<W>> createWorldPhysics(
-        spaceSettings: PhysicsSpace.Settings?,
-        create: (PhysicsSpace, TerrainStrategy, EntityStrategy) -> T,
-    ): T {
-        val physics = rattle.engine.createSpace(spaceSettings ?: PhysicsSpace.Settings())
-        // TODO
-        val terrain = NoOpTerrainStrategy
-        val entities = NoOpEntityStrategy
-        return create(physics, terrain, entities)
-    }
 }

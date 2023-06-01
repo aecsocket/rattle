@@ -12,10 +12,10 @@ import org.bukkit.World
 import org.bukkit.inventory.ItemStack
 
 class PaperSimpleBodies(
+    private val rattle: PaperRattle,
     world: World,
     physics: PhysicsSpace,
-    private val rattle: PaperRattle,
-) : AbstractSimpleBodies<World>(world, physics, rattle.platform) {
+) : AbstractSimpleBodies<World>(world, rattle.platform, physics) {
     private val renders = DisplayRenders
 
     override fun createVisual(

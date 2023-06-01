@@ -52,7 +52,7 @@ class RapierBody internal constructor(
 
     override fun toString() = when (val state = state) {
         is State.Added -> "RapierBody[${state.handle}]"
-        is State.Removed -> "RapierBody[0x%x]".format(state.body.address())
+        is State.Removed -> "RapierBody[0x%x]".format(state.body.addr())
     }
 
     override fun equals(other: Any?) = other is RapierBody && state == other.state

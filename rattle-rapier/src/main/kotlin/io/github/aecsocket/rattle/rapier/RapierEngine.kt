@@ -101,7 +101,8 @@ class RapierEngine(var settings: Settings) : PhysicsEngine {
     ): Collider {
         shape as RapierShape
         val coll = pushArena { arena ->
-            ColliderBuilder.of(shape.acquire().handle)
+            // do not manually acquire the shape here; Rapier will increment the Arc ref count itself
+            ColliderBuilder.of(shape.handle)
                 .friction(material.friction)
                 .restitution(material.restitution)
                 .frictionCombineRule(material.frictionCombine.convert())

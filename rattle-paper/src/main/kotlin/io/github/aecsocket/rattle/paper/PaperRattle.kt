@@ -13,6 +13,7 @@ import io.github.aecsocket.glossa.MessageProxy
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.impl.RattleHook
 import io.github.aecsocket.rattle.impl.rattleManifest
+import io.github.aecsocket.rattle.world.NoOpEntityStrategy
 import org.bukkit.World
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
@@ -129,18 +130,11 @@ class PaperRattle : AlexandriaPlugin<RattleHook.Settings>(
 
     fun physicsOrCreate(world: World): Sync<PaperWorldPhysics> =
         mWorlds.computeIfAbsent(world) {
-            Locked(platform.createWorldPhysics(
-                settings.worlds.forWorld(world),
-            ) { physics, terrain, entities ->
-                PaperWorldPhysics(
-                    this,
-                    world,
-                    physics,
-                    terrain,
-                    entities,
-                    PaperSimpleBodies(world, physics, this),
-                )
-            })
+            val physics = engine.createSpace(settings.worlds.forWorld(world) ?: PhysicsSpace.Settings())
+            val terrain = PaperDynamicTerrain(this, physics, world)
+            val entities = NoOpEntityStrategy // TODO
+            val simpleBodies = PaperSimpleBodies(this, world, physics)
+            Locked(PaperWorldPhysics(this, world, physics, terrain, entities, simpleBodies))
         }
 
     fun playerData(player: Player) = players.computeIfAbsent(player) {

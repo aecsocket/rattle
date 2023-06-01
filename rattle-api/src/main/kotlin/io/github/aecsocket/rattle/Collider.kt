@@ -7,6 +7,15 @@ import java.util.function.Consumer
  * cannot get the original values of the [Geometry] back.
  *
  * If you need to access the original geometry, consider storing that alongside your shape.
+ *
+ * # Rapier implementation
+ *
+ * Internally, Rapier uses Rust `Arc` structures for atomic reference-counting of shapes. This Shape class
+ * is a wrapper around a single individual instance of `Arc`, *not* the data stored by the `Arc`. However,
+ * the equality and hash-code operations for the shape **are** based on the underlying data stored, rather than
+ * the individual reference-counting object. Therefore, it is safe to use a Shape as a key, and test for reference
+ * equality with them, **only if** the underlying shape is not freed ([Destroyable.destroy]'ed) yet (otherwise you would be
+ * accessing a freed `Arc`, with an undefined data pointer).
  */
 interface Shape : RefCounted
 

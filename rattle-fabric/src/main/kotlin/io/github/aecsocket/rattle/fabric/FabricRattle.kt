@@ -13,6 +13,7 @@ import io.github.aecsocket.glossa.MessageProxy
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.impl.RattleHook
 import io.github.aecsocket.rattle.impl.rattleManifest
+import io.github.aecsocket.rattle.world.NoOpEntityStrategy
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
 import net.kyori.adventure.platform.fabric.PlayerLocales
@@ -113,19 +114,14 @@ class FabricRattle : AlexandriaMod<RattleHook.Settings>(
         world as LevelPhysicsAccess
         val physics = world.rattle_getPhysics() ?: run {
             val platform = world.server.rattle()
-            val physics = Locked(platform.createWorldPhysics(
-                settings.worlds.forLevel(world),
-            ) { physics, terrain, entities ->
-                FabricWorldPhysics(
-                    world,
-                    physics,
-                    terrain,
-                    entities,
-                    FabricSimpleBodies(world, physics, platform),
-                )
-            })
-            world.rattle_setPhysics(physics)
-            physics
+            val physics = engine.createSpace(settings.worlds.forLevel(world) ?: PhysicsSpace.Settings())
+            val terrain = FabricDynamicTerrain(this, physics, world)
+            val entities = NoOpEntityStrategy
+            val simpleBodies = FabricSimpleBodies(world, platform, physics)
+
+            Locked(FabricWorldPhysics(world, physics, terrain, entities, simpleBodies)).also {
+                world.rattle_setPhysics(it)
+            }
         }
         return physics
     }

@@ -20,7 +20,14 @@ class RapierShape internal constructor(
         return this
     }
 
-    override fun toString() = "RapierShape[0x%x]".format(handle.address())
+    // equality and hashing is done by keying the underlying shape, **not** the ref-counting (Arc) object
+    private fun data() = handle.refData()
+
+    override fun toString() = "RapierShape[0x%x]".format(data().addr())
+
+    override fun hashCode() = data().hashCode()
+
+    override fun equals(other: Any?) = other is RapierShape && data() == other.data()
 }
 
 @JvmInline
@@ -72,7 +79,7 @@ class RapierCollider internal constructor(
 
     override fun toString() = when (val state = state) {
         is State.Added -> "RapierCollider[${state.handle}]"
-        is State.Removed -> "RapierCollider[0x%x]".format(state.coll.address())
+        is State.Removed -> "RapierCollider[0x%x]".format(state.coll.addr())
     }
 
     override fun equals(other: Any?) = other is RapierCollider && state == other.state

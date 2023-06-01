@@ -36,10 +36,10 @@ interface SimpleBodies<W> {
 
 abstract class AbstractSimpleBodies<W>(
     val world: W,
+    private val platform: RattlePlatform<W, *>,
     // SAFETY: while a caller has access to a SimpleBodies object, they also have access to the containing
     // WorldPhysics, and therefore the PhysicsSpace is locked
     private val physics: PhysicsSpace,
-    private val platform: RattlePlatform<W, *>,
 ) : SimpleBodies<W>, Destroyable {
     inner class Instance(
         val shape: Shape,

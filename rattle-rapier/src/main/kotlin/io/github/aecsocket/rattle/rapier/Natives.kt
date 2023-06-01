@@ -8,6 +8,7 @@ import rapier.math.AngVector
 import rapier.math.Isometry
 import rapier.math.Rotation
 import rapier.math.Vector
+import java.lang.foreign.Addressable
 import java.lang.foreign.SegmentAllocator
 
 // TODO Java 20: just use Arena directly
@@ -15,7 +16,9 @@ typealias Arena = java.lang.foreign.MemorySession
 
 typealias RAabb = rapier.math.Aabb
 
-fun Native.address() = memory().address().toRawLongValue()
+fun Addressable.addr() = address().toRawLongValue()
+
+fun Native.addr() = memory().addr()
 
 fun <R> pushArena(block: (arena: Arena) -> R): R =
     Arena.openConfined().use(block)
