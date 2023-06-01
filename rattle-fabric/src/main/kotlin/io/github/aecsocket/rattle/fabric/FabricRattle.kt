@@ -143,3 +143,5 @@ fun ServerPlayer.rattle() = (this as PlayerRattleAccess).rattle()
 fun ServerLevel.physicsOrNull() = server.rattle().physicsOrNull(this)
 
 fun ServerLevel.physicsOrCreate() = server.rattle().physicsOrCreate(this)
+
+fun ServerLevel.hasPhysics() = physicsOrNull() != null

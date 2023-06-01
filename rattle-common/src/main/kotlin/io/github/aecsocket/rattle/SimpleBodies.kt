@@ -65,6 +65,7 @@ abstract class AbstractSimpleBodies<W>(
     @JvmInline
     value class Key(val key: ArenaKey) : SimpleBodyKey
 
+    private val destroyed = DestroyFlag()
     private val instances = genArena<Instance>()
 
     override val count: Int
@@ -81,6 +82,7 @@ abstract class AbstractSimpleBodies<W>(
     }
 
     override fun destroy() {
+        destroyed()
         destroyAll()
     }
 

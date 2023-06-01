@@ -30,6 +30,6 @@ class PaperWorldPhysics(
     override fun onPhysicsStep() {
         terrain.onPhysicsStep()
         entities.onPhysicsStep()
-        simpleBodies.destroy()
+        simpleBodies.onPhysicsStep()
     }
 }

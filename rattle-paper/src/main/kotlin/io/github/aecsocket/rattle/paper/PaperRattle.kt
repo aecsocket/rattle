@@ -69,7 +69,8 @@ class PaperRattle : AlexandriaPlugin<RattleHook.Settings>(
     fun runTask(task: Runnable) =
         rattle.runTask(task)
 
-    val platform = PaperRattlePlatform(this)
+    lateinit var platform: PaperRattlePlatform
+        private set
 
     internal val mWorlds = HashMap<World, Sync<PaperWorldPhysics>>()
     val worlds: Map<World, Sync<PaperWorldPhysics>>
@@ -83,10 +84,22 @@ class PaperRattle : AlexandriaPlugin<RattleHook.Settings>(
 
     override fun loadSettings(node: ConfigurationNode) = node.get() ?: RattleHook.Settings()
 
+    override fun onPreInit(log: Log) {
+        platform = PaperRattlePlatform(this)
+    }
+
     override fun onInit(log: Log) {
         rattle.init(log)
+    }
+
+    override fun onEnable() {
         PaperRattleCommand(this)
-        scheduling.onServer().runRepeating { platform.tick() }
+        scheduling.onServer().runRepeating {
+            players.forEach { (_, player) ->
+                player.tick()
+            }
+            platform.tick()
+        }
         registerEvents(object : Listener {
             @EventHandler
             fun on(event: WorldUnloadEvent) {

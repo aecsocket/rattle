@@ -133,5 +133,5 @@ interface PhysicsEngine : Destroyable {
  * @param target The desired number of threads.
  */
 fun numThreads(raw: Int, target: Int) = if (raw > 0) raw else {
-    max(Runtime.getRuntime().availableProcessors() - 2, target)
+    clamp(target, 1, Runtime.getRuntime().availableProcessors() - 2)
 }
