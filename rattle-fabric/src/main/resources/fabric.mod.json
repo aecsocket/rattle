@@ -20,7 +20,7 @@
     "main": [
       {
         "adapter": "kotlin",
-        "value": "${group}.rattle.fabric.Rattle"
+        "value": "${group}.rattle.fabric.FabricRattle"
       }
     ]
   },

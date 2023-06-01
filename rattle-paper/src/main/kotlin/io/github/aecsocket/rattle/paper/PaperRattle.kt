@@ -12,13 +12,14 @@ import io.github.aecsocket.glossa.Glossa
 import io.github.aecsocket.glossa.MessageProxy
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.impl.RattleHook
-import io.github.aecsocket.rattle.impl.RattleServer
 import io.github.aecsocket.rattle.impl.rattleManifest
 import io.github.aecsocket.rattle.stats.TimestampedList
-import org.bukkit.Bukkit
 import org.bukkit.World
-import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
+import org.bukkit.event.EventHandler
+import org.bukkit.event.Listener
+import org.bukkit.event.player.PlayerQuitEvent
+import org.bukkit.event.world.WorldUnloadEvent
 import org.spongepowered.configurate.ConfigurationNode
 import org.spongepowered.configurate.ConfigurationOptions
 import org.spongepowered.configurate.kotlin.dataClassFieldDiscoverer
@@ -61,44 +62,16 @@ class PaperRattle : AlexandriaPlugin<RattleHook.Settings>(
 
     val engine: PhysicsEngine
         get() = rattle.engine
+
     val messages: MessageProxy<RattleMessages>
         get() = rattle.messages
 
     fun runTask(task: Runnable) =
         rattle.runTask(task)
 
-    internal val rattleServer = object : RattleServer<World, CommandSender>() {
-        override val rattle: RattleHook
-            get(): RattleHook = this@PaperRattle.rattle
+    val platform = PaperRattlePlatform(this)
 
-        override val worlds: Iterable<World>
-            get() = Bukkit.getWorlds()
-
-        override val primitiveBodies = PaperPrimitiveBodies(this@PaperRattle)
-
-        override fun callBeforeStep(dt: Real) {
-            RattleEvents.BeforePhysicsStep(dt).callEvent()
-        }
-
-        override fun asPlayer(sender: CommandSender) =
-            (sender as? Player)?.let { playerData(it) }
-
-        override fun key(world: World) = world.key()
-
-        override fun physicsOrNull(world: World) =
-            this@PaperRattle.physicsOrNull(world)
-
-        override fun physicsOrCreate(world: World) =
-            this@PaperRattle.physicsOrCreate(world)
-    }
-
-    val isStepping: Boolean
-        get() = rattleServer.isStepping
-
-    val engineTimings: TimestampedList<Long>
-        get() = rattleServer.engineTimings
-
-    private val mWorlds = HashMap<World, Sync<PaperWorldPhysics>>()
+    internal val mWorlds = HashMap<World, Sync<PaperWorldPhysics>>()
     val worlds: Map<World, Sync<PaperWorldPhysics>>
         get() = mWorlds
 
@@ -113,12 +86,22 @@ class PaperRattle : AlexandriaPlugin<RattleHook.Settings>(
     override fun onInit(log: Log) {
         rattle.init(log)
         PaperRattleCommand(this)
-        registerEvents(RattleListener(this))
-        scheduling.onServer().runRepeating { rattleServer.tick() }
+        scheduling.onServer().runRepeating { platform.tick() }
+        registerEvents(object : Listener {
+            @EventHandler
+            fun on(event: WorldUnloadEvent) {
+                mWorlds[event.world]?.withLock { it.destroy() }
+            }
+
+            @EventHandler
+            fun on(event: PlayerQuitEvent) {
+                players.remove(event.player)
+            }
+        })
     }
 
     override fun onLoad(log: Log) {
-        rattle.load(log, rattleServer)
+        rattle.load(log, platform)
     }
 
     override fun onReload(log: Log) {
@@ -126,7 +109,7 @@ class PaperRattle : AlexandriaPlugin<RattleHook.Settings>(
     }
 
     override fun onDestroy(log: Log) {
-        rattle.destroy(log, rattleServer)
+        rattle.destroy(log, platform)
     }
 
     fun physicsOrNull(world: World): Sync<PaperWorldPhysics>? =
@@ -134,24 +117,15 @@ class PaperRattle : AlexandriaPlugin<RattleHook.Settings>(
 
     fun physicsOrCreate(world: World): Sync<PaperWorldPhysics> =
         mWorlds.computeIfAbsent(world) {
-            Locked(rattleServer.createWorldPhysics(
-                settings.worlds.forWorld(world)
+            Locked(platform.createWorldPhysics(
+                settings.worlds.forWorld(world),
             ) { physics, terrain, entities ->
-                PaperWorldPhysics(world, physics, terrain, entities)
+                PaperWorldPhysics(this, world, physics, terrain, entities, PaperSimpleBodies(world, this))
             })
         }
 
-    internal fun destroyWorld(world: World) {
-        val physics = mWorlds.remove(world) ?: return
-        physics.withLock { it.destroy() }
-    }
-
     fun playerData(player: Player) = players.computeIfAbsent(player) {
         PaperRattlePlayer(this, player)
-    }
-
-    internal fun destroyPlayerData(player: Player) {
-        players.remove(player)
     }
 }
 

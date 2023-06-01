@@ -13,7 +13,7 @@ import io.github.aecsocket.alexandria.hook.AlexandriaCommand
 import io.github.aecsocket.glossa.MessageProxy
 import io.github.aecsocket.klam.nextDVec3
 import io.github.aecsocket.rattle.impl.RattleHook
-import io.github.aecsocket.rattle.impl.RattleServer
+import io.github.aecsocket.rattle.impl.RattlePlatform
 import io.github.aecsocket.rattle.stats.formatTiming
 import io.github.aecsocket.rattle.stats.timingStatsOf
 import net.kyori.adventure.audience.Audience
@@ -64,7 +64,7 @@ abstract class RattleCommand<C : Audience, W>(
 
     protected abstract fun CommandContext<C>.getWorld(key: String): W
 
-    protected abstract val CommandContext<C>.server: RattleServer<W, C>
+    protected abstract val CommandContext<C>.server: RattlePlatform<W, C>
 
     init {
         root.run {
@@ -168,6 +168,7 @@ abstract class RattleCommand<C : Audience, W>(
                     }
 
                 literal(DESTROY)
+                    .argument(worldArgumentOf(WORLD))
                     .axPermission("$BODY.$DESTROY")
                     .run {
                         manager.command(literal(ALL)
@@ -214,7 +215,7 @@ abstract class RattleCommand<C : Audience, W>(
 
         // block the command/main thread until physics world has been fully destroyed
         // this will wait until stepping and updates are complete
-        server.physicsOrNull(world)?.withLock { (physics) ->
+        server.physicsOrNull(world)?.withLock { physics ->
             physics.destroy()
         } ?: error(messages.error.space.doesNotExist(
             world = server.key(world).asString()
@@ -234,7 +235,7 @@ abstract class RattleCommand<C : Audience, W>(
 
     private fun bodyCreate(
         ctx: CommandContext<C>,
-        createDesc: (PhysicsMaterial, Mass, Visibility) -> PrimitiveBodyDesc,
+        createDesc: (PhysicsMaterial, Mass, Visibility) -> SimpleBodyDesc,
     ): BodyCreateInfo {
         val server = ctx.server
         val location = ctx.getLocation(LOCATION)
@@ -253,14 +254,15 @@ abstract class RattleCommand<C : Audience, W>(
         )
         val visibility = if (virtual) Visibility.INVISIBLE else Visibility.VISIBLE
 
-        repeat(count) {
-            val offset = (Random.nextDVec3() * 2.0 - 1.0) * spread
-            val position = location.position + offset
+        server.physicsOrCreate(location.world).withLock { physics ->
+            repeat(count) {
+                val offset = (Random.nextDVec3() * 2.0 - 1.0) * spread
 
-            server.primitiveBodies.create(
-                location = Location(location.world, position),
-                desc = createDesc(material, mass, visibility),
-            )
+                physics.simpleBodies.create(
+                    position = Iso(location.position + offset),
+                    desc = createDesc(material, mass, visibility),
+                )
+            }
         }
 
         return BodyCreateInfo(
@@ -276,7 +278,7 @@ abstract class RattleCommand<C : Audience, W>(
         geom: Geometry,
     ): BodyCreateInfo {
         return bodyCreate(ctx) { material, mass, visibility ->
-            PrimitiveBodyDesc(
+            SimpleBodyDesc(
                 geom = geom,
                 material = material,
                 type = RigidBodyType.FIXED,
@@ -295,7 +297,7 @@ abstract class RattleCommand<C : Audience, W>(
         val linDamp = ctx.flag(LIN_DAMP) ?: DEFAULT_LINEAR_DAMPING
         val angDamp = ctx.flag(ANG_DAMP) ?: DEFAULT_ANGULAR_DAMPING
         return bodyCreate(ctx) { material, mass, visibility ->
-            PrimitiveBodyDesc(
+            SimpleBodyDesc(
                 geom = geom,
                 material = material,
                 type = RigidBodyType.DYNAMIC,
@@ -383,12 +385,18 @@ abstract class RattleCommand<C : Audience, W>(
         val server = ctx.server
         val sender = ctx.sender
         val messages = messages.forAudience(sender)
+        val world = ctx.getWorld(WORLD)
 
-        val count = server.primitiveBodies.count
-        server.primitiveBodies.destroyAll()
-        messages.command.body.destroy.all(
-            count = count,
-        ).sendTo(sender)
+        server.physicsOrNull(world)?.withLock { physics ->
+            val count = physics.simpleBodies.count
+            physics.simpleBodies.destroyAll()
+            messages.command.body.destroy.all(
+                world = server.key(world).asString(),
+                count = count,
+            ).sendTo(sender)
+        } ?: error(messages.error.space.doesNotExist(
+            world = server.key(world).asString()
+        ))
     }
 
     private fun stats(ctx: CommandContext<C>) {

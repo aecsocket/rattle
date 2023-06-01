@@ -1,20 +1,23 @@
 package io.github.aecsocket.rattle.fabric
 
-import io.github.aecsocket.alexandria.hook.fallbackLocale
 import io.github.aecsocket.rattle.RattleMessages
-import io.github.aecsocket.rattle.RattlePlayer
+import io.github.aecsocket.rattle.impl.RattlePlayer
 import net.kyori.adventure.bossbar.BossBar
-import net.kyori.adventure.identity.Identity
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 
 @Suppress("UnstableApiUsage")
 class FabricRattlePlayer(
-    rattle: RattleMod,
+    rattle: FabricRattle,
     player: ServerPlayer,
 ) : RattlePlayer<ServerLevel, ServerPlayer>(player.server.rattle(), player) {
     val rattle = player.server.rattle()
-    override var messages: RattleMessages = rattle.messages.forLocale(player.get(Identity.LOCALE).orElse(fallbackLocale))
+    // Sometimes, when a player is placed into a world, we get an error that `ForwardingAudience$Single.audience()` is null
+    // (if we access `player.get(Identity.LOCALE)` through Adventure's pointer mechanism)
+    // Therefore, the Fabric Adventure platform has not initialized our player yet (for some reason).
+    // So instead, we will initialize the messages with a default locale, and hope that the PlayerLocales.CHANGED_EVENT
+    // changes to the player's actual locale later
+    override var messages: RattleMessages = rattle.messages.forLocale(rattle.settings.defaultLocale)
 
     override val world: ServerLevel
         get() = player.getLevel()

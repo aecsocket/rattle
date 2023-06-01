@@ -1,6 +1,6 @@
 name: Rattle
 version: $version
-main: ${group}.rattle.paper.Rattle
+main: ${group}.rattle.paper.PaperRattle
 description: $description
 api-version: 1.19
 authors: [ aecsocket ]

@@ -3,6 +3,8 @@ package io.github.aecsocket.rattle.stats
 interface TimestampedList<T> {
     val buffer: Long
 
+    val size: Int
+
     fun getLast(ms: Long): List<T>
 }
 
@@ -23,6 +25,9 @@ class TimestampedListImpl<T> internal constructor(override var buffer: Long) : M
     )
 
     private val entries = ArrayList<Entry<T>>()
+
+    override val size: Int
+        get() = entries.size
 
     override fun getLast(ms: Long): List<T> {
         val result = ArrayList<T>()

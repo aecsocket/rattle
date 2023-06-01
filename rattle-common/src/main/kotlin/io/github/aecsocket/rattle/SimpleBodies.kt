@@ -3,14 +3,14 @@ package io.github.aecsocket.rattle
 import io.github.aecsocket.alexandria.ArenaKey
 import io.github.aecsocket.alexandria.Render
 import io.github.aecsocket.alexandria.genArena
-import io.github.aecsocket.rattle.impl.RattleServer
+import io.github.aecsocket.rattle.impl.RattlePlatform
 
 enum class Visibility {
     VISIBLE,
     INVISIBLE,
 }
 
-data class PrimitiveBodyDesc(
+data class SimpleBodyDesc(
     val geom: Geometry,
     val material: PhysicsMaterial,
     val type: RigidBodyType,
@@ -22,23 +22,23 @@ data class PrimitiveBodyDesc(
     val angularDamping: Real = DEFAULT_ANGULAR_DAMPING,
 )
 
-interface PrimitiveBodyKey
+interface SimpleBodyKey
 
-interface PrimitiveBodies<W> {
+interface SimpleBodies<W> {
     val count: Int
 
-    fun create(location: Location<W>, desc: PrimitiveBodyDesc): PrimitiveBodyKey
+    fun create(position: Iso, desc: SimpleBodyDesc): SimpleBodyKey
 
-    fun destroy(key: PrimitiveBodyKey)
+    fun destroy(key: SimpleBodyKey)
 
     fun destroyAll()
 }
 
-abstract class AbstractPrimitiveBodies<W>(
-    private val server: RattleServer<W, *>,
-) : PrimitiveBodies<W> {
+abstract class AbstractSimpleBodies<W>(
+    private val world: W,
+    private val platform: RattlePlatform<W, *>,
+) : SimpleBodies<W>, Destroyable {
     private inner class Instance(
-        val world: W,
         val shape: Shape,
         val body: RigidBody,
         val collider: Collider,
@@ -50,8 +50,8 @@ abstract class AbstractPrimitiveBodies<W>(
         fun destroy() {
             destroyed()
             // todo despawn render
-            server.rattle.runTask {
-                server.physicsOrNull(world)?.withLock { (physics) ->
+            platform.rattle.runTask {
+                platform.physicsOrNull(world)?.withLock { (physics) ->
                     physics.colliders.remove(collider)
                     physics.bodies.remove(body)
                 }
@@ -63,7 +63,7 @@ abstract class AbstractPrimitiveBodies<W>(
     }
 
     @JvmInline
-    value class Key(val key: ArenaKey) : PrimitiveBodyKey
+    value class Key(val key: ArenaKey) : SimpleBodyKey
 
     private val instances = genArena<Instance>()
 
@@ -80,12 +80,16 @@ abstract class AbstractPrimitiveBodies<W>(
         }
     }
 
-    override fun create(location: Location<W>, desc: PrimitiveBodyDesc): PrimitiveBodyKey {
-        val engine = server.rattle.engine
+    override fun destroy() {
+        destroyAll()
+    }
+
+    override fun create(position: Iso, desc: SimpleBodyDesc): SimpleBodyKey {
+        val engine = platform.rattle.engine
 
         val shape = engine.createShape(desc.geom)
         val body = engine.createBody(
-            position = Iso(location.position),
+            position = position,
             type = desc.type,
             isCcdEnabled = desc.isCcdEnabled,
             gravityScale = desc.gravityScale,
@@ -100,7 +104,6 @@ abstract class AbstractPrimitiveBodies<W>(
         val render: Render? = null // TODO
 
         val instance = Instance(
-            world = location.world,
             shape = shape,
             body = body,
             collider = collider,
@@ -108,8 +111,8 @@ abstract class AbstractPrimitiveBodies<W>(
         )
         val key = instances.insert(instance)
 
-        server.rattle.runTask {
-            server.physicsOrCreate(location.world).withLock { (physics) ->
+        platform.rattle.runTask {
+            platform.physicsOrCreate(world).withLock { (physics) ->
                 physics.bodies.add(body)
                 physics.colliders.add(collider)
                 collider.write { it.parent = body }
@@ -119,7 +122,7 @@ abstract class AbstractPrimitiveBodies<W>(
         return Key(key)
     }
 
-    override fun destroy(key: PrimitiveBodyKey) {
+    override fun destroy(key: SimpleBodyKey) {
         key as Key
         instances.remove(key.key)?.destroy()
     }

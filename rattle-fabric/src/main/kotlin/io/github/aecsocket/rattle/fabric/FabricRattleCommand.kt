@@ -13,8 +13,8 @@ import net.minecraft.resources.ResourceKey
 import net.minecraft.server.level.ServerLevel
 
 internal class FabricRattleCommand(
-    rattle: RattleMod,
-) : RattleCommand<CommandSourceStack, ServerLevel>(rattle, rattle.messages, commandManager()) {
+    rattle: FabricRattle,
+) : RattleCommand<CommandSourceStack, ServerLevel>(rattle.rattle, rattle.messages, commandManager()) {
     override fun locationArgumentOf(key: String) =
         Vec3dArgument.of<CommandSourceStack>(key)
 
@@ -44,6 +44,6 @@ internal class FabricRattleCommand(
         return sender.server.getLevel(res) ?: throw IllegalArgumentException("No world with key ${res.key()}")
     }
 
-    override val CommandContext<CommandSourceStack>.server: RattleMod.Server
+    override val CommandContext<CommandSourceStack>.server: FabricRattlePlatform
         get() = sender.server.rattle()
 }

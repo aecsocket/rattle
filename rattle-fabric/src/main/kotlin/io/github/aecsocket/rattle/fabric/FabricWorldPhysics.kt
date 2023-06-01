@@ -12,22 +12,22 @@ class FabricWorldPhysics(
     override val physics: PhysicsSpace,
     override val terrain: TerrainStrategy,
     override val entities: EntityStrategy,
+    override val simpleBodies: FabricSimpleBodies,
 ) : WorldPhysics<ServerLevel> {
     private val destroyed = DestroyFlag()
 
-    internal fun destroy() {
+    override fun destroy() {
         destroyed()
-        world as LevelPhysicsAccess
-        world.rattle_setPhysics(null)
+        (world as LevelPhysicsAccess).rattle_setPhysics(null)
+        terrain.destroy()
+        entities.destroy()
+        simpleBodies.destroy()
         physics.destroy()
-    }
-
-    fun onTick() {
-
     }
 
     override fun onPhysicsStep() {
         terrain.onPhysicsStep()
         entities.onPhysicsStep()
+        simpleBodies.onPhysicsStep()
     }
 }

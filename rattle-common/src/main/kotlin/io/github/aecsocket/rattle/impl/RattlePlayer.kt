@@ -9,7 +9,7 @@ import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
 
 abstract class RattlePlayer<W, P : Audience>(
-    private val server: RattleServer<W, *>,
+    private val platform: RattlePlatform<W, *>,
     val player: P,
 ) {
     abstract val messages: RattleMessages
@@ -24,7 +24,7 @@ abstract class RattlePlayer<W, P : Audience>(
     fun showStatsBar(enabled: Boolean) {
         val statsBar = statsBar
         if (enabled && statsBar == null) {
-            this.statsBar = server.rattle.settings.stats.timingBar
+            this.statsBar = platform.rattle.settings.stats.timingBar
                 .create(Component.empty())
                 .also { player.showBar(it) }
         } else if (!enabled && statsBar != null) {
@@ -37,14 +37,14 @@ abstract class RattlePlayer<W, P : Audience>(
         val world = world
         statsBar?.let { statsBar ->
             val (median, best5, worst5) = timingStatsOf(
-                server.engineTimings.getLast(
-                    (server.rattle.settings.stats.timingBarBuffer * 1000).toLong()
+                platform.engineTimings.getLast(
+                    (platform.rattle.settings.stats.timingBarBuffer * 1000).toLong()
                 )
             )
 
-            val text = server.physicsOrNull(world)?.withLock { (physics) ->
+            val text = platform.physicsOrNull(world)?.withLock { (physics) ->
                 messages.statsBar.some(
-                    world = server.key(world).asString(),
+                    world = platform.key(world).asString(),
                     numBodies = physics.bodies.count,
                     numActiveBodies = physics.bodies.activeCount,
                     median = formatTiming(median, messages),
@@ -52,7 +52,7 @@ abstract class RattlePlayer<W, P : Audience>(
                     worst5 = formatTiming(worst5, messages),
                 )
             } ?: messages.statsBar.none(
-                world = server.key(world).asString(),
+                world = platform.key(world).asString(),
                 median = formatTiming(median, messages),
                 best5 = formatTiming(best5, messages),
                 worst5 = formatTiming(worst5, messages),

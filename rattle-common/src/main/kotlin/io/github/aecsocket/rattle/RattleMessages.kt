@@ -58,6 +58,7 @@ interface RattleMessages {
             val destroy: Destroy
             interface Destroy {
                 fun all(
+                    world: String,
                     count: Int,
                 ): Message
             }

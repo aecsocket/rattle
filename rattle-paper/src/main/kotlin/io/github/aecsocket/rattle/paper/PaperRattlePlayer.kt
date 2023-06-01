@@ -9,7 +9,7 @@ import org.bukkit.entity.Player
 class PaperRattlePlayer(
     rattle: PaperRattle,
     player: Player,
-) : RattlePlayer<World, Player>(rattle.rattleServer, player) {
+) : RattlePlayer<World, Player>(rattle.platform, player) {
     override var messages: RattleMessages = rattle.messages.forLocale(player.locale())
 
     override val world: World

@@ -1,5 +1,6 @@
 package io.github.aecsocket.rattle.world
 
+import io.github.aecsocket.rattle.AbstractSimpleBodies
 import io.github.aecsocket.rattle.Destroyable
 import io.github.aecsocket.rattle.PhysicsSpace
 
@@ -61,6 +62,7 @@ interface WorldPhysics<W> : Destroyable {
     val physics: PhysicsSpace
     val terrain: TerrainStrategy
     val entities: EntityStrategy
+    val simpleBodies: AbstractSimpleBodies<W>
 
     operator fun component1() = physics
 
@@ -69,5 +71,6 @@ interface WorldPhysics<W> : Destroyable {
     fun onPhysicsStep() {
         terrain.onPhysicsStep()
         entities.onPhysicsStep()
+        simpleBodies.onPhysicsStep()
     }
 }

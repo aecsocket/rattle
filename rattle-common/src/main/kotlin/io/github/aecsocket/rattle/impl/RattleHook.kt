@@ -72,16 +72,16 @@ abstract class RattleHook {
         log.info { "Set up physics worker thread pool with $workerThreads threads" }
     }
 
-    fun load(log: Log, server: RattleServer<*, *>?) {
+    fun load(log: Log, platform: RattlePlatform<*, *>?) {
         messages = glossa.messageProxy()
-        server?.load()
+        platform?.load()
     }
 
     fun reload(log: Log) {
         engine.settings = settings.rapier
     }
 
-    fun destroy(log: Log, server: RattleServer<*, *>?) {
+    fun destroy(log: Log, platform: RattlePlatform<*, *>?) {
         executor.shutdown()
         log.info { "Waiting ${settings.jobs.threadTerminateTime} sec for physics jobs" }
         if (!executor.awaitTermination((settings.jobs.threadTerminateTime * 1000).toLong(), TimeUnit.MILLISECONDS)) {
@@ -89,7 +89,7 @@ abstract class RattleHook {
             log.warn { "Could not wait for physics jobs to finish" }
         }
 
-        server?.destroy(log)
+        platform?.destroy(log)
 
         engine.destroy()
     }

@@ -3,7 +3,6 @@ package io.github.aecsocket.rattle.impl
 import io.github.aecsocket.alexandria.log.Log
 import io.github.aecsocket.alexandria.log.info
 import io.github.aecsocket.alexandria.sync.Sync
-import io.github.aecsocket.rattle.AbstractPrimitiveBodies
 import io.github.aecsocket.rattle.PhysicsSpace
 import io.github.aecsocket.rattle.Real
 import io.github.aecsocket.rattle.stats.TimestampedList
@@ -12,10 +11,10 @@ import io.github.aecsocket.rattle.world.*
 import net.kyori.adventure.key.Key
 import java.util.concurrent.atomic.AtomicBoolean
 
-abstract class RattleServer<W, C> {
-    abstract val rattle: RattleHook
+abstract class RattlePlatform<W, C>(
+    val rattle: RattleHook,
+) {
     abstract val worlds: Iterable<W>
-    abstract val primitiveBodies: AbstractPrimitiveBodies<W>
 
     protected abstract fun callBeforeStep(dt: Real)
 
@@ -33,12 +32,14 @@ abstract class RattleServer<W, C> {
     val isStepping: Boolean
         get() = stepping.get()
 
-    private val mEngineTimings = timestampedList<Long>(0)
+    private val mEngineTimings = timestampedList<Long>(timingsBufferSize())
     val engineTimings: TimestampedList<Long>
         get() = mEngineTimings
 
+    private fun timingsBufferSize() = (rattle.settings.stats.timingBuffers.max() * 1000).toLong()
+
     fun load() {
-        mEngineTimings.buffer = (rattle.settings.stats.timingBuffers.max() * 1000).toLong()
+        mEngineTimings.buffer = timingsBufferSize()
     }
 
     fun destroy(log: Log) {
@@ -57,26 +58,26 @@ abstract class RattleServer<W, C> {
         rattle.runTask {
             if (stepping.getAndSet(true)) return@runTask
             val start = System.nanoTime()
+            try {
+                val dt = 0.05 * rattle.settings.timeStepMultiplier
+                callBeforeStep(dt)
 
-            val dt = 0.05 * rattle.settings.timeStepMultiplier
-            callBeforeStep(dt)
-            primitiveBodies.onPhysicsStep()
+                // SAFETY: we lock all worlds in a batch at once, so no other thread can access it
+                // we batch process all our worlds under lock, then we batch release all locks
+                // no other thread should have access to our worlds while we're working
+                val locks = worlds.mapNotNull { world -> physicsOrNull(world) }
+                val worlds = locks.map { it.lock() }
 
-            // SAFETY: we lock all worlds in a batch at once, so no other thread can access it
-            // we batch process all our worlds under lock, then we batch release all locks
-            // no other thread should have access to our worlds while we're working
-            val locks = worlds.mapNotNull { world -> physicsOrNull(world) }
-            val worlds = locks.map { it.lock() }
+                worlds.forEach { it.onPhysicsStep() }
+                rattle.engine.stepSpaces(dt, worlds.map { it.physics })
 
-            worlds.forEach { it.onPhysicsStep() }
-            rattle.engine.stepSpaces(dt, worlds.map { it.physics })
-
-            locks.forEach { it.unlock() }
-            // end lock scope
-
-            val end = System.nanoTime()
-            mEngineTimings += (end - start)
-            stepping.set(false)
+                locks.forEach { it.unlock() }
+                // end lock scope
+            } finally {
+                val end = System.nanoTime()
+                mEngineTimings += (end - start)
+                stepping.set(false)
+            }
         }
     }
 
