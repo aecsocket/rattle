@@ -1,5 +1,6 @@
 package io.github.aecsocket.rattle.paper
 
+import io.github.aecsocket.alexandria.log.warn
 import io.github.aecsocket.alexandria.paper.extension.toDVec
 import io.github.aecsocket.klam.IVec2
 import io.github.aecsocket.klam.IVec3
@@ -34,12 +35,34 @@ class PaperDynamicTerrain(
 
     override fun destroy() {
         super.destroy()
+
+        val dangling = ArrayList<Shape>()
         shapeCache.forEach { (_, shape) ->
             if (shape == null) return@forEach
-            require(shape.refCount == 1L) { "dangling shape reference: has ${shape.refCount} refs, expected 1" }
-            shape.release()
-            // we can't check the refCount after it's released, since by that point it's... uh... released
-            // it's not safe to read its state anymore
+            // should be 1 by this point, since we give out the shapes and cache them, and let anyone else use them
+            // and `super.destroy()` should have destroyed all the colliders that use our shapes,
+            // thereby releasing them
+            // if the terrain strategy screws up and double-frees, then our code here is unsafe
+            // but in that case, we have bigger issues than this
+            if (shape.refCount == 1L) {
+                shape.release()
+                // we can't check the refCount after it's released, since by that point it's... uh... released
+                // it's not safe to read its state anymore
+            } else {
+                dangling += shape
+            }
+        }
+
+        if (dangling.isNotEmpty()) {
+            val log = rattle.log
+            val take = 4
+            log.warn { "Found dangling shape references after world destruction:" }
+            dangling.take(take).forEach { shape ->
+                log.warn { "  - $shape with ${shape.refCount} refs" }
+            }
+            if (dangling.size > take) {
+                log.warn { "  ...and ${dangling.size - take} more" }
+            }
         }
     }
 
@@ -59,18 +82,27 @@ class PaperDynamicTerrain(
                     pos to createSnapshot(chunk, pos)
                 }
                 sections.withLock { sections ->
-                    snapshots.forEach { (pos, snapshot) ->
-                        sections[pos] = snapshot
+                    snapshots.forEach snapshot@ { (pos, snapshot) ->
+                        // illegal states (null or wrong state) will fail silently
+                        val section = sections[pos] ?: return@snapshot
+                        when (section.state) {
+                            is SectionState.Pending -> {
+                                section.state = snapshot
+                                sections.dirty(pos)
+                            }
+                            else -> { /* unexpected state, fail silently */ }
+                        }
                     }
                 }
             }
         }
     }
 
-    private fun createSnapshot(chunk: Chunk, pos: IVec3): Section.Snapshot {
+    private fun createSnapshot(chunk: Chunk, pos: IVec3): SectionState.Snapshot {
         val iy = pos.y + negativeYSlices
-        if ((chunk as CraftChunk).handle.sections[iy].hasOnlyAir()) {
-            return Section.Snapshot(onlyPassable)
+        val sections = (chunk as CraftChunk).handle.sections
+        if (iy < 0 || iy >= sections.size || sections[iy].hasOnlyAir()) {
+            return SectionState.Snapshot(onlyPassable)
         }
 
         val blocks = Array(BLOCKS_IN_SECTION) { i ->
@@ -80,7 +112,7 @@ class PaperDynamicTerrain(
             wrapBlock(chunk.getBlock(lx, gy, lz))
         }
 
-        return Section.Snapshot(
+        return SectionState.Snapshot(
             blocks = blocks,
         )
     }

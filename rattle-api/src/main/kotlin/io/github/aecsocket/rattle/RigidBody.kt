@@ -50,7 +50,7 @@ sealed interface Sleeping {
 /**
  * A key used to index into a [PhysicsSpace] to gain a reference, mutable or immutable, to a [RigidBody].
  */
-interface RigidBodyHandle
+interface RigidBodyKey
 
 /**
  * A physics structure which simulates dynamics - velocity, forces, friction, etc. - when attached to a [PhysicsSpace].
@@ -109,7 +109,7 @@ object RigidBody {
         /**
          * The handles to colliders attached to this body.
          */
-        val colliders: Collection<ColliderHandle>
+        val colliders: Collection<ColliderKey>
 
         // TODO: how does center of mass work??
         /**

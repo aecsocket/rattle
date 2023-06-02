@@ -11,7 +11,7 @@ class TestSpace {
     fun testRefCount() {
         val engine = RapierEngine()
         val physics = engine.createSpace()
-        val keys = HashSet<ColliderHandle>()
+        val keys = HashSet<ColliderKey>()
 
         val shape = engine.createShape(Sphere(0.5))
 

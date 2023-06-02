@@ -43,21 +43,19 @@ abstract class AbstractSimpleBodies<W>(
 ) : SimpleBodies<W>, Destroyable {
     inner class Instance(
         val shape: Shape,
-        val body: RigidBodyHandle,
-        val collider: ColliderHandle,
+        val body: RigidBodyKey,
+        val collider: ColliderKey,
     ) {
         var nextPosition: Iso? = null
         val destroyed = DestroyFlag()
 
         internal fun destroy() {
             destroyed()
-            platform.rattle.runTask {
-                platform.physicsOrNull(world)?.withLock { (physics) ->
-                    physics.colliders.remove(collider)?.destroy()
-                    physics.bodies.remove(body)?.destroy()
-                }
-                shape.release()
+            platform.physicsOrNull(world)?.withLock { (physics) ->
+                physics.colliders.remove(collider)?.destroy()
+                physics.bodies.remove(body)?.destroy()
             }
+            shape.release()
         }
     }
 
@@ -128,7 +126,9 @@ abstract class AbstractSimpleBodies<W>(
     }
 
     fun destroy(key: ArenaKey) {
-        instances.withLock { it.remove(key) }?.destroy()
+        platform.rattle.runTask {
+            instances.withLock { it.remove(key) }?.destroy()
+        }
     }
 
     override fun destroy(key: SimpleBodyKey) {

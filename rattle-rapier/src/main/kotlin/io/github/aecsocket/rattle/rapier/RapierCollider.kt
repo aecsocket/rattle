@@ -14,7 +14,7 @@ class RapierShape internal constructor(
     override fun release() = this.apply { handle.release() }
 }
 
-data class RapierColliderHandle(val id: Long) : ColliderHandle {
+data class RapierColliderKey(val id: Long) : ColliderKey {
     override fun toString(): String = ArenaKey.asString(id)
 }
 
@@ -50,8 +50,8 @@ object RapierCollider {
                 handle.getPositionWrtParent(arena)?.toIso() ?: Iso()
             }
 
-        override val parent: RigidBodyHandle?
-            get() = handle.parent?.let { RapierRigidBodyHandle(it) }
+        override val parent: RigidBodyKey?
+            get() = handle.parent?.let { RapierRigidBodyKey(it) }
 
         override fun bounds(): Aabb {
             return pushArena { arena ->

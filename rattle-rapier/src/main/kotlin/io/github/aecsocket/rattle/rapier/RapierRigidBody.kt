@@ -3,7 +3,7 @@ package io.github.aecsocket.rattle.rapier
 import io.github.aecsocket.rattle.*
 import rapier.data.ArenaKey
 
-data class RapierRigidBodyHandle(val id: Long) : RigidBodyHandle {
+data class RapierRigidBodyKey(val id: Long) : RigidBodyKey {
     override fun toString(): String = ArenaKey.asString(id)
 }
 
@@ -15,8 +15,8 @@ object RapierRigidBody {
         override val type: RigidBodyType
             get() = handle.bodyType.convert()
 
-        override val colliders: Collection<RapierColliderHandle>
-            get() = handle.colliders.map { RapierColliderHandle(it) }
+        override val colliders: Collection<RapierColliderKey>
+            get() = handle.colliders.map { RapierColliderKey(it) }
 
         override val position: Iso
             get() = pushArena { arena ->

@@ -19,38 +19,40 @@ const val BLOCKS_IN_SECTION = 16 * 16 * 16
  *
  * # Strategy
  *
- * The process occurs concurrently, with the first step starting on a physics thread.
+ * A world is already split into chunks by the game itself, but we take that one step further and
+ * split chunks into "sections" - 16x16x16 parts of a chunk. The strategy processes each section
+ * independently, and stores section data in a `Map<IVec3, Section>`. This processing starts on
+ * the physics thread (before the physics step):
  *
- * ## Physics thread - before step
+ * ## Physics thread
  *
  * For each active rigid body...
  * - Compute its AABB bound in world-space
  * - Expand that AABB slightly (detailed under Expansion)
- * - Compute which chunk sections that AABB intersects, inclusively
- * - Store the list of chunk section coordinates ([IVec3]s) to be processed later
+ * - Compute which sections that AABB intersects, inclusively, as a set of [IVec3]s
+ * - Any new positions that aren't in the section map yet?
+ *   - Set that section to [SectionState.Pending]
+ *   - Send it over to the platform implementation to process into a [SectionState.Snapshot]
+ * - Any positions that were in the section map but not anymore?
+ *   - Mark that section as "to be destroyed" (TODO)
  *
- * ## Chunk thread
+ * ## Snapshotting
  *
- * This process is ran for every loaded chunk in the world.
+ * This process is platform-dependent, runs during [scheduleToSnapshot], and should iterate
+ * over all chunk positions passed to it. On platforms with a single main thread (Fabric, Paper),
+ * this will run on the main tick thread. On platforms where chunksare processed concurrently (Folia),
+ * this will run on the thread responsible for the current chunk.
  *
- * *Note:* the exact thread that this runs on is an implementation detail. On platforms with a
- * single main thread (Fabric, Paper), this will be the main tick thread. On platforms where chunks
- * are processed concurrently (Folia), this will be the thread responsible for the current chunk.
+ * For each section position...
+ * - Generate a chunk snapshot (platform-dependent)
+ *   - Typically involves getting block types ([Block] passable, fluid, etc.) and shapes
+ * - Update that section position with [SectionState.Snapshot]
  *
- * - Fetch the list of chunk section coordinates
- * - Find all section coordinates for the current chunk
- * - Generate a chunk snapshot
- * - Store the chunk coordinate and chunk snapshot to be processed later
- *
- * ## Physics thread - before step
+ * ## Physics thread
  *
  * - Fetch the chunk snapshots to process
  * - Iterate through all blocks in the chunk snapshot to build up the appropriate physics structures
- *   (detailed under Structures)
- * - Add the structures to the physics state and store them internally for queries
- *
- * For each chunk section coordinate from the previous step that was *not* recomputed in the first step,
- * the section's corresponding body and colliders are removed from the physics state.
+ *   (detailed under Structures), creating a [SectionState.Built]
  *
  * # Expansion
  *
@@ -61,10 +63,10 @@ const val BLOCKS_IN_SECTION = 16 * 16 * 16
  *
  * # Structures
  *
- * For solid blocks, the strategy builds up a collider per block, using a compound shape if necessary to
- * represent the block's shape, and adds it as a solid collider.
+ * For [Block.Solid], the strategy builds up a collider per block, using a compound shape if necessary to
+ * represent the block's shape, and adds it as a solid collider. (TODO)
  *
- * For fluids, the strategy builds up a collider as for blocks, but adds it as a sensor collider. This sensor
+ * For [Block.Fluid], the strategy builds up a collider as for blocks, but adds it as a sensor collider. This sensor
  * can later be queried to see what bodies are touching it, and to apply buoyancy forces.
  */
 abstract class DynamicTerrain(
@@ -74,15 +76,17 @@ abstract class DynamicTerrain(
 ) : TerrainStrategy {
     data class SectionLayer(
         val terrain: TerrainLayer,
-        val colliders: List<ColliderHandle>,
-    )
+        val colliders: List<ColliderKey>,
+    ) {
+        override fun toString() = "SectionLayer(${colliders.size})"
+    }
 
-    sealed interface Section {
+    sealed interface SectionState {
         /**
          * A section that has been marked as "should be generated", and is now waiting to be turned into a
          * [Snapshot] by the underlying platform.
          */
-        /* TODO: Kotlin 1.9 data */ object Pending : Section
+        /* TODO: Kotlin 1.9 data */ object Pending : SectionState
 
         /**
          * A section with an immutable block snapshot created, ready to be turned into a [Built.Idle] by the
@@ -90,24 +94,43 @@ abstract class DynamicTerrain(
          */
         class Snapshot(
             val blocks: Array<out Block>,
-        ) : Section {
+        ) : SectionState {
             init {
                 require(blocks.size == BLOCKS_IN_SECTION) { "requires blocks.size == BLOCKS_IN_SECTION" }
             }
+
+            override fun toString() = "Snapshot"
         }
 
         /**
          * A section with full collision and interaction with the world.
          */
-        sealed interface Built : Section {
+        sealed interface Built : SectionState {
             val layers: Map<TerrainLayer, SectionLayer>
 
-            fun colliders(): List<ColliderHandle> =
+            fun colliders(): List<ColliderKey> =
                 layers.flatMap { (_, layer) -> layer.colliders }
 
             data class Idle(
                 override val layers: Map<TerrainLayer, SectionLayer>,
             ) : Built
+        }
+    }
+
+    data class Section(
+        var state: SectionState,
+        var toRemove: Long = -1,
+    ) {
+        fun toBeRemoved() = toRemove >= 0
+
+        fun removeNow() = toBeRemoved() && System.currentTimeMillis() >= toRemove
+
+        fun toBeRemoved(inMs: Long) {
+            toRemove = System.currentTimeMillis() + inMs
+        }
+
+        fun stopRemoval() {
+            toRemove = -1
         }
     }
 
@@ -117,24 +140,23 @@ abstract class DynamicTerrain(
             get() = mMap
 
         private val mDirty = HashSet<IVec3>()
-        val dirty: Set<IVec3>
-            get() = mDirty
 
         operator fun get(pos: IVec3) = mMap[pos]
 
-        operator fun set(pos: IVec3, section: Section) {
-            remove(pos)
-            mMap[pos] = section
+        fun add(pos: IVec3, state: SectionState) {
+            if (mMap.contains(pos))
+                throw IllegalStateException("Already contains a section for $pos")
+            mMap[pos] = Section(state)
             mDirty += pos
         }
 
         fun remove(pos: IVec3): Section? {
             val section = mMap.remove(pos) ?: return null
-            destroy(section)
+            destroy(section.state)
             return section
         }
 
-        fun markDirty(pos: IVec3) {
+        fun dirty(pos: IVec3) {
             mDirty += pos
         }
 
@@ -144,17 +166,19 @@ abstract class DynamicTerrain(
 
         fun destroy() {
             mMap.forEach { (_, section) ->
-                destroy(section)
+                destroy(section.state)
             }
             mMap.clear()
             mDirty.clear()
         }
 
-        private fun destroy(section: Section) {
-            when (section) {
-                is Section.Built -> {
-                    section.colliders().forEach { coll ->
-                        physics.colliders.remove(coll)?.destroy()
+        private fun destroy(state: SectionState) {
+            when (state) {
+                is SectionState.Built -> {
+                    state.colliders().forEach { collKey ->
+                        // TODO: when removing, any bodies touching the terrain will be woken up
+                        // we need to avoid this, because it means the next update, the terrain will be recreated
+                        physics.colliders.remove(collKey)?.destroy()
                     }
                 }
                 else -> {}
@@ -165,12 +189,6 @@ abstract class DynamicTerrain(
     private var enabled = true
 
     val sections = Locked(Sections())
-
-    // cached fields, to avoid reallocating all the time
-    // SAFETY: the update methods will only be called in a specific order (hopefully),
-    // so these fields will not be modified in unexpected ways
-    private val toRemove = HashSet<IVec3>()
-    private val toSnapshot = HashSet<IVec3>()
 
     protected abstract fun scheduleToSnapshot(sectionPos: Iterable<IVec3>)
 
@@ -191,10 +209,18 @@ abstract class DynamicTerrain(
     override fun onPhysicsStep() {
         if (!enabled) return
 
-        toSnapshot.clear()
-        toRemove.clear()
+        // TODO we could probably turn this into a debug fn
+        // where would we put it on the HUD?
+//        println("sections:")
+//        sections.withLock { s ->
+//            s.map.forEach { (pos, sc) ->
+//                println("  $pos = $sc")
+//            }
+//        }
+
+        val toSnapshot = HashSet<IVec3>()
         // clone the key set, so it's not modified while we're using it
-        toRemove += sections.withLock { it.map.keys.toMutableSet() }
+        val toRemove = sections.withLock { it.map.keys.toMutableSet() }
 
         // find chunk sections which bodies are intersecting
         fun forCollider(body: RigidBody.Read, coll: Collider.Read) {
@@ -206,7 +232,7 @@ abstract class DynamicTerrain(
             sections.withLock { sections ->
                 sectionPos.forEach { pos ->
                     if (!sections.map.contains(pos)) {
-                        sections[pos] = Section.Pending
+                        sections.add(pos, SectionState.Pending)
                         toSnapshot += pos
                     }
                 }
@@ -222,25 +248,38 @@ abstract class DynamicTerrain(
         }
 
         // consume toSnapshot; clone the toSnapshot set and send the positions off to be snapshot
-        scheduleToSnapshot(toSnapshot.toSet())
+        scheduleToSnapshot(toSnapshot)
 
         // process all dirty sections and turn them into their next state
         sections.withLock { sections ->
-            // consume toRemove
+            // needed so that the `.clean()` call below will have all of our toRemove sections
             toRemove.forEach { pos ->
-                sections.remove(pos)
+                sections.dirty(pos)
             }
 
             // fetch and clear; once we start working, all sections are clean,
             // and while we work we mark them as dirty
             sections.clean().forEach { pos ->
-                when (val section = sections[pos]) {
-                    null -> {}
-                    is Section.Pending -> {}
-                    is Section.Snapshot -> {
-                        sections[pos] = createSection(pos, section)
+                val section = sections[pos] ?: return@forEach
+                if (toRemove.contains(pos)) {
+                    if (section.toBeRemoved()) {
+                        if (section.removeNow()) {
+                            sections.remove(pos)
+                        }
+                    } else {
+                        section.toBeRemoved(500) // TODO
                     }
-                    is Section.Built.Idle -> {}
+                } else if (section.toBeRemoved()) {
+                    // we no longer want to remove it
+                    section.stopRemoval()
+                }
+
+                when (val state = section.state) {
+                    is SectionState.Pending -> {}
+                    is SectionState.Snapshot -> {
+                        section.state = createSection(pos, state)
+                    }
+                    is SectionState.Built -> {}
                 }
             }
         }
@@ -249,17 +288,18 @@ abstract class DynamicTerrain(
     private fun computeBounds(body: RigidBody.Read, coll: Collider.Read): Aabb {
         val bounds = coll.bounds()
         // TODO constant scaling
+        expand(bounds, DVec3(4.0))
         // TODO velocity scaling
         return bounds
     }
 
-    private fun createSection(pos: IVec3, snapshot: Section.Snapshot): Section {
+    private fun createSection(pos: IVec3, state: SectionState.Snapshot): SectionState {
         class SectionLayerData {
-            val colliders = ArrayList<ColliderHandle>()
+            val colliders = ArrayList<ColliderKey>()
         }
 
         val layers = HashMap<TerrainLayer, SectionLayerData>()
-        snapshot.blocks.forEachIndexed { i, b ->
+        state.blocks.forEachIndexed { i, b ->
             val block = b as? Block.Shaped ?: return@forEachIndexed
             val (x, y, z) = (pos * 16) + posInChunk(i)
 
@@ -284,7 +324,7 @@ abstract class DynamicTerrain(
             layerData.colliders += coll
         }
 
-        return Section.Built.Idle(
+        return SectionState.Built.Idle(
             layers = layers.map { (terrainLayer, data) ->
                 terrainLayer to SectionLayer(terrainLayer, data.colliders)
             }.associate { it },

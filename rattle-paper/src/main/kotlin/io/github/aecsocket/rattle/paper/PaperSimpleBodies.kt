@@ -31,7 +31,9 @@ class PaperSimpleBodies(
                 position = position.translation,
                 transform = FAffine3(rotation = FQuat(position.rotation)),
                 item = ItemStack(Material.STONE),
-                desc = ItemRenderDesc(),
+                desc = ItemRenderDesc( // TODO configurable
+                    interpolationDuration = 2,
+                ),
             )
 
             rattle.scheduling.onEntity(render.entity).runRepeating { task ->
@@ -43,7 +45,7 @@ class PaperSimpleBodies(
                 }
                 instance.nextPosition?.let { pos ->
                     render.position = pos.translation
-                    render.transform = FAffine3(rotation = FQuat(pos.rotation))
+                    render.transform = render.transform.copy(rotation = FQuat(pos.rotation))
                     instance.nextPosition = null
                 }
             }

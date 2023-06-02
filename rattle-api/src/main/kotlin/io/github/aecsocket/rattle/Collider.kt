@@ -115,7 +115,7 @@ sealed interface Mass {
 /**
  * A key used to index into a [PhysicsSpace] to gain a reference, mutable or immutable, to a [Collider].
  */
-interface ColliderHandle
+interface ColliderKey
 
 /**
  * A physical volume in space which can be collided with by other physics structures. This holds a shape
@@ -157,7 +157,7 @@ object Collider {
         /**
          * The handle of which body this collider will follow (see [Collider]).
          */
-        val parent: RigidBodyHandle?
+        val parent: RigidBodyKey?
 
         /**
          * The world-space bounding box of this collider, determined by its shape and position.

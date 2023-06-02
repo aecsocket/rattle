@@ -76,37 +76,37 @@ class RapierSpace internal constructor(
         arena.close()
     }
 
-    override val colliders = object : PhysicsSpace.SingleContainer<Collider.Read, Collider.Write, Collider.Own, ColliderHandle> {
+    override val colliders = object : PhysicsSpace.SingleContainer<Collider.Read, Collider.Write, Collider.Own, ColliderKey> {
         override val count: Int
             get() = colliderSet.size().toInt()
 
-        override fun read(handle: ColliderHandle): Collider.Read? {
-            handle as RapierColliderHandle
-            return colliderSet.get(handle.id)?.let { RapierCollider.Read(it, this@RapierSpace) }
+        override fun read(key: ColliderKey): Collider.Read? {
+            key as RapierColliderKey
+            return colliderSet.get(key.id)?.let { RapierCollider.Read(it, this@RapierSpace) }
         }
 
-        override fun write(handle: ColliderHandle): Collider.Write? {
-            handle as RapierColliderHandle
-            return colliderSet.getMut(handle.id)?.let { RapierCollider.Write(it, this@RapierSpace) }
+        override fun write(key: ColliderKey): Collider.Write? {
+            key as RapierColliderKey
+            return colliderSet.getMut(key.id)?.let { RapierCollider.Write(it, this@RapierSpace) }
         }
 
-        override fun all(): Collection<ColliderHandle> {
-            return colliderSet.all().map { RapierColliderHandle(it.handle) }
+        override fun all(): Collection<ColliderKey> {
+            return colliderSet.all().map { RapierColliderKey(it.handle) }
         }
 
-        override fun add(value: Collider.Own): ColliderHandle {
+        override fun add(value: Collider.Own): ColliderKey {
             value as RapierCollider.Own
             value.space?.let { existing ->
                 throw IllegalStateException("$value is attempting to be added to ${this@RapierSpace} but is already in $existing")
             }
             value.space = this@RapierSpace
-            return RapierColliderHandle(colliderSet.insert(value.handle))
+            return RapierColliderKey(colliderSet.insert(value.handle))
         }
 
-        override fun remove(handle: ColliderHandle): Collider.Own? {
-            handle as RapierColliderHandle
+        override fun remove(key: ColliderKey): Collider.Own? {
+            key as RapierColliderKey
             return colliderSet.remove(
-                handle.id,
+                key.id,
                 islands,
                 rigidBodySet,
                 false,
@@ -114,44 +114,44 @@ class RapierSpace internal constructor(
         }
     }
 
-    override val bodies = object : PhysicsSpace.ActiveContainer<RigidBody.Read, RigidBody.Write, RigidBody.Own, RigidBodyHandle> {
+    override val bodies = object : PhysicsSpace.ActiveContainer<RigidBody.Read, RigidBody.Write, RigidBody.Own, RigidBodyKey> {
         override val count: Int
             get() = rigidBodySet.size().toInt()
 
         override val activeCount: Int
             get() = islands.activeDynamicBodies.size
 
-        override fun read(handle: RigidBodyHandle): RigidBody.Read? {
-            handle as RapierRigidBodyHandle
-            return rigidBodySet.get(handle.id)?.let { RapierRigidBody.Read(it, this@RapierSpace) }
+        override fun read(key: RigidBodyKey): RigidBody.Read? {
+            key as RapierRigidBodyKey
+            return rigidBodySet.get(key.id)?.let { RapierRigidBody.Read(it, this@RapierSpace) }
         }
 
-        override fun write(handle: RigidBodyHandle): RigidBody.Write? {
-            handle as RapierRigidBodyHandle
-            return rigidBodySet.getMut(handle.id)?.let { RapierRigidBody.Write(it, this@RapierSpace) }
+        override fun write(key: RigidBodyKey): RigidBody.Write? {
+            key as RapierRigidBodyKey
+            return rigidBodySet.getMut(key.id)?.let { RapierRigidBody.Write(it, this@RapierSpace) }
         }
 
-        override fun all(): Collection<RigidBodyHandle> {
-            return rigidBodySet.all().map { RapierRigidBodyHandle(it.handle) }
+        override fun all(): Collection<RigidBodyKey> {
+            return rigidBodySet.all().map { RapierRigidBodyKey(it.handle) }
         }
 
-        override fun active(): Collection<RigidBodyHandle> {
-            return islands.activeDynamicBodies.map { RapierRigidBodyHandle(it) }
+        override fun active(): Collection<RigidBodyKey> {
+            return islands.activeDynamicBodies.map { RapierRigidBodyKey(it) }
         }
 
-        override fun add(value: RigidBody.Own): RigidBodyHandle {
+        override fun add(value: RigidBody.Own): RigidBodyKey {
             value as RapierRigidBody.Own
             value.space?.let { existing ->
                 throw IllegalStateException("$value is attempting to be added to ${this@RapierSpace} but is already in $existing")
             }
             value.space = this@RapierSpace
-            return RapierRigidBodyHandle(rigidBodySet.insert(value.handle))
+            return RapierRigidBodyKey(rigidBodySet.insert(value.handle))
         }
 
-        override fun remove(handle: RigidBodyHandle): RigidBody.Own? {
-            handle as RapierRigidBodyHandle
+        override fun remove(key: RigidBodyKey): RigidBody.Own? {
+            key as RapierRigidBodyKey
             return rigidBodySet.remove(
-                handle.id,
+                key.id,
                 islands,
                 colliderSet,
                 impulseJointSet,
@@ -161,14 +161,14 @@ class RapierSpace internal constructor(
         }
     }
 
-    override fun attach(coll: ColliderHandle, to: RigidBodyHandle) {
-        coll as RapierColliderHandle
-        to as RapierRigidBodyHandle
+    override fun attach(coll: ColliderKey, to: RigidBodyKey) {
+        coll as RapierColliderKey
+        to as RapierRigidBodyKey
         colliderSet.setParent(coll.id, to.id, rigidBodySet)
     }
 
-    override fun detach(coll: ColliderHandle) {
-        coll as RapierColliderHandle
+    override fun detach(coll: ColliderKey) {
+        coll as RapierColliderKey
         colliderSet.setParent(coll.id, null, rigidBodySet)
     }
 

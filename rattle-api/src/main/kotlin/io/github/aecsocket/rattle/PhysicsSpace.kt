@@ -28,38 +28,38 @@ interface PhysicsSpace : Destroyable {
 
     var settings: Settings
 
-    val colliders: SingleContainer<Collider.Read, Collider.Write, Collider.Own, ColliderHandle>
+    val colliders: SingleContainer<Collider.Read, Collider.Write, Collider.Own, ColliderKey>
 
-    val bodies: ActiveContainer<RigidBody.Read, RigidBody.Write, RigidBody.Own, RigidBodyHandle>
+    val bodies: ActiveContainer<RigidBody.Read, RigidBody.Write, RigidBody.Own, RigidBodyKey>
 
 //    val impulseJoints: JointContainer<ImpulseJoint>
 //
 //    val multibodyJoints: JointContainer<MultibodyJoint>
 
-    fun attach(coll: ColliderHandle, to: RigidBodyHandle)
+    fun attach(coll: ColliderKey, to: RigidBodyKey)
 
-    fun detach(coll: ColliderHandle)
+    fun detach(coll: ColliderKey)
 
-    interface Container<R, W : R, O : W, H> {
+    interface Container<R, W : R, O : W, K> {
         val count: Int
 
-        fun read(handle: H): R?
+        fun read(key: K): R?
 
-        fun write(handle: H): W?
+        fun write(key: K): W?
 
-        fun all(): Collection<H>
+        fun all(): Collection<K>
 
-        fun remove(handle: H): O?
+        fun remove(key: K): O?
     }
 
-    interface SingleContainer<R, W : R, O : W, H> : Container<R, W, O, H> {
-        fun add(value: O): H
+    interface SingleContainer<R, W : R, O : W, K> : Container<R, W, O, K> {
+        fun add(value: O): K
     }
 
-    interface ActiveContainer<R, W : R, O : W, H> : SingleContainer<R, W, O, H> {
+    interface ActiveContainer<R, W : R, O : W, K> : SingleContainer<R, W, O, K> {
         val activeCount: Int
 
-        fun active(): Collection<H>
+        fun active(): Collection<K>
     }
 
 //    interface JointContainer<R, W : R, > : Container<T> {

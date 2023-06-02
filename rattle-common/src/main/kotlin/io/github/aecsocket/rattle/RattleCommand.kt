@@ -21,7 +21,6 @@ import kotlin.random.Random
 
 private const val ALL = "all"
 private const val ANG_DAMP = "ang-damp"
-private const val AXIS = "axis"
 private const val BODY = "body"
 private const val BOX = "box"
 private const val CAPSULE = "capsule"
@@ -127,7 +126,6 @@ abstract class RattleCommand<C : Audience, W>(
                                 )
                                 manager.command(
                                     literal(CAPSULE)
-                                        .argument(EnumArgument.of(LinAxis::class.java, AXIS))
                                         .argument(RealArgument.of(HALF_HEIGHT))
                                         .argument(RealArgument.of(RADIUS))
                                         .axHandler(::bodyCreateFixedCapsule)
@@ -159,7 +157,6 @@ abstract class RattleCommand<C : Audience, W>(
                                 )
                                 manager.command(
                                     literal(CAPSULE)
-                                        .argument(EnumArgument.of(LinAxis::class.java, AXIS))
                                         .argument(RealArgument.of(HALF_HEIGHT))
                                         .argument(RealArgument.of(RADIUS))
                                         .axHandler(::bodyCreateMovingCapsule)
@@ -324,7 +321,7 @@ abstract class RattleCommand<C : Audience, W>(
 
     private fun capsuleGeom(ctx: CommandContext<C>): Geometry {
         return Capsule(
-            ctx.get(AXIS),
+            LinAxis.Y,
             ctx.get(HALF_HEIGHT),
             ctx.get(RADIUS),
         )
