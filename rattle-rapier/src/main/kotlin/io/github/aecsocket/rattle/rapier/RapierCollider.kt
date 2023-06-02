@@ -8,6 +8,10 @@ class RapierShape internal constructor(
     override val handle: SharedShape,
 ) : RapierRefCounted(), Shape {
     override val nativeType get() = "RapierShape"
+
+    override fun acquire() = this.apply { handle.acquire() }
+
+    override fun release() = this.apply { handle.release() }
 }
 
 data class RapierColliderHandle(val id: Long) : ColliderHandle {

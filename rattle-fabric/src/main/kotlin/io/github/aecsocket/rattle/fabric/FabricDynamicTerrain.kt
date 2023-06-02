@@ -17,18 +17,18 @@ class FabricDynamicTerrain(
     }
 
     fun onTick() {
-        toCreate.withLock { toCreate ->
-            toSnapshot.forEach { pos ->
-                world.getChunk(pos.x, pos.y)
-                // TODO
+//        toCreate.withLock { toCreate ->
+//            toSnapshot.forEach { pos ->
+//                world.getChunk(pos.x, pos.y)
+//                // TODO
 //
 //                toCreate += SectionSnapshot(
 //                    pos = pos,
 //                    blocks = Array(),
 //                )
-            }
-        }
+//            }
+//        }
 
-        toSnapshot.clear()
+//        toSnapshot.clear()
     }
 }

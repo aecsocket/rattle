@@ -38,13 +38,10 @@ abstract class RapierRefCounted : RapierNative(), RefCounted {
     override val refCount: Long
         get() = handle.strongCount()
 
-    override fun acquire() {
-        handle.acquire()
-    }
+    // don't implement so that concrete types return their own types
+    abstract override fun acquire(): RapierRefCounted
 
-    override fun release() {
-        handle.release()
-    }
+    abstract override fun release(): RapierRefCounted
 
     // equality and hashing is done by keying the underlying shape, **not** the ref-counting (Arc) object
     override fun equals(other: Any?) = other is RapierRefCounted && handle.refData() == other.handle.refData()

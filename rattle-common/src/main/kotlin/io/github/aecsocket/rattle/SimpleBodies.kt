@@ -99,8 +99,8 @@ abstract class AbstractSimpleBodies<W>(
 
         val shape = engine.createShape(desc.geom)
         val body = engine.createBody(
-            position = position,
             type = desc.type,
+            position = position,
             isCcdEnabled = desc.isCcdEnabled,
             gravityScale = desc.gravityScale,
             linearDamping = desc.linearDamping,

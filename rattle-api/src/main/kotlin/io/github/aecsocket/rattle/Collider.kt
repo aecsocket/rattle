@@ -15,7 +15,11 @@ package io.github.aecsocket.rattle
  * equality with them, **only if** the underlying shape is not freed ([Destroyable.destroy]'ed) yet (otherwise you would be
  * accessing a freed `Arc`, with an undefined data pointer).
  */
-interface Shape : RefCounted
+interface Shape : RefCounted {
+    override fun acquire(): Shape
+
+    override fun release(): Shape
+}
 
 /**
  * Which rule is applied to both friction or restitution coefficients of bodies that have come into contact,

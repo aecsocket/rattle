@@ -10,7 +10,7 @@ import rapier.pipeline.PhysicsPipeline
 import rapier.shape.Segment
 import rapier.shape.SharedShape
 
-class RapierEngine(var settings: Settings) : PhysicsEngine {
+class RapierEngine(var settings: Settings = Settings()) : PhysicsEngine {
     @ConfigSerializable
     data class Settings(
         val integration: Integration = Integration(),
@@ -101,8 +101,8 @@ class RapierEngine(var settings: Settings) : PhysicsEngine {
     ): Collider.Own {
         shape as RapierShape
         val coll = pushArena { arena ->
-            // do not manually acquire the shape here; Rapier will increment the Arc ref count itself
-            ColliderBuilder.of(shape.handle)
+            // DO manually acquire the shape here; Rapier will NOT increment the Arc ref count itself
+            ColliderBuilder.of(shape.acquire().handle)
                 .friction(material.friction)
                 .restitution(material.restitution)
                 .frictionCombineRule(material.frictionCombine.convert())
@@ -124,8 +124,8 @@ class RapierEngine(var settings: Settings) : PhysicsEngine {
     }
 
     override fun createBody(
-        position: Iso,
         type: RigidBodyType,
+        position: Iso,
         linearVelocity: Vec,
         angularVelocity: Vec,
         isCcdEnabled: Boolean,
@@ -186,7 +186,9 @@ class RapierEngine(var settings: Settings) : PhysicsEngine {
         return createJoint(axes)
     }
 
-    override fun createSpace(settings: PhysicsSpace.Settings): PhysicsSpace {
+    override fun createSpace(
+        settings: PhysicsSpace.Settings,
+    ): PhysicsSpace {
         return RapierSpace(this, settings)
     }
 

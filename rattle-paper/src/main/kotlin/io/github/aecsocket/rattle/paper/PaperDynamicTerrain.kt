@@ -49,26 +49,28 @@ class PaperDynamicTerrain(
             byXZ.computeIfAbsent(pos.xz) { HashSet() } += pos.y
         }
 
-        println("scheduling $sectionPos = $byXZ")
         byXZ.forEach { (xz, ys) ->
             if (!world.isChunkLoaded(xz.x, xz.y)) return@forEach
             rattle.scheduling.onChunk(world, xz).launch {
                 val chunk = world.getChunkAt(xz.x, xz.y)
 
                 val snapshots = ys.map { y ->
-                    createSnapshot(chunk, IVec3(xz.x, y, xz.y))
+                    val pos = IVec3(xz.x, y, xz.y)
+                    pos to createSnapshot(chunk, pos)
                 }
-                toCreate.withLock { toCreate ->
-                    toCreate += snapshots
+                sections.withLock { sections ->
+                    snapshots.forEach { (pos, snapshot) ->
+                        sections[pos] = snapshot
+                    }
                 }
             }
         }
     }
 
-    private fun createSnapshot(chunk: Chunk, pos: IVec3): SectionSnapshot {
+    private fun createSnapshot(chunk: Chunk, pos: IVec3): Section.Snapshot {
         val iy = pos.y + negativeYSlices
         if ((chunk as CraftChunk).handle.sections[iy].hasOnlyAir()) {
-            return SectionSnapshot(pos, onlyPassable)
+            return Section.Snapshot(onlyPassable)
         }
 
         val blocks = Array(BLOCKS_IN_SECTION) { i ->
@@ -78,8 +80,7 @@ class PaperDynamicTerrain(
             wrapBlock(chunk.getBlock(lx, gy, lz))
         }
 
-        return SectionSnapshot(
-            pos = pos,
+        return Section.Snapshot(
             blocks = blocks,
         )
     }

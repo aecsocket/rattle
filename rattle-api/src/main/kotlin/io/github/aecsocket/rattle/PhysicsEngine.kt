@@ -34,9 +34,9 @@ interface Destroyable {
 interface RefCounted {
     val refCount: Long
 
-    fun acquire()
+    fun acquire(): RefCounted
 
-    fun release()
+    fun release(): RefCounted
 }
 
 /**
@@ -93,8 +93,8 @@ interface PhysicsEngine : Destroyable {
      * @param sleeping The sleep parameters (see [Sleeping]).
      */
     fun createBody(
-        position: Iso,
         type: RigidBodyType,
+        position: Iso,
         linearVelocity: Vec = Vec.Zero,
         angularVelocity: Vec = Vec.Zero,
         isCcdEnabled: Boolean = false,
@@ -111,7 +111,7 @@ interface PhysicsEngine : Destroyable {
     /**
      * Creates an independent container for physics structures from the specified settings.
      */
-    fun createSpace(settings: PhysicsSpace.Settings): PhysicsSpace
+    fun createSpace(settings: PhysicsSpace.Settings = PhysicsSpace.Settings()): PhysicsSpace
 
     /**
      * Simulates an update for a collection of spaces in parallel, with the given time step.
