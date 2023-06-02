@@ -1,9 +1,6 @@
 package io.github.aecsocket.rattle.impl
 
-import io.github.aecsocket.alexandria.log.Log
-import io.github.aecsocket.alexandria.log.info
 import io.github.aecsocket.alexandria.sync.Sync
-import io.github.aecsocket.rattle.PhysicsSpace
 import io.github.aecsocket.rattle.Real
 import io.github.aecsocket.rattle.stats.TimestampedList
 import io.github.aecsocket.rattle.stats.timestampedList
@@ -42,7 +39,7 @@ abstract class RattlePlatform<W, C>(
         mEngineTimings.buffer = timingsBufferSize()
     }
 
-    fun destroy(log: Log) {
+    fun destroy() {
         val count = worlds.sumOf { world ->
             val res = physicsOrNull(world)?.withLock { physics ->
                 physics.destroy()
@@ -51,7 +48,7 @@ abstract class RattlePlatform<W, C>(
             // weird syntax because Kotlin gets confused between sumOf<Int> and <Long>
             res
         }
-        log.info { "Destroyed $count world physics spaces" }
+        rattle.log.info { "Destroyed $count world physics spaces" }
     }
 
     fun tick() {

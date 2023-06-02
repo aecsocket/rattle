@@ -3,12 +3,12 @@ package io.github.aecsocket.rattle.impl
 import io.github.aecsocket.alexandria.BossBarDescriptor
 import io.github.aecsocket.alexandria.hook.AlexandriaHook
 import io.github.aecsocket.alexandria.hook.fallbackLocale
-import io.github.aecsocket.alexandria.log.*
 import io.github.aecsocket.glossa.Glossa
 import io.github.aecsocket.glossa.MessageProxy
 import io.github.aecsocket.glossa.messageProxy
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.rapier.RapierEngine
+import io.github.oshai.kotlinlogging.KLogger
 import net.kyori.adventure.text.format.TextColor
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import java.util.*
@@ -50,7 +50,7 @@ abstract class RattleHook {
     }
 
     abstract val ax: AlexandriaHook<*>
-    abstract val log: Log
+    abstract val log: KLogger
     abstract val settings: Settings
     abstract val glossa: Glossa
 
@@ -60,7 +60,7 @@ abstract class RattleHook {
     lateinit var messages: MessageProxy<RattleMessages>
         private set
 
-    fun init(log: Log) {
+    fun init() {
         engine = RapierEngine(settings.rapier)
         log.info { "Loaded physics engine ${engine.name} v${engine.version}" }
 
@@ -72,17 +72,17 @@ abstract class RattleHook {
         log.info { "Set up physics worker thread pool with $workerThreads threads" }
     }
 
-    fun load(log: Log, platform: RattlePlatform<*, *>?) {
+    fun load(platform: RattlePlatform<*, *>?) {
         messages = glossa.messageProxy()
         platform?.load()
     }
 
-    fun reload(log: Log) {
+    fun reload() {
         engine.settings = settings.rapier
     }
 
-    fun destroy(log: Log, platform: RattlePlatform<*, *>?) {
-        platform?.destroy(log)
+    fun destroy(platform: RattlePlatform<*, *>?) {
+        platform?.destroy()
 
         executor.shutdown()
         log.info { "Waiting ${settings.jobs.threadTerminateTime} sec for physics jobs" }

@@ -1,7 +1,6 @@
 package io.github.aecsocket.rattle.paper
 
 import io.github.aecsocket.alexandria.hook.AlexandriaHook
-import io.github.aecsocket.alexandria.log.Log
 import io.github.aecsocket.alexandria.paper.AlexandriaPlugin
 import io.github.aecsocket.alexandria.paper.extension.alexandriaPaperSerializers
 import io.github.aecsocket.alexandria.paper.extension.forWorld
@@ -14,6 +13,7 @@ import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.impl.RattleHook
 import io.github.aecsocket.rattle.impl.rattleManifest
 import io.github.aecsocket.rattle.world.NoOpEntityStrategy
+import io.github.oshai.kotlinlogging.KLogger
 import org.bukkit.World
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
@@ -50,7 +50,7 @@ class PaperRattle : AlexandriaPlugin<RattleHook.Settings>(
         override val ax: AlexandriaHook<*>
             get() = this@PaperRattle.ax
 
-        override val log: Log
+        override val log: KLogger
             get() = this@PaperRattle.log
 
         override val settings: Settings
@@ -84,12 +84,12 @@ class PaperRattle : AlexandriaPlugin<RattleHook.Settings>(
 
     override fun loadSettings(node: ConfigurationNode) = node.get() ?: RattleHook.Settings()
 
-    override fun onPreInit(log: Log) {
+    override fun onPreInit() {
         platform = PaperRattlePlatform(this)
     }
 
-    override fun onInit(log: Log) {
-        rattle.init(log)
+    override fun onInit() {
+        rattle.init()
     }
 
     override fun onEnable() {
@@ -113,16 +113,16 @@ class PaperRattle : AlexandriaPlugin<RattleHook.Settings>(
         })
     }
 
-    override fun onLoad(log: Log) {
-        rattle.load(log, platform)
+    override fun onLoadData() {
+        rattle.load(platform)
     }
 
-    override fun onReload(log: Log) {
-        rattle.reload(log)
+    override fun onReloadData() {
+        rattle.reload()
     }
 
-    override fun onDestroy(log: Log) {
-        rattle.destroy(log, platform)
+    override fun onDestroy() {
+        rattle.destroy(platform)
     }
 
     fun physicsOrNull(world: World): Sync<PaperWorldPhysics>? =

@@ -4,8 +4,6 @@ import io.github.aecsocket.alexandria.fabric.AlexandriaMod
 import io.github.aecsocket.alexandria.fabric.extension.alexandriaFabricSerializers
 import io.github.aecsocket.alexandria.fabric.extension.forLevel
 import io.github.aecsocket.alexandria.hook.AlexandriaHook
-import io.github.aecsocket.alexandria.log.Log
-import io.github.aecsocket.alexandria.log.trace
 import io.github.aecsocket.alexandria.sync.Locked
 import io.github.aecsocket.alexandria.sync.Sync
 import io.github.aecsocket.glossa.Glossa
@@ -14,6 +12,7 @@ import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.impl.RattleHook
 import io.github.aecsocket.rattle.impl.rattleManifest
 import io.github.aecsocket.rattle.world.NoOpEntityStrategy
+import io.github.oshai.kotlinlogging.KLogger
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
 import net.kyori.adventure.platform.fabric.PlayerLocales
@@ -50,7 +49,7 @@ class FabricRattle : AlexandriaMod<RattleHook.Settings>(
         override val ax: AlexandriaHook<*>
             get() = this@FabricRattle.ax
 
-        override val log: Log
+        override val log: KLogger
             get() = this@FabricRattle.log
 
         override val settings: Settings
@@ -77,15 +76,15 @@ class FabricRattle : AlexandriaMod<RattleHook.Settings>(
 
     override fun loadSettings(node: ConfigurationNode) = node.get() ?: RattleHook.Settings()
 
-    override fun onInit(log: Log) {
-        rattle.init(log)
+    override fun onInit() {
+        rattle.init()
         FabricRattleCommand(this)
         ServerLifecycleEvents.SERVER_STARTING.register { server ->
             platform = server.rattle()
             log.trace { "Set up Rattle platform" }
         }
         ServerLifecycleEvents.SERVER_STOPPING.register { server ->
-            server.rattle().destroy(log)
+            server.rattle().destroy()
             platform = null
             log.trace { "Tore down Rattle platform" }
         }
@@ -99,12 +98,12 @@ class FabricRattle : AlexandriaMod<RattleHook.Settings>(
         }
     }
 
-    override fun onLoad(log: Log) {
-        rattle.load(log, platform)
+    override fun onLoad() {
+        rattle.load(platform)
     }
 
-    override fun onReload(log: Log) {
-        rattle.reload(log)
+    override fun onReload() {
+        rattle.reload()
     }
 
     fun physicsOrNull(world: ServerLevel): Sync<FabricWorldPhysics>? =

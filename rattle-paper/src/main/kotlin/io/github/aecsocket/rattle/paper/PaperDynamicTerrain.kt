@@ -1,6 +1,5 @@
 package io.github.aecsocket.rattle.paper
 
-import io.github.aecsocket.alexandria.log.warn
 import io.github.aecsocket.alexandria.paper.extension.toDVec
 import io.github.aecsocket.klam.IVec2
 import io.github.aecsocket.klam.IVec3
