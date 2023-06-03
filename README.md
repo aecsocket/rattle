@@ -3,7 +3,8 @@
 # Rattle
 [![CI](https://img.shields.io/github/actions/workflow/status/aecsocket/rattle/build.yml)](https://github.com/aecsocket/rattle/actions/workflows/build.yml)
 
-<img src="static/banner.png" height="240"/>
+![Banner](static/banner.png)
+
 
 API abstraction layer for physics engines for Minecraft servers
 
