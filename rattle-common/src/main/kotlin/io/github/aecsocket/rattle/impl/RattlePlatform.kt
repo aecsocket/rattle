@@ -3,7 +3,6 @@ package io.github.aecsocket.rattle.impl
 import io.github.aecsocket.alexandria.sync.Sync
 import io.github.aecsocket.rattle.Real
 import io.github.aecsocket.rattle.stats.TimestampedList
-import io.github.aecsocket.rattle.stats.timestampedList
 import io.github.aecsocket.rattle.world.*
 import net.kyori.adventure.key.Key
 import java.util.concurrent.atomic.AtomicBoolean
@@ -29,7 +28,7 @@ abstract class RattlePlatform<W, C>(
     val isStepping: Boolean
         get() = stepping.get()
 
-    private val mEngineTimings = timestampedList<Long>(timingsBufferSize())
+    private val mEngineTimings = TimestampedList<Long>(timingsBufferSize())
     val engineTimings: TimestampedList<Long>
         get() = mEngineTimings
 
@@ -41,11 +40,15 @@ abstract class RattlePlatform<W, C>(
 
     fun destroy() {
         val count = worlds.sumOf { world ->
-            val res = physicsOrNull(world)?.withLock { physics ->
+            val res: Int = run {
+                // SAFETY: this isn't safe, but at this point we just need to destroy this world
+                // if it's still locked, then we are going to completely screw up the internal state
+                // hopefully it won't matter since we're destroying the space and platform anyway
+                val physics = physicsOrNull(world)?.leak() ?: return@run 0
                 physics.destroy()
                 1
-            } ?: 0
-            // weird syntax because Kotlin gets confused between sumOf<Int> and <Long>
+            }
+            // weird syntax because Kotlin gets confused between sumOf((T) -> Int) and ((T) -> Long)
             res
         }
         rattle.log.info { "Destroyed $count world physics spaces" }

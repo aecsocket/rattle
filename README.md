@@ -24,7 +24,7 @@ These bindings require Java 20, since they use the Java Foreign API.
 - [x] Rigid body physics and collision detection
 - [x] Integration with the world, so terrain and entities are automatically included as bodies
 - [x] Fully server-side; no client mods required
-- [x] Compatible with [Folia](https://github.com/PaperMC/Folia)
+- [ ] Compatible with [Folia](https://github.com/PaperMC/Folia) (not yet: regressed until API updated)
 - [x] Free and open-source under the MIT license
 
 ## Motivation

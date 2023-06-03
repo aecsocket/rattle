@@ -43,11 +43,14 @@ data class Sphere(
 
 /**
  * A cuboid centered around zero defined by its half-extent.
+ *
+ * **Note:** adding a convex margin actually *decreases* performance on cuboid shapes.
  * @param halfExtent The half-lengths of the box. Components must all be greater than 0.
  */
 @ConfigSerializable
 data class Box(
     val halfExtent: Vec,
+    val margin: Real = 0.0,
 ) : ConvexGeometry {
     init {
         require(halfExtent.x > 0.0) { "requires halfExtent.x > 0.0" }
@@ -88,6 +91,7 @@ data class Capsule(
 data class Cylinder(
     val halfHeight: Real,
     val radius: Real,
+    val margin: Real = DEFAULT_MARGIN,
 ) : ConvexGeometry {
     init {
         require(halfHeight > 0.0) { "requires halfHeight > 0.0" }
@@ -108,6 +112,7 @@ data class Cylinder(
 data class Cone(
     val halfHeight: Real,
     val radius: Real,
+    val margin: Real = DEFAULT_MARGIN,
 ) : ConvexGeometry {
     init {
         require(halfHeight > 0.0) { "requires halfHeight > 0.0" }
@@ -232,6 +237,10 @@ data class VhacdSettings(
 data class Compound(
     val children: List<Child>,
 ) : Geometry {
+    init {
+        require(children.isNotEmpty()) { "requires children.isNotEmpty()" }
+    }
+
     /**
      * A child in a [Compound] geometry.
      * @param shape The shape.
@@ -241,8 +250,4 @@ data class Compound(
         val shape: Shape,
         val delta: Iso = Iso(),
     )
-
-    init {
-        require(children.isNotEmpty()) { "requires children.isNotEmpty()" }
-    }
 }

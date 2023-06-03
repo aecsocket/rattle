@@ -1,6 +1,9 @@
 translations:
   en-US:
     error:
+      task_timed_out: >-
+        <se>Timed out waiting for task to complete
+
       space:
         already_exists: >-
           <se>Physics space for <p1>{world}</p1> already exists

@@ -12,7 +12,6 @@ import org.bukkit.Chunk
 import org.bukkit.Material
 import org.bukkit.World
 import org.bukkit.block.data.BlockData
-import org.bukkit.craftbukkit.v1_19_R3.CraftChunk
 import org.bukkit.util.Vector
 import java.util.concurrent.ConcurrentHashMap
 
@@ -25,7 +24,8 @@ class PaperDynamicTerrain(
     physics: PhysicsSpace,
     private val world: World,
 ) : DynamicTerrain(rattle.rattle, physics) {
-    private val negativeYSlices = -world.minHeight / 16
+    private val negativeYSections = -world.minHeight / 16
+    private val ySlices = (world.maxHeight - world.minHeight) / 16
     private val shapeCache = ConcurrentHashMap<BlockData, Shape?>()
 
     // SAFETY: scheduleToSnapshot will only be called sequentially, so byXZ will no longer be in use
@@ -98,9 +98,21 @@ class PaperDynamicTerrain(
     }
 
     private fun createSnapshot(chunk: Chunk, pos: IVec3): SectionState.Snapshot {
-        val iy = pos.y + negativeYSlices
-        val sections = (chunk as CraftChunk).handle.sections
-        if (iy < 0 || iy >= sections.size || sections[iy].hasOnlyAir()) {
+        val iy = pos.y + negativeYSections
+
+        // TODO: https://github.com/PaperMC/Paper/issues/9255
+        /*
+        Paper:
+        public ChunkAccess getHandle(ChunkStatus chunkStatus)
+
+        Folia:
+        public net.minecraft.world.level.chunk.LevelChunk getHandle()
+         */
+//        val sections = (chunk as CraftChunk).handle.sections
+//        if (iy < 0 || iy >= sections.size || sections[iy].hasOnlyAir()) {
+//            return SectionState.Snapshot(onlyPassable)
+//        }
+        if (iy < 0 || iy >= ySlices) {
             return SectionState.Snapshot(onlyPassable)
         }
 
@@ -128,13 +140,19 @@ class PaperDynamicTerrain(
                 boxes.size == 1 && boxes.first().center == Vector(0.5, 0.5, 0.5) -> {
                     val box = boxes.first()
                     val halfExtent = (box.max.toDVec() - box.min.toDVec()) / 2.0
-                    cubeShape(halfExtent)
+                    box(halfExtent)
                 }
                 else -> {
-                    // TODO compound shape
-                    val box = block.boundingBox
-                    val halfExtent = (box.max.toDVec() - box.min.toDVec()) / 2.0
-                    cubeShape(halfExtent)
+                    val children = boxes.map { box ->
+                        val center = box.center.toDVec() - 0.5
+                        val halfExtent = (box.max.toDVec() - box.min.toDVec()) / 2.0
+                        Compound.Child(
+                            // SAFETY: the compound will own this shape, so when it's dropped, so is this box ref
+                            shape = box(halfExtent),
+                            delta = Iso(center)
+                        )
+                    }
+                    rattle.engine.createShape(Compound(children))
                 }
             }
         } ?: return Block.Passable
@@ -145,8 +163,9 @@ class PaperDynamicTerrain(
         }
     }
 
-    private fun cubeShape(halfExtent: Vec): Shape {
+    private fun box(halfExtent: Vec): Shape {
         // todo maybe this should be cached to reduce memory?? ehh idk
+        // if we do decide to cache, make sure to acquire a ref as well
         return rattle.engine.createShape(Box(halfExtent))
     }
 }

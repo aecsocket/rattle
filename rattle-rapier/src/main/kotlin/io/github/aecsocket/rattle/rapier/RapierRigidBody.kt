@@ -3,7 +3,8 @@ package io.github.aecsocket.rattle.rapier
 import io.github.aecsocket.rattle.*
 import rapier.data.ArenaKey
 
-data class RapierRigidBodyKey(val id: Long) : RigidBodyKey {
+@JvmInline
+value class RapierRigidBodyKey(val id: Long) : RigidBodyKey {
     override fun toString(): String = ArenaKey.asString(id)
 }
 

@@ -4,7 +4,6 @@ import io.github.aecsocket.rattle.*
 import rapier.Droppable
 import rapier.Native
 import rapier.geometry.CoefficientCombineRule
-import rapier.geometry.FillMode
 import rapier.geometry.VHACDParameters
 import rapier.math.AngVector
 import rapier.math.Isometry
@@ -88,12 +87,19 @@ fun VhacdSettings.toParams(alloc: SegmentAllocator) = VHACDParameters.create(all
     it.planeDownsampling = planeDownsampling
     it.convexHullDownsampling = convexHullDownsampling
     it.fillMode = when (val fillMode = fillMode) {
-        is VhacdSettings.FillMode.SurfaceOnly -> FillMode.SurfaceOnly.INSTANCE
-        is VhacdSettings.FillMode.FloodFill -> FillMode.FloodFill(fillMode.detectCavities)
+        is VhacdSettings.FillMode.SurfaceOnly -> VHACDParameters.FillMode.SurfaceOnly.INSTANCE
+        is VhacdSettings.FillMode.FloodFill -> VHACDParameters.FillMode.FloodFill(fillMode.detectCavities)
     }
     it.convexHullApproximation = convexHullApproximation
     it.maxConvexHulls = maxConvexHulls
 }
+
+fun InteractionGroup.convert(alloc: SegmentAllocator) = rapier.geometry.InteractionGroups.of(alloc, memberships.raw, filter.raw)
+
+fun rapier.geometry.InteractionGroups.convert() = InteractionGroup(
+    memberships = InteractionField(memberships),
+    filter = InteractionField(filter),
+)
 
 fun RigidBodyType.convert() = when (this) {
     RigidBodyType.FIXED     -> rapier.dynamics.RigidBodyType.FIXED

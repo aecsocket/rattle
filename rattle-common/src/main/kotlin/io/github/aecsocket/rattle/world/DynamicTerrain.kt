@@ -303,8 +303,10 @@ abstract class DynamicTerrain(
             val block = b as? Block.Shaped ?: return@forEachIndexed
             val (x, y, z) = (pos * 16) + posInChunk(i)
 
+            // SAFETY: acquire a new ref to this shape, since this shape will probably be used by multiple blocks
+            // we release it on destruction as well
             val coll = rattle.engine.createCollider(
-                shape = block.shape,
+                shape = block.shape.acquire(),
                 material = PhysicsMaterial(friction = 0.5, restitution = 0.2), // TODO
                 position = Iso(
                     DVec3(x.toDouble() + 0.5, y.toDouble() + 0.5, z.toDouble() + 0.5),

@@ -14,7 +14,7 @@ repositories {
 }
 
 dependencies {
-    paperweight.foliaDevBundle("$minecraft-R0.1-SNAPSHOT")
+    paperweight.paperDevBundle("$minecraft-R0.1-SNAPSHOT")
     api(projects.rattleCommon)
     api(libs.alexandria.paper)
 }

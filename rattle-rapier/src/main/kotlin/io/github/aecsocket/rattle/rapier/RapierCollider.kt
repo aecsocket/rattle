@@ -14,7 +14,8 @@ class RapierShape internal constructor(
     override fun release() = this.apply { handle.release() }
 }
 
-data class RapierColliderKey(val id: Long) : ColliderKey {
+@JvmInline
+value class RapierColliderKey(val id: Long) : ColliderKey {
     override fun toString(): String = ArenaKey.asString(id)
 }
 
@@ -34,6 +35,16 @@ open class RapierCollider internal constructor(
             frictionCombine = handle.frictionCombineRule.convert(),
             restitutionCombine = handle.restitutionCombineRule.convert(),
         )
+
+    override val collisionGroup: InteractionGroup
+        get() = pushArena { arena ->
+            handle.getCollisionGroups(arena).convert()
+        }
+
+    override val solverGroup: InteractionGroup
+        get() = pushArena { arena ->
+            handle.getSolverGroups(arena).convert()
+        }
 
     override val position: Iso
         get() = pushArena { arena ->
@@ -80,6 +91,18 @@ open class RapierCollider internal constructor(
                 handle.restitution = value.restitution
                 handle.frictionCombineRule = value.frictionCombine.convert()
                 handle.restitutionCombineRule = value.restitutionCombine.convert()
+            }
+
+        override var collisionGroup: InteractionGroup
+            get() = super.collisionGroup
+            set(value) = pushArena { arena ->
+                handle.setCollisionGroups(value.convert(arena))
+            }
+
+        override var solverGroup: InteractionGroup
+            get() = super.solverGroup
+            set(value) = pushArena { arena ->
+                handle.setSolverGroups(value.convert(arena))
             }
 
         override var position: Iso

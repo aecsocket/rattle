@@ -1,7 +1,6 @@
 package io.github.aecsocket.rattle
 
 import io.github.aecsocket.klam.*
-import kotlin.math.max
 
 typealias Real = Double
 typealias Vec = DVec3
@@ -26,10 +25,9 @@ interface Destroyable {
  * object stops using it, they [release] the reference. Once the number of references reaches 0,
  * the object is destroyed.
  *
- * Objects may automatically acquire a reference if they are passed a RefCounted object, so you
- * will not have to do this yourself (until all objects which acquired a reference are now destroyed,
- * so your caller is the last object holding a reference). See the documentation for specific methods
- * for ref-counting behaviour.
+ * Any functions or classes which accept a [RefCounted] will **not** automatically [acquire] a reference;
+ * this is your responsibility as the caller, but allows you a fine level of control over what objects
+ * own what references.
  */
 interface RefCounted {
     val refCount: Long
@@ -60,14 +58,17 @@ interface PhysicsEngine : Destroyable {
 
     /**
      * Creates a baked, physics-ready form of a [Geometry], which starts with a reference count of 1.
+     * See [RefCounted] for information on using ref-counted objects.
      * @param geom The geometry to bake.
      */
     fun createShape(geom: Geometry): Shape
 
     /**
      * Creates a [Collider] from the specified parameters, which by default is not attached to any [RigidBody].
-     * @param shape The baked shape to use for this collider. The ref-count will be automatically incremented.
+     * @param shape The baked shape to use for this collider.
      * @param material The physical material properties of this collider.
+     * @param collisionGroup The groups which this collider can generate contacts with (see [InteractionGroup]).
+     * @param solverGroup The groups which this collider can compute forces with (see [InteractionGroup]).
      * @param position The absolute position of this collider in the world - **not** the position relative to the parent body.
      * @param mass The mass properties of this collider.
      * @param physics The physics interaction mode of this collider.
@@ -75,6 +76,8 @@ interface PhysicsEngine : Destroyable {
     fun createCollider(
         shape: Shape,
         material: PhysicsMaterial,
+        collisionGroup: InteractionGroup = InteractionGroup.All,
+        solverGroup: InteractionGroup = InteractionGroup.All,
         position: Iso = Iso(),
         mass: Mass = Mass.Density(1.0),
         physics: PhysicsMode = PhysicsMode.SOLID,
@@ -119,10 +122,34 @@ interface PhysicsEngine : Destroyable {
      * different spaces at once, then waiting for all of them at the same time). However, through a specialized
      * native function, we *can* achieve the same effect if we provide all the spaces that we want to step upfront.
      *
+     * # Stages
+     *
+     * The update step of a physics engine is typically split into:
+     * - Broad-phase - collision pairs are generated between all [Collider]s, using a bounding volume hierarchy to
+     *   accelerate these queries. These pairs are coarse, and do not guarantee that two bodies did actually collide.
+     * - Narrow-phase - all collision pairs previously generated are checked to see if they actually collided, and if
+     *   so, compute the contacts and forces necessary in order to resolve them.
+     *
      * @param dt The time step to simulate, in seconds.
      * @param spaces The spaces to step.
      */
     fun stepSpaces(dt: Real, spaces: Collection<PhysicsSpace>)
+
+    /**
+     * Utility class for building a [PhysicsEngine], allowing defining properties required for the engine.
+     */
+    interface Builder {
+        /**
+         * Creates and registers a new [InteractionLayer], returning a reference to it, which can be used to read
+         * and modify [InteractionField]s.
+         */
+        fun registerInteractionLayer(): InteractionLayer
+
+        /**
+         * Builds the engine with the specified parameters.
+         */
+        fun build(): PhysicsEngine
+    }
 }
 
 /**

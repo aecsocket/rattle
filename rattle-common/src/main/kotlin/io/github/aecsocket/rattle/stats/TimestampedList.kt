@@ -55,5 +55,6 @@ class TimestampedListImpl<T> internal constructor(override var buffer: Long) : M
     }
 }
 
-fun <T> timestampedList(buffer: Long): MutableTimestampedList<T> =
+@Suppress("FunctionName")
+fun <T> TimestampedList(buffer: Long): MutableTimestampedList<T> =
     TimestampedListImpl(buffer)
