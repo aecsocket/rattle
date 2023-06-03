@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "id": "rattle",
+  "version": "$version",
+
+  "name": "Rattle",
+  "description": "$description",
+  "authors": [
+    "aecsocket"
+  ],
+  "contact": {
+    "homepage": "https://github.com/aecsocket/rattle",
+    "issues": "https://github.com/aecsocket/rattle/issues",
+    "sources": "https://github.com/aecsocket/rattle"
+  },
+  "license": "MIT",
+
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      {
+        "adapter": "kotlin",
+        "value": "${group}.rattle.fabric.FabricRattle"
+      }
+    ]
+  },
+  "mixins": [
+    "rattle.mixins.json"
+  ],
+
+  "depends": {
+    "fabricloader": ">=0.14.19",
+    "fabric-api": "0.81.1+1.19.4",
+    "minecraft": "1.19.4",
+    "java": "19"
+  }
+}

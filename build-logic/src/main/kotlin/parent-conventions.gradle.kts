@@ -1,6 +1,5 @@
 plugins {
     id("net.kyori.indra.publishing.sonatype")
-    kotlin("jvm") apply false
 }
 
 indraSonatype {

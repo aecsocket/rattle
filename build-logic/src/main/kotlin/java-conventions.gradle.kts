@@ -1,3 +1,5 @@
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+
 plugins {
     id("base-conventions")
     id("java-library")
@@ -7,6 +9,7 @@ plugins {
 indra {
     javaVersions {
         target(19)
+        previewFeaturesEnabled(true)
     }
 }
 
@@ -16,14 +19,27 @@ repositories {
     sonatype.s01Snapshots()
 }
 
-afterEvaluate {
-    tasks.processResources {
-        filesMatching("**/*.yml") {
-            expand(
-                "version" to project.version,
-                "group" to project.group,
-                "description" to project.description
-            )
+tasks {
+    processResources {
+        listOf(
+            "paper-plugin.yml",
+            "fabric.mod.json",
+        ).forEach { pattern ->
+            filesMatching(pattern) {
+                expand(
+                    "version" to project.version,
+                    "group" to project.group,
+                    "description" to project.description
+                )
+            }
         }
+    }
+
+    test {
+        jvmArgs(
+            "--enable-preview",
+            "--enable-native-access=ALL-UNNAMED",
+        )
+        testLogging.exceptionFormat = TestExceptionFormat.FULL
     }
 }

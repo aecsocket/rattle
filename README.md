@@ -1,23 +1,23 @@
 <div align="center">
 
-# Ignacio
-[![License](https://img.shields.io/github/license/aecsocket/ignacio)](LICENSE)
-[![CI](https://img.shields.io/github/actions/workflow/status/aecsocket/ignacio/build.yml)](https://github.com/aecsocket/ignacio/actions/workflows/build.yml)
+# Rattle
+[![CI](https://img.shields.io/github/actions/workflow/status/aecsocket/rattle/build.yml)](https://github.com/aecsocket/rattle/actions/workflows/build.yml)
 
 <img src="static/banner.png" height="240"/>
 
 API abstraction layer for physics engines for Minecraft servers
 
-### [GitHub](https://github.com/aecsocket/ignacio) · [Docs](https://aecsocket.github.io/ignacio)
+### [GitHub](https://github.com/aecsocket/rattle) · [Docs](https://aecsocket.github.io/rattle)
 
 </div>
 
-Ignacio is an integration project which combines a fully-featured physics engine backend into a server-side environment,
+Rattle is an integration project which combines a fully-featured physics engine backend into a server-side environment,
 allowing a game world's state (blocks, entities, etc.) to influence the physics state, and allow that physics state to be
 displayed to clients via vanilla packets (no client mod required).
 
-The project currently uses the [JoltPhysics](https://github.com/jrouwe/JoltPhysics) backend, a rigid-body physics library,
-with Java bindings via [jolt-java](https://github.com/aecsocket/jolt-java) and integrated in the `ignacio-jolt` module.
+The project currently uses the [Rapier](https://github.com/dimforge/rapier) backend, a rigid-body physics library,
+with Java bindings via [rapier-java](https://github.com/aecsocket/rapier-java) and integrated in the `rattle-rapier` module.
+These bindings require Java 20, since they use the Java Foreign API.
 
 ## Features
 
@@ -38,7 +38,7 @@ The code is implemented as a server-side plugin rather than a client-side mod, b
 - clients don't need to download any mods for a mod loader (Forge, Fabric etc.) to interact with physics
 
 There have already been projects which integrate some degree of rigid-body physics into the game, however those are mainly
-used for one-off specific features, and most are client-side mods. Ignacio acts instead as a framework for other projects
+used for one-off specific features, and most are client-side mods. Rattle acts instead as a framework for other projects
 to use to integrate physics into a world.
 
 ## Installation

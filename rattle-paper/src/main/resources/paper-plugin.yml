@@ -1,0 +1,8 @@
+name: Rattle
+version: $version
+main: ${group}.rattle.paper.PaperRattle
+description: $description
+api-version: 1.19
+authors: [ aecsocket ]
+website: https://github.com/aecsocket/rattle
+folia-supported: true
