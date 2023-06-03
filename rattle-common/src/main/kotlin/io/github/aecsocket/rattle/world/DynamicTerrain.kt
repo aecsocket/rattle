@@ -223,7 +223,7 @@ abstract class DynamicTerrain(
         val toRemove = sections.withLock { it.map.keys.toMutableSet() }
 
         // find chunk sections which bodies are intersecting
-        fun forCollider(body: RigidBody.Read, coll: Collider.Read) {
+        fun forCollider(body: RigidBody, coll: Collider) {
             val bounds = computeBounds(body, coll)
             val sectionPos = enclosedPoints(bounds / 16.0).toSet()
 
@@ -285,7 +285,7 @@ abstract class DynamicTerrain(
         }
     }
 
-    private fun computeBounds(body: RigidBody.Read, coll: Collider.Read): Aabb {
+    private fun computeBounds(body: RigidBody, coll: Collider): Aabb {
         val bounds = coll.bounds()
         // TODO constant scaling
         expand(bounds, DVec3(4.0))

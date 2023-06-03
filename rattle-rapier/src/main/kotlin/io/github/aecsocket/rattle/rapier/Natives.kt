@@ -4,6 +4,8 @@ import io.github.aecsocket.rattle.*
 import rapier.Droppable
 import rapier.Native
 import rapier.geometry.CoefficientCombineRule
+import rapier.geometry.FillMode
+import rapier.geometry.VHACDParameters
 import rapier.math.AngVector
 import rapier.math.Isometry
 import rapier.math.Rotation
@@ -77,6 +79,21 @@ fun Isometry.toIso() = Iso(translation.toVec(), rotation.toQuat())
 
 fun Aabb.toRapier(alloc: SegmentAllocator) = RAabb.of(alloc, min.toVector(alloc), max.toVector(alloc))
 fun RAabb.toAabb() = Aabb(min.toVec(), max.toVec())
+
+fun VhacdSettings.toParams(alloc: SegmentAllocator) = VHACDParameters.create(alloc).also {
+    it.concavity = concavity
+    it.alpha = alpha
+    it.beta = beta
+    it.resolution = resolution
+    it.planeDownsampling = planeDownsampling
+    it.convexHullDownsampling = convexHullDownsampling
+    it.fillMode = when (val fillMode = fillMode) {
+        is VhacdSettings.FillMode.SurfaceOnly -> FillMode.SurfaceOnly.INSTANCE
+        is VhacdSettings.FillMode.FloodFill -> FillMode.FloodFill(fillMode.detectCavities)
+    }
+    it.convexHullApproximation = convexHullApproximation
+    it.maxConvexHulls = maxConvexHulls
+}
 
 fun RigidBodyType.convert() = when (this) {
     RigidBodyType.FIXED     -> rapier.dynamics.RigidBodyType.FIXED

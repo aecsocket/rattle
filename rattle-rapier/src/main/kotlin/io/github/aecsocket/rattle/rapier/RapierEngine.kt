@@ -7,6 +7,7 @@ import rapier.dynamics.RigidBodyBuilder
 import rapier.dynamics.joint.GenericJoint
 import rapier.geometry.ColliderBuilder
 import rapier.pipeline.PhysicsPipeline
+import rapier.shape.CompoundChild
 import rapier.shape.Segment
 import rapier.shape.SharedShape
 
@@ -50,7 +51,7 @@ class RapierEngine(var settings: Settings = Settings()) : PhysicsEngine {
     }
 
     override fun createShape(geom: Geometry): Shape {
-        val handle = pushArena { arena ->
+        val handle: SharedShape = pushArena { arena ->
             when (geom) {
                 is Sphere -> SharedShape.of(
                     rapier.shape.Ball.of(arena, geom.radius)
@@ -86,6 +87,45 @@ class RapierEngine(var settings: Settings = Settings()) : PhysicsEngine {
                 )
                 is Cone -> SharedShape.of(
                     rapier.shape.Cone.of(arena, geom.halfHeight, geom.radius)
+                )
+                is ConvexHull -> {
+                    val points = geom.points.map { it.toVector(arena) }.toTypedArray()
+                    val shape = if (geom.margin > 0.0) {
+                        SharedShape.roundConvexHull(points, geom.margin)
+                    } else {
+                        SharedShape.convexHull(*points)
+                    }
+                    shape ?: throw IllegalArgumentException("Could not create convex hull")
+                }
+                is ConvexMesh -> {
+                    val vertices = geom.vertices.map { it.toVector(arena) }.toTypedArray()
+                    val indices = geom.indices.map { intArrayOf(it.x, it.y, it.z) }.toTypedArray()
+                    val shape = if (geom.margin > 0.0) {
+                        SharedShape.roundConvexMesh(vertices, indices, geom.margin)
+                    } else {
+                        SharedShape.convexMesh(vertices, indices)
+                    }
+                    shape ?: throw IllegalArgumentException("Could not create convex mesh")
+                }
+                is ConvexDecomposition -> {
+                    val vertices = geom.vertices.map { it.toVector(arena) }.toTypedArray()
+                    val indices = geom.indices.map { intArrayOf(it.x, it.y, it.z) }.toTypedArray()
+                    if (geom.margin > 0.0) SharedShape.roundConvexDecomposition(
+                        vertices,
+                        indices,
+                        geom.vhacd.toParams(arena),
+                        geom.margin,
+                    ) else SharedShape.convexDecomposition(
+                        vertices,
+                        indices,
+                        geom.vhacd.toParams(arena),
+                    )
+                }
+                is Compound -> SharedShape.compound(
+                    *geom.children.map { child ->
+                        val shape = child.shape as RapierShape
+                        CompoundChild.of(arena, child.delta.toIsometry(arena), shape.handle)
+                    }.toTypedArray()
                 )
             }
         }
@@ -155,35 +195,6 @@ class RapierEngine(var settings: Settings = Settings()) : PhysicsEngine {
                 .use { it.build() }
         }
         return RapierRigidBody.Own(body)
-    }
-
-    private fun createJoint(axes: JointAxes): RapierJoint {
-        val joint = GenericJoint.create(0).apply {
-            var lockedAxes = 0
-            axes.forEach { (axis, state) ->
-                val rAxis = axis.convert()
-
-                when (state) {
-                    is AxisState.Locked -> {
-                        lockedAxes = lockedAxes or rAxis.ordinal
-                    }
-                    is AxisState.Limited -> {
-                        setLimits(rAxis, state.min, state.max)
-                    }
-                    is AxisState.Free -> {}
-                }
-            }
-            lockAxes(lockedAxes.toByte())
-        }
-        return RapierJoint(RapierJoint.State.Removed(joint))
-    }
-
-    override fun createImpulseJoint(axes: JointAxes): ImpulseJoint {
-        return createJoint(axes)
-    }
-
-    override fun createMultibodyJoint(axes: JointAxes): MultibodyJoint {
-        return createJoint(axes)
     }
 
     override fun createSpace(

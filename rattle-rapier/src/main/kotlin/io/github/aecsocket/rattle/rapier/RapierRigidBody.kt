@@ -7,77 +7,70 @@ data class RapierRigidBodyKey(val id: Long) : RigidBodyKey {
     override fun toString(): String = ArenaKey.asString(id)
 }
 
-object RapierRigidBody {
-    sealed class Base(
-        override val handle: rapier.dynamics.RigidBody,
-        var space: RapierSpace? = null,
-    ) : RapierNative(), RigidBody.Read {
-        override val type: RigidBodyType
-            get() = handle.bodyType.convert()
+open class RapierRigidBody internal constructor(
+    override val handle: rapier.dynamics.RigidBody,
+    var space: RapierSpace? = null,
+) : RapierNative(), RigidBody {
+    override val nativeType get() = "RapierRigidBody"
 
-        override val colliders: Collection<RapierColliderKey>
-            get() = handle.colliders.map { RapierColliderKey(it) }
+    override val type: RigidBodyType
+        get() = handle.bodyType.convert()
 
-        override val position: Iso
-            get() = pushArena { arena ->
-                handle.getPosition(arena).toIso()
-            }
+    override val colliders: Collection<RapierColliderKey>
+        get() = handle.colliders.map { RapierColliderKey(it) }
 
-        override val linearVelocity: Vec
-            get() = pushArena { arena ->
-                handle.getLinearVelocity(arena).toVec()
-            }
-
-        override val angularVelocity: Vec
-            get() = pushArena { arena ->
-                handle.getAngularVelocity(arena).toVec()
-            }
-
-        override val isCcdEnabled: Boolean
-            get() = handle.isCcdEnabled
-
-        override val isCcdActive: Boolean
-            get() = handle.isCcdActive
-
-        override val gravityScale: Real
-            get() = handle.gravityScale
-
-        override val linearDamping: Real
-            get() = handle.linearDamping
-
-        override val angularDamping: Real
-            get() = handle.angularDamping
-
-        override val isSleeping: Boolean
-            get() = handle.isSleeping
-
-        override val appliedForce: Vec
-            get() = pushArena { arena ->
-                handle.getUserForce(arena).toVec()
-            }
-
-        override val appliedTorque: Vec
-            get() = pushArena { arena ->
-                handle.getUserTorque(arena).toVec()
-            }
-
-        override fun kineticEnergy(): Real {
-            return handle.kineticEnergy
+    override val position: Iso
+        get() = pushArena { arena ->
+            handle.getPosition(arena).toIso()
         }
+
+    override val linearVelocity: Vec
+        get() = pushArena { arena ->
+            handle.getLinearVelocity(arena).toVec()
+        }
+
+    override val angularVelocity: Vec
+        get() = pushArena { arena ->
+            handle.getAngularVelocity(arena).toVec()
+        }
+
+    override val isCcdEnabled: Boolean
+        get() = handle.isCcdEnabled
+
+    override val isCcdActive: Boolean
+        get() = handle.isCcdActive
+
+    override val gravityScale: Real
+        get() = handle.gravityScale
+
+    override val linearDamping: Real
+        get() = handle.linearDamping
+
+    override val angularDamping: Real
+        get() = handle.angularDamping
+
+    override val isSleeping: Boolean
+        get() = handle.isSleeping
+
+    override val appliedForce: Vec
+        get() = pushArena { arena ->
+            handle.getUserForce(arena).toVec()
+        }
+
+    override val appliedTorque: Vec
+        get() = pushArena { arena ->
+            handle.getUserTorque(arena).toVec()
+        }
+
+    override fun kineticEnergy(): Real {
+        return handle.kineticEnergy
     }
 
-    class Read internal constructor(
-        handle: rapier.dynamics.RigidBody,
-        space: RapierSpace? = null,
-    ) : Base(handle, space) {
-        override val nativeType get() = "RapierRigidBody.Read"
-    }
-
-    open class Write internal constructor(
+    open class Mut internal constructor(
         override val handle: rapier.dynamics.RigidBody.Mut,
         space: RapierSpace? = null,
-    ) : Base(handle, space), RigidBody.Write {
-        override val nativeType get() = "RapierRigidBody.Write"
+    ) : RapierRigidBody(handle, space), RigidBody.Mut {
+        override val nativeType get() = "RapierRigidBody.Mut"
 
         override var position: Iso
             get() = super.position
@@ -184,7 +177,7 @@ object RapierRigidBody {
     class Own internal constructor(
         handle: rapier.dynamics.RigidBody.Mut,
         space: RapierSpace? = null,
-    ) : Write(handle, space), RigidBody.Own {
+    ) : Mut(handle, space), RigidBody.Own {
         override val nativeType get() = "RapierRigidBody.Own"
 
         private val destroyed = DestroyFlag()

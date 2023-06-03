@@ -76,18 +76,18 @@ class RapierSpace internal constructor(
         arena.close()
     }
 
-    override val colliders = object : PhysicsSpace.SingleContainer<Collider.Read, Collider.Write, Collider.Own, ColliderKey> {
+    override val colliders = object : PhysicsSpace.SingleContainer<Collider, Collider.Mut, Collider.Own, ColliderKey> {
         override val count: Int
             get() = colliderSet.size().toInt()
 
-        override fun read(key: ColliderKey): Collider.Read? {
+        override fun read(key: ColliderKey): Collider? {
             key as RapierColliderKey
-            return colliderSet.get(key.id)?.let { RapierCollider.Read(it, this@RapierSpace) }
+            return colliderSet.get(key.id)?.let { RapierCollider(it, this@RapierSpace) }
         }
 
-        override fun write(key: ColliderKey): Collider.Write? {
+        override fun write(key: ColliderKey): Collider.Mut? {
             key as RapierColliderKey
-            return colliderSet.getMut(key.id)?.let { RapierCollider.Write(it, this@RapierSpace) }
+            return colliderSet.getMut(key.id)?.let { RapierCollider.Mut(it, this@RapierSpace) }
         }
 
         override fun all(): Collection<ColliderKey> {
@@ -114,21 +114,21 @@ class RapierSpace internal constructor(
         }
     }
 
-    override val bodies = object : PhysicsSpace.ActiveContainer<RigidBody.Read, RigidBody.Write, RigidBody.Own, RigidBodyKey> {
+    override val bodies = object : PhysicsSpace.ActiveContainer<RigidBody, RigidBody.Mut, RigidBody.Own, RigidBodyKey> {
         override val count: Int
             get() = rigidBodySet.size().toInt()
 
         override val activeCount: Int
             get() = islands.activeDynamicBodies.size
 
-        override fun read(key: RigidBodyKey): RigidBody.Read? {
+        override fun read(key: RigidBodyKey): RigidBody? {
             key as RapierRigidBodyKey
-            return rigidBodySet.get(key.id)?.let { RapierRigidBody.Read(it, this@RapierSpace) }
+            return rigidBodySet.get(key.id)?.let { RapierRigidBody(it, this@RapierSpace) }
         }
 
-        override fun write(key: RigidBodyKey): RigidBody.Write? {
+        override fun write(key: RigidBodyKey): RigidBody.Mut? {
             key as RapierRigidBodyKey
-            return rigidBodySet.getMut(key.id)?.let { RapierRigidBody.Write(it, this@RapierSpace) }
+            return rigidBodySet.getMut(key.id)?.let { RapierRigidBody.Mut(it, this@RapierSpace) }
         }
 
         override fun all(): Collection<RigidBodyKey> {
@@ -160,6 +160,23 @@ class RapierSpace internal constructor(
             )?.let { RapierRigidBody.Own(it, null) }
         }
     }
+
+//    override val impulseJoints = object : PhysicsSpace.JointContainer<ImpulseJoint, ImpulseJoint.Mut, ImpulseJoint.Own, ImpulseJointKey> {
+//        override val count: Int
+//            get() = impulseJointSet.size().toInt()
+//
+//        override fun read(key: ImpulseJointKey): ImpulseJoint? {
+//            key as RapierImpulseJointKey
+//            return impulseJointSet.get(key.id)?.let { RapierImpulseJoint(it, this@RapierSpace) }
+//        }
+//
+//        override fun remove(key: ImpulseJointKey): ImpulseJoint.Own? {
+//            key as RapierImpulseJointKey
+//            impulseJointSet.remove(key.id, false)
+//        }
+//    }
+//
+//    override val multibodyJoints = TODO()
 
     override fun attach(coll: ColliderKey, to: RigidBodyKey) {
         coll as RapierColliderKey

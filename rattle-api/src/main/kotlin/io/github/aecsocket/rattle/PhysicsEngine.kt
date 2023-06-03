@@ -86,10 +86,10 @@ interface PhysicsEngine : Destroyable {
      * @param type The dynamics type of this body (see [RigidBodyType]).
      * @param linearVelocity The starting linear velocity, in m/s.
      * @param angularVelocity The starting angular velocity, in rad/s.
-     * @param isCcdEnabled If continuous collision detection is enabled (see [MovingBody]).
+     * @param isCcdEnabled If continuous collision detection is enabled (see [RigidBody]).
      * @param gravityScale The gravity multiplier for this body.
-     * @param linearDamping The linear damping (see [MovingBody]).
-     * @param angularDamping The angular damping (see [MovingBody]).
+     * @param linearDamping The linear damping (see [RigidBody]).
+     * @param angularDamping The angular damping (see [RigidBody]).
      * @param sleeping The sleep parameters (see [Sleeping]).
      */
     fun createBody(
@@ -104,9 +104,7 @@ interface PhysicsEngine : Destroyable {
         sleeping: Sleeping = Sleeping.Enabled(false),
     ): RigidBody.Own
 
-    fun createImpulseJoint(axes: JointAxes): ImpulseJoint
-
-    fun createMultibodyJoint(axes: JointAxes): MultibodyJoint
+//    fun createJoint(axes: JointAxes): Joint
 
     /**
      * Creates an independent container for physics structures from the specified settings.

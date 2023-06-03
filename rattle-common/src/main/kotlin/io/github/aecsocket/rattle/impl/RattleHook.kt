@@ -95,6 +95,12 @@ abstract class RattleHook {
     }
 
     fun runTask(task: Runnable) {
-        executor.submit(task)
+        executor.submit {
+            try {
+                task.run()
+            } catch (ex: Exception) {
+                log.warn(ex) { "Could not run physics task" }
+            }
+        }
     }
 }

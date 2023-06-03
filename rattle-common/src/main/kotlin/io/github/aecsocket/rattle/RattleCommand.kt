@@ -11,6 +11,7 @@ import io.github.aecsocket.alexandria.extension.flag
 import io.github.aecsocket.alexandria.extension.hasFlag
 import io.github.aecsocket.alexandria.hook.AlexandriaCommand
 import io.github.aecsocket.glossa.MessageProxy
+import io.github.aecsocket.klam.IVec3
 import io.github.aecsocket.klam.nextDVec3
 import io.github.aecsocket.rattle.impl.RattleHook
 import io.github.aecsocket.rattle.impl.RattlePlatform
