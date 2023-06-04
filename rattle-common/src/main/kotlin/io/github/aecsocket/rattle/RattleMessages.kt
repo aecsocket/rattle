@@ -83,6 +83,15 @@ interface RattleMessages {
                 activeRigidBodies: Int,
             ): Message
         }
+
+        val launcher: Launcher
+        interface Launcher {
+            fun disable(): Message
+
+            fun sphere(): Message
+
+            fun box(): Message
+        }
     }
 
     fun timing(

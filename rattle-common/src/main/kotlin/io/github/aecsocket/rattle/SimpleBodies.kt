@@ -34,6 +34,8 @@ data class SimpleBodyDesc(
     val mass: Mass = Mass.Density(1.0),
     val visibility: Visibility = Visibility.VISIBLE,
     val isCcdEnabled: Boolean = false,
+    val linearVelocity: Vec = Vec.Zero,
+    val angularVelocity: Vec = Vec.Zero,
     val gravityScale: Real = 1.0,
     val linearDamping: Real = DEFAULT_LINEAR_DAMPING,
     val angularDamping: Real = DEFAULT_ANGULAR_DAMPING,
@@ -127,6 +129,8 @@ abstract class SimpleBodies<W>(
         val body = engine.createBody(
             type = desc.type,
             position = position,
+            linearVelocity = desc.linearVelocity,
+            angularVelocity = desc.angularVelocity,
             isCcdEnabled = desc.isCcdEnabled,
             gravityScale = desc.gravityScale,
             linearDamping = desc.linearDamping,

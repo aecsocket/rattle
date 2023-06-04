@@ -69,6 +69,14 @@ translations:
           <p2>    {colliders, plural, one {<p1>#</p1> collider} other {<p1>#</p1> colliders}}
           <p2>    <p1>{active_rigid_bodies}</p1> active / {rigid_bodies, plural, one {<p1>#</p1> body} other {<p1>#</p1> bodies}}
 
+      launcher:
+        disable: >-
+          <p2>Disabled body launcher
+        sphere: >-
+          <p2>Enabled sphere launcher
+        box: >-
+          <p2>Enabled box launcher
+
     timing: >-
       {time, number, :: .0}
 

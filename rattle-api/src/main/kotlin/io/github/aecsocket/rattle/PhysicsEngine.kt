@@ -10,6 +10,13 @@ typealias Iso = DIso3
 typealias Affine = DAffine3
 typealias Aabb = DAabb3
 
+val DVec3.Companion.Left     get() = Vec( 1.0,  0.0,  0.0)
+val DVec3.Companion.Right    get() = Vec(-1.0,  0.0,  0.0)
+val DVec3.Companion.Up       get() = Vec( 0.0,  1.0,  0.0)
+val DVec3.Companion.Down     get() = Vec( 0.0, -1.0,  0.0)
+val DVec3.Companion.Forward  get() = Vec( 0.0,  0.0,  1.0)
+val DVec3.Companion.Backward get() = Vec( 0.0,  0.0, -1.0)
+
 /**
  * An object which is tied to a resource that must be manually destroyed after use.
  * You must only call the [destroy] method once; implementations may throw an exception

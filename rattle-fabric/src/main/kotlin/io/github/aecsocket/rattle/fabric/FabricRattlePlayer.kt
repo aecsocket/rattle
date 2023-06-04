@@ -1,6 +1,12 @@
 package io.github.aecsocket.rattle.fabric
 
+import io.github.aecsocket.alexandria.fabric.extension.toDVec
+import io.github.aecsocket.klam.EulerOrder
+import io.github.aecsocket.klam.asQuat
+import io.github.aecsocket.rattle.Iso
+import io.github.aecsocket.rattle.Quat
 import io.github.aecsocket.rattle.RattleMessages
+import io.github.aecsocket.rattle.Vec
 import io.github.aecsocket.rattle.impl.RattlePlayer
 import net.kyori.adventure.bossbar.BossBar
 import net.minecraft.server.level.ServerLevel
@@ -28,5 +34,13 @@ class FabricRattlePlayer(
 
     override fun ServerPlayer.hideBar(bar: BossBar) {
         rattle.bossBars.unsubscribe(player, bar)
+    }
+
+    override fun eyePosition(): Vec {
+        return player.eyePosition.toDVec()
+    }
+
+    override fun eyeDirection(): Vec {
+        return Vec(player.xRot.toDouble(), player.yRot.toDouble(), 0.0)
     }
 }

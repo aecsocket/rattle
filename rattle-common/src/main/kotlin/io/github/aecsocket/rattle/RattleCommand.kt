@@ -13,6 +13,7 @@ import io.github.aecsocket.glossa.MessageProxy
 import io.github.aecsocket.klam.nextDVec3
 import io.github.aecsocket.rattle.impl.RattleHook
 import io.github.aecsocket.rattle.impl.RattlePlatform
+import io.github.aecsocket.rattle.impl.RattlePlayer
 import io.github.aecsocket.rattle.stats.formatTiming
 import io.github.aecsocket.rattle.stats.timingStatsOf
 import net.kyori.adventure.audience.Audience
@@ -34,17 +35,19 @@ private const val FIXED = "fixed"
 private const val FRICTION = "friction"
 private const val GRAVITY_SCALE = "gravity-scale"
 private const val HALF_EXTENT = "half-extent"
-private const val HALF_HEIGHT = "half-height"
+private const val LAUNCHER = "launcher"
 private const val LIN_DAMP = "lin-damp"
 private const val LOCATION = "location"
 private const val MASS = "mass"
 private const val MOVING = "moving"
+private const val NO_CCD = "no-ccd"
 private const val RADIUS = "radius"
 private const val RESTITUTION = "restitution"
 private const val SPACE = "space"
 private const val SPHERE = "sphere"
 private const val SPREAD = "spread"
 private const val STATS = "stats"
+private const val VELOCITY = "velocity"
 private const val VIRTUAL = "virtual"
 private const val WORLD = "world"
 
@@ -169,6 +172,41 @@ abstract class RattleCommand<C : Audience, W>(
 
                     manager.command(argument(BooleanArgument.of(ENABLED))
                         .axHandler(::statsEnable))
+                }
+
+            literal(LAUNCHER)
+                .axPermission(LAUNCHER)
+                .run {
+                    manager.command(axHandler(::launcherDisable))
+
+                    this
+                        .flag(manager.flagBuilder(FRICTION)
+                            .withArgument(RealArgument.builder<C>(FRICTION).withMin(0))
+                        )
+                        .flag(manager.flagBuilder(RESTITUTION)
+                            .withArgument(RealArgument.builder<C>(RESTITUTION).withMin(0))
+                        )
+                        .flag(manager.flagBuilder(VELOCITY)
+                            .withAliases("v")
+                            .withArgument(RealArgument.builder<C>(VELOCITY).withMin(0))
+                        )
+                        .flag(manager.flagBuilder(DENSITY)
+                            .withAliases("d")
+                            .withArgument(RealArgument.builder<C>(DENSITY).withMin(0))
+                        )
+                        .flag(manager.flagBuilder(NO_CCD))
+                        .run {
+                            manager.command(
+                                literal(SPHERE)
+                                    .argument(RealArgument.of(RADIUS))
+                                    .axHandler(::launcherSphere)
+                            )
+                            manager.command(
+                                literal(BOX)
+                                    .argument(RealArgument.of(HALF_EXTENT))
+                                    .axHandler(::launcherBox)
+                            )
+                        }
                 }
         }
     }
@@ -322,14 +360,6 @@ abstract class RattleCommand<C : Audience, W>(
         return SimpleGeometry.Box(Box(Vec(ctx.get<Real>(HALF_EXTENT))))
     }
 
-    private fun capsuleGeom(ctx: CommandContext<C>): Geometry {
-        return Capsule(
-            LinAxis.Y,
-            ctx.get(HALF_HEIGHT),
-            ctx.get(RADIUS),
-        )
-    }
-
     private fun bodyCreateFixedSphere(ctx: CommandContext<C>) {
         val sender = ctx.sender
         val (count, positionX, positionY, positionZ) = bodyCreateFixed(ctx, sphereGeom(ctx))
@@ -436,5 +466,57 @@ abstract class RattleCommand<C : Audience, W>(
         val enabled = ctx.get<Boolean>(ENABLED)
 
         sender.showStatsBar(enabled)
+    }
+
+    private fun launcherDisable(ctx: CommandContext<C>) {
+        val server = ctx.server
+        val sender = server.asPlayer(ctx.sender) ?: mustBePlayer(ctx.sender)
+        val messages = messages.forAudience(sender)
+
+        if (sender.launcher != null) {
+            sender.launcher = null
+            messages.command.launcher.disable().sendTo(sender)
+        }
+    }
+
+    private fun launcher(ctx: CommandContext<C>, sender: RattlePlayer<W, *>, geom: SimpleGeometry) {
+        val friction = ctx.flag(FRICTION) ?: DEFAULT_FRICTION
+        val restitution = ctx.flag(RESTITUTION) ?: DEFAULT_RESTITUTION
+        val velocity = ctx.flag(VELOCITY) ?: 10.0
+        val density = ctx.flag(DENSITY) ?: 1.0
+        val ccd = !ctx.hasFlag(NO_CCD)
+
+        sender.launcher = RattlePlayer.Launcher(
+            geom = geom,
+            material = PhysicsMaterial(
+                friction = friction,
+                restitution = restitution,
+            ),
+            velocity = velocity,
+            mass = Mass.Density(density),
+            isCcdEnabled = ccd,
+        )
+    }
+
+    private fun launcherSphere(ctx: CommandContext<C>) {
+        val server = ctx.server
+        val sender = server.asPlayer(ctx.sender) ?: mustBePlayer(ctx.sender)
+        val messages = messages.forAudience(sender)
+
+        if (sender.launcher == null) {
+            messages.command.launcher.sphere().sendTo(sender)
+        }
+        launcher(ctx, sender, sphereGeom(ctx))
+    }
+
+    private fun launcherBox(ctx: CommandContext<C>) {
+        val server = ctx.server
+        val sender = server.asPlayer(ctx.sender) ?: mustBePlayer(ctx.sender)
+        val messages = messages.forAudience(sender)
+
+        if (sender.launcher == null) {
+            messages.command.launcher.box().sendTo(sender)
+        }
+        launcher(ctx, sender, boxGeom(ctx))
     }
 }
