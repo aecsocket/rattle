@@ -78,7 +78,7 @@ abstract class DynamicTerrain(
 ) : TerrainStrategy {
     @ConfigSerializable
     data class Settings(
-        val removeTime: Long = 500,
+        val removeTime: Double = 0.5,
         val expansion: Expansion = Expansion(),
     ) {
         @ConfigSerializable
@@ -282,7 +282,7 @@ abstract class DynamicTerrain(
                             sections.remove(pos)
                         }
                     } else {
-                        section.toBeRemoved(settings.removeTime)
+                        section.toBeRemoved((settings.removeTime * 1000).toLong())
                     }
                 } else if (section.toBeRemoved()) {
                     // we no longer want to remove it

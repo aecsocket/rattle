@@ -1,6 +1,0 @@
-# Example file is available at
-# https://github.com/aecsocket/rattle/blob/main/rattle-common/src/main/resources/settings.toml
-
-# The default locale to use for the plugin. Must be a valid Java locale.
-default-locale = "en-US"
-
