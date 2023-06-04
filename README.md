@@ -1,12 +1,11 @@
 <div align="center">
 
 # Rattle
-[![CI](https://img.shields.io/github/actions/workflow/status/aecsocket/rattle/build.yml)](https://github.com/aecsocket/rattle/actions/workflows/build.yml)
+<!-- [![CI](https://img.shields.io/github/actions/workflow/status/aecsocket/rattle/build.yml)](https://github.com/aecsocket/rattle/actions/workflows/build.yml) -->
 
 ![Banner](static/banner.png)
 
-
-API abstraction layer for physics engines for Minecraft servers
+Generic physics engine framework for Minecraft servers
 
 ### [GitHub](https://github.com/aecsocket/rattle) · [Docs](https://aecsocket.github.io/rattle)
 
@@ -17,14 +16,16 @@ allowing a game world's state (blocks, entities, etc.) to influence the physics 
 displayed to clients via vanilla packets (no client mod required).
 
 The project currently uses the [Rapier](https://github.com/dimforge/rapier) backend, a rigid-body physics library,
-with Java bindings via [rapier-java](https://github.com/aecsocket/rapier-java) and integrated in the `rattle-rapier` module.
-These bindings require Java 20, since they use the Java Foreign API.
+with Java bindings via [rapier-ffi](https://github.com/aecsocket/rapier-ffi)'s `rapier-java` module, and integrated in
+the `rattle-rapier` module.
+
+**This project requires Java 19, and the `--enable-preview` `--enable-native-access=ALL-UNNAMED` flags!** 
 
 ## Features
 
 - [x] Rigid body physics and collision detection
-- [x] Integration with the world, so terrain and entities are automatically included as bodies
-- [x] Fully server-side; no client mods required
+- [x] Integration with the world, so terrain and entities are automatically included as collision shapes
+- [x] Fully server-side compatible; no client mods required
 - [ ] Compatible with [Folia](https://github.com/PaperMC/Folia) (not yet: regressed until API updated)
 - [x] Free and open-source under the MIT license
 
@@ -34,7 +35,8 @@ Minecraft is a game that does not have advanced 3D physics - the limits of what 
 simple AABB collision response. However, physics simulations are really cool, and having it integrate cleanly with the
 world would be even more impressive.
 
-The code is implemented as a server-side plugin rather than a client-side mod, because it means that:
+The code is implemented as generically as possible to run on the server-side rather than the client-side,
+because it means that:
 - all calculations happen on a single consistent environment
 - clients don't need to download any mods for a mod loader (Forge, Fabric etc.) to interact with physics
 

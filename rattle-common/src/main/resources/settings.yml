@@ -1,0 +1,27 @@
+default-locale: en-US
+
+time-step-multiplier: 1.0
+
+worlds:
+  default:
+    physics:
+      gravity: [0.0, -9.81, 0.0]
+
+    terrain:
+      remove-time: 0.5
+      expansion:
+        velocity-factor: 0.1
+        constant: 4
+
+stats:
+  timing-buffers: [5.0, 15.0, 60.0]
+  timing-bar-buffer: 5.0
+  timing-bar:
+    progress: 1.0
+    color: white
+    overlay: progress
+
+jobs:
+  worker-threads: 0
+  thread-terminate-time: 5.0
+  command-task-terminate-time: 5.0
