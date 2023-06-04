@@ -114,7 +114,7 @@ class RapierSpace internal constructor(
         }
     }
 
-    override val bodies = object : PhysicsSpace.ActiveContainer<RigidBody, RigidBody.Mut, RigidBody.Own, RigidBodyKey> {
+    override val rigidBodies = object : PhysicsSpace.ActiveContainer<RigidBody, RigidBody.Mut, RigidBody.Own, RigidBodyKey> {
         override val count: Int
             get() = rigidBodySet.size().toInt()
 

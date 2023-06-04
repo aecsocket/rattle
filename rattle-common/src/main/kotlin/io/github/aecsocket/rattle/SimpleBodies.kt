@@ -2,18 +2,35 @@ package io.github.aecsocket.rattle
 
 import io.github.aecsocket.alexandria.ArenaKey
 import io.github.aecsocket.alexandria.GenArena
+import io.github.aecsocket.alexandria.ItemRenderDesc
+import io.github.aecsocket.alexandria.desc.ItemDesc
 import io.github.aecsocket.alexandria.sync.Locked
+import io.github.aecsocket.klam.FVec3
 import io.github.aecsocket.rattle.impl.RattlePlatform
+import org.spongepowered.configurate.objectmapping.ConfigSerializable
+import org.spongepowered.configurate.objectmapping.meta.Required
 
 enum class Visibility {
     VISIBLE,
     INVISIBLE,
 }
 
+/**
+ * A subset of [Geometry] that a [SimpleBodies] can support. Since the simple-bodies engine also handles showing
+ * bodies to players, we can't display *all* shapes. This is the subset that we can support.
+ */
+sealed interface SimpleGeometry {
+    val handle: Geometry
+
+    data class Sphere(override val handle: io.github.aecsocket.rattle.Sphere) : SimpleGeometry
+
+    data class Box(override val handle: io.github.aecsocket.rattle.Box) : SimpleGeometry
+}
+
 data class SimpleBodyDesc(
-    val geom: Geometry,
-    val material: PhysicsMaterial,
     val type: RigidBodyType,
+    val geom: SimpleGeometry,
+    val material: PhysicsMaterial,
     val mass: Mass = Mass.Density(1.0),
     val visibility: Visibility = Visibility.VISIBLE,
     val isCcdEnabled: Boolean = false,
@@ -24,23 +41,29 @@ data class SimpleBodyDesc(
 
 interface SimpleBodyKey
 
-interface SimpleBodies<W> {
-    val count: Int
-
-    fun create(position: Iso, desc: SimpleBodyDesc): SimpleBodyKey
-
-    fun destroy(key: SimpleBodyKey)
-
-    fun destroyAll()
-}
-
-abstract class AbstractSimpleBodies<W>(
+abstract class SimpleBodies<W>(
     val world: W,
     private val platform: RattlePlatform<W, *>,
     // SAFETY: while a caller has access to a SimpleBodies object, they also have access to the containing
     // WorldPhysics, and therefore the PhysicsSpace is locked
     private val physics: PhysicsSpace,
-) : SimpleBodies<W>, Destroyable {
+    val settings: Settings = Settings(),
+) : Destroyable {
+    @ConfigSerializable
+    data class Settings(
+        val itemRenderDesc: ItemRenderDesc = ItemRenderDesc(
+            interpolationDuration = 2,
+        ),
+        val box: Geometry? = null,
+        val sphere: Geometry? = null,
+    ) {
+        @ConfigSerializable
+        data class Geometry(
+            @Required val item: ItemDesc,
+            val scale: FVec3 = FVec3.One,
+        )
+    }
+
     inner class Instance(
         val collider: ColliderKey,
         val body: RigidBodyKey,
@@ -52,7 +75,7 @@ abstract class AbstractSimpleBodies<W>(
             destroyed()
             platform.physicsOrNull(world)?.withLock { (physics) ->
                 physics.colliders.remove(collider)?.destroy()
-                physics.bodies.remove(body)?.destroy()
+                physics.rigidBodies.remove(body)?.destroy()
             }
         }
     }
@@ -63,13 +86,13 @@ abstract class AbstractSimpleBodies<W>(
     private val destroyed = DestroyFlag()
     private val instances = Locked(GenArena<Instance>())
 
-    override val count: Int
+    val count: Int
         get() = instances.withLock { it.size }
 
     fun onPhysicsStep() {
         instances.withLock { instances ->
             instances.forEach { (_, instance) ->
-                physics.bodies.read(instance.body)?.let { body ->
+                physics.rigidBodies.read(instance.body)?.let { body ->
                     if (!body.isSleeping) {
                         instance.nextPosition = body.position
                     }
@@ -85,16 +108,17 @@ abstract class AbstractSimpleBodies<W>(
 
     protected abstract fun createVisual(
         position: Iso,
-        desc: SimpleBodyDesc,
+        geomSettings: Settings.Geometry?,
+        geomScale: Vec,
         instance: Instance,
         instanceKey: ArenaKey,
     )
 
-    override fun create(position: Iso, desc: SimpleBodyDesc): SimpleBodyKey {
+    fun create(position: Iso, desc: SimpleBodyDesc): SimpleBodyKey {
         val engine = platform.rattle.engine
 
         // SAFETY: we don't increment the ref count, so `collider` will fully own this shape
-        val shape = engine.createShape(desc.geom)
+        val shape = engine.createShape(desc.geom.handle)
         val collider = engine.createCollider(
             shape = shape,
             material = desc.material,
@@ -107,7 +131,7 @@ abstract class AbstractSimpleBodies<W>(
             gravityScale = desc.gravityScale,
             linearDamping = desc.linearDamping,
             angularDamping = desc.angularDamping,
-        ).let { physics.bodies.add(it) }
+        ).let { physics.rigidBodies.add(it) }
         physics.attach(collider, body)
 
         val instance = Instance(
@@ -115,8 +139,13 @@ abstract class AbstractSimpleBodies<W>(
             body = body,
         )
         val key = instances.withLock { it.insert(instance) }
+
+        val (geomSettings, geomScale) = when (val geom = desc.geom) {
+            is SimpleGeometry.Sphere -> settings.sphere to Vec(geom.handle.radius * 2.0)
+            is SimpleGeometry.Box -> settings.box to geom.handle.halfExtent * 2.0
+        }
         when (desc.visibility) {
-            Visibility.VISIBLE -> createVisual(position, desc, instance, key)
+            Visibility.VISIBLE -> createVisual(position, geomSettings, geomScale, instance, key)
             Visibility.INVISIBLE -> {}
         }
 
@@ -124,17 +153,17 @@ abstract class AbstractSimpleBodies<W>(
     }
 
     fun destroy(key: ArenaKey) {
+        instances.withLock { it.remove(key) }?.destroy()
+    }
+
+    fun destroy(key: SimpleBodyKey) {
+        key as Key
         platform.rattle.runTask {
-            instances.withLock { it.remove(key) }?.destroy()
+            destroy(key.key)
         }
     }
 
-    override fun destroy(key: SimpleBodyKey) {
-        key as Key
-        destroy(key.key)
-    }
-
-    override fun destroyAll() {
+    open fun destroyAll() {
         instances.withLock { instances ->
             instances.forEach { (_, instance) ->
                 instance.destroy()

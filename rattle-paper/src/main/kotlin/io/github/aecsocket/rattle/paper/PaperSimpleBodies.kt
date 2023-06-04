@@ -1,41 +1,47 @@
 package io.github.aecsocket.rattle.paper
 
 import io.github.aecsocket.alexandria.ArenaKey
-import io.github.aecsocket.alexandria.ItemRenderDesc
+import io.github.aecsocket.alexandria.desc.ItemDesc
 import io.github.aecsocket.alexandria.paper.DisplayRenders
+import io.github.aecsocket.alexandria.paper.PaperItemType
+import io.github.aecsocket.alexandria.paper.create
 import io.github.aecsocket.alexandria.paper.extension.location
+import io.github.aecsocket.klam.DVec3
 import io.github.aecsocket.klam.FAffine3
 import io.github.aecsocket.klam.FQuat
+import io.github.aecsocket.klam.FVec3
 import io.github.aecsocket.rattle.*
-import net.kyori.adventure.text.Component
-import org.bukkit.Bukkit
 import org.bukkit.Material
 import org.bukkit.World
-import org.bukkit.inventory.ItemStack
 
 class PaperSimpleBodies(
     private val rattle: PaperRattle,
     world: World,
     physics: PhysicsSpace,
-) : AbstractSimpleBodies<World>(world, rattle.platform, physics) {
+    settings: Settings = Settings(),
+) : SimpleBodies<World>(world, rattle.platform, physics, settings) {
     private val renders = DisplayRenders
 
     override fun createVisual(
         position: Iso,
-        desc: SimpleBodyDesc,
+        geomSettings: Settings.Geometry?,
+        geomScale: Vec,
         instance: Instance,
         instanceKey: ArenaKey,
     ) {
+        val rGeomSettings = geomSettings
+            ?: Settings.Geometry(ItemDesc(PaperItemType(Material.STONE)))
         val location = position.location(world)
         rattle.scheduling.onChunk(location).launch {
             val render = renders.createItem(
                 world = world,
                 position = position.translation,
-                transform = FAffine3(rotation = FQuat(position.rotation)),
-                item = ItemStack(Material.STONE),
-                desc = ItemRenderDesc( // TODO configurable
-                    interpolationDuration = 2,
+                transform = FAffine3(
+                    rotation = FQuat(position.rotation),
+                    scale = FVec3(geomScale) * rGeomSettings.scale,
                 ),
+                item = rGeomSettings.item.create(),
+                desc = settings.itemRenderDesc,
             )
 
             rattle.scheduling.onEntity(render.entity).runRepeating { task ->

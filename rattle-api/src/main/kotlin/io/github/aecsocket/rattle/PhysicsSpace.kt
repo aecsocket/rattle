@@ -30,7 +30,7 @@ interface PhysicsSpace : Destroyable {
 
     val colliders: SingleContainer<Collider, Collider.Mut, Collider.Own, ColliderKey>
 
-    val bodies: ActiveContainer<RigidBody, RigidBody.Mut, RigidBody.Own, RigidBodyKey>
+    val rigidBodies: ActiveContainer<RigidBody, RigidBody.Mut, RigidBody.Own, RigidBodyKey>
 
 //    val impulseJoints: JointContainer<ImpulseJoint, ImpulseJoint.Mut, ImpulseJoint.Own, ImpulseJointKey>
 //

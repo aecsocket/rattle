@@ -49,11 +49,6 @@ interface RattleMessages {
                         count: Int,
                         positionX: Double, positionY: Double, positionZ: Double,
                     ): Message
-
-                    fun capsule(
-                        count: Int,
-                        positionX: Double, positionY: Double, positionZ: Double,
-                    ): Message
                 }
             }
 
@@ -83,9 +78,9 @@ interface RattleMessages {
 
             fun space(
                 world: String,
-                numColliders: Int,
-                numBodies: Int,
-                numActiveBodies: Int,
+                colliders: Int,
+                rigidBodies: Int,
+                activeRigidBodies: Int,
             ): Message
         }
     }
@@ -105,8 +100,8 @@ interface RattleMessages {
 
         fun some(
             world: String,
-            numBodies: Int,
-            numActiveBodies: Int,
+            rigidBodies: Int,
+            activeRigidBodies: Int,
             median: Component,
             best5: Component,
             worst5: Component,

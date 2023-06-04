@@ -154,6 +154,7 @@ class RapierEngine internal constructor(var settings: Settings = Settings()) : P
                 })
                 .use {
                     when (mass) {
+                        is Mass.Infinite -> it.mass(0.0)
                         is Mass.Constant -> it.mass(mass.mass)
                         is Mass.Density -> it.density(mass.density)
                     }

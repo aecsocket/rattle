@@ -8,7 +8,11 @@ import net.kyori.adventure.audience.Audience
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
 
-private val spinnerStates = listOf("|", "|", "/", "/", "-", "-", "\\", "\\")
+private const val BOSS_BAR_FLASH_INTERVAL = 5L
+private val bossBarColorStates = listOf(
+    BossBar.Color.YELLOW,
+    BossBar.Color.RED,
+)
 
 abstract class RattlePlayer<W, P : Audience>(
     private val platform: RattlePlatform<W, *>,
@@ -46,25 +50,25 @@ abstract class RattlePlayer<W, P : Audience>(
                 )
             )
 
-            val text = platform.physicsOrNull(world)?.withLock { (physics) ->
+            // SAFETY: we will only access atomic fields, not any stateful fields, so we're fine
+            val (text, currentTick) = platform.physicsOrNull(world)?.leak()?.let { physics ->
                 messages.statsBar.some(
                     world = platform.key(world).asString(),
-                    numBodies = physics.bodies.count,
-                    numActiveBodies = physics.bodies.activeCount,
+                    rigidBodies = physics.stats.rigidBodies,
+                    activeRigidBodies = physics.stats.activeRigidBodies,
                     median = formatTiming(median, messages),
                     best5 = formatTiming(best5, messages),
                     worst5 = formatTiming(worst5, messages),
-                )
-            } ?: messages.statsBar.none(
+                ) to physics.currentTick
+            } ?: (messages.statsBar.none(
                 world = platform.key(world).asString(),
                 median = formatTiming(median, messages),
                 best5 = formatTiming(best5, messages),
                 worst5 = formatTiming(worst5, messages),
-            )
+            ) to 0L)
 
-            // TODO spinner actually configurable
-            statsBar.name(text.component().append(Component.text(" ${spinnerStates[spinnerState]}")))
-            spinnerState = (spinnerState + 1) % spinnerStates.size
+            statsBar.name(text.component())
+            statsBar.color(bossBarColorStates[((currentTick / BOSS_BAR_FLASH_INTERVAL) % bossBarColorStates.size).toInt()])
         }
     }
 }

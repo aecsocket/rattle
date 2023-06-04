@@ -24,7 +24,6 @@ private const val ALL = "all"
 private const val ANG_DAMP = "ang-damp"
 private const val BODY = "body"
 private const val BOX = "box"
-private const val CAPSULE = "capsule"
 private const val CCD = "ccd"
 private const val COUNT = "count"
 private const val CREATE = "create"
@@ -125,12 +124,6 @@ abstract class RattleCommand<C : Audience, W>(
                                         .argument(RealArgument.of(HALF_EXTENT))
                                         .axHandler(::bodyCreateFixedBox)
                                 )
-                                manager.command(
-                                    literal(CAPSULE)
-                                        .argument(RealArgument.of(HALF_HEIGHT))
-                                        .argument(RealArgument.of(RADIUS))
-                                        .axHandler(::bodyCreateFixedCapsule)
-                                )
                             }
 
                         literal(MOVING)
@@ -155,12 +148,6 @@ abstract class RattleCommand<C : Audience, W>(
                                     literal(BOX)
                                         .argument(RealArgument.of(HALF_EXTENT))
                                         .axHandler(::bodyCreateMovingBox)
-                                )
-                                manager.command(
-                                    literal(CAPSULE)
-                                        .argument(RealArgument.of(HALF_HEIGHT))
-                                        .argument(RealArgument.of(RADIUS))
-                                        .axHandler(::bodyCreateMovingCapsule)
                                 )
                             }
                     }
@@ -291,13 +278,13 @@ abstract class RattleCommand<C : Audience, W>(
 
     private fun bodyCreateFixed(
         ctx: CommandContext<C>,
-        geom: Geometry,
+        geom: SimpleGeometry,
     ): BodyCreateInfo {
         return bodyCreate(ctx) { material, mass, visibility ->
             SimpleBodyDesc(
+                type = RigidBodyType.FIXED,
                 geom = geom,
                 material = material,
-                type = RigidBodyType.FIXED,
                 mass = mass,
                 visibility = visibility,
             )
@@ -306,7 +293,7 @@ abstract class RattleCommand<C : Audience, W>(
 
     private fun bodyCreateMoving(
         ctx: CommandContext<C>,
-        geom: Geometry,
+        geom: SimpleGeometry,
     ): BodyCreateInfo {
         val ccd = ctx.hasFlag(CCD)
         val gravityScale = ctx.flag(GRAVITY_SCALE) ?: 1.0
@@ -314,9 +301,9 @@ abstract class RattleCommand<C : Audience, W>(
         val angDamp = ctx.flag(ANG_DAMP) ?: DEFAULT_ANGULAR_DAMPING
         return bodyCreate(ctx) { material, mass, visibility ->
             SimpleBodyDesc(
+                type = RigidBodyType.DYNAMIC,
                 geom = geom,
                 material = material,
-                type = RigidBodyType.DYNAMIC,
                 mass = mass,
                 visibility = visibility,
                 isCcdEnabled = ccd,
@@ -327,12 +314,12 @@ abstract class RattleCommand<C : Audience, W>(
         }
     }
 
-    private fun sphereGeom(ctx: CommandContext<C>): Geometry {
-        return Sphere(ctx.get(RADIUS))
+    private fun sphereGeom(ctx: CommandContext<C>): SimpleGeometry {
+        return SimpleGeometry.Sphere(Sphere(ctx.get(RADIUS)))
     }
 
-    private fun boxGeom(ctx: CommandContext<C>): Geometry {
-        return Box(Vec(ctx.get<Real>(HALF_EXTENT)))
+    private fun boxGeom(ctx: CommandContext<C>): SimpleGeometry {
+        return SimpleGeometry.Box(Box(Vec(ctx.get<Real>(HALF_EXTENT))))
     }
 
     private fun capsuleGeom(ctx: CommandContext<C>): Geometry {
@@ -361,15 +348,6 @@ abstract class RattleCommand<C : Audience, W>(
         ).sendTo(sender)
     }
 
-    private fun bodyCreateFixedCapsule(ctx: CommandContext<C>) {
-        val sender = ctx.sender
-        val (count, positionX, positionY, positionZ) = bodyCreateFixed(ctx, capsuleGeom(ctx))
-        messages.forAudience(sender).command.body.create.fixed.capsule(
-            count = count,
-            positionX = positionX, positionY = positionY, positionZ = positionZ,
-        ).sendTo(sender)
-    }
-
     private fun bodyCreateMovingSphere(ctx: CommandContext<C>) {
         val sender = ctx.sender
         val (count, positionX, positionY, positionZ) = bodyCreateMoving(ctx, sphereGeom(ctx))
@@ -383,15 +361,6 @@ abstract class RattleCommand<C : Audience, W>(
         val sender = ctx.sender
         val (count, positionX, positionY, positionZ) = bodyCreateMoving(ctx, boxGeom(ctx))
         messages.forAudience(sender).command.body.create.moving.box(
-            count = count,
-            positionX = positionX, positionY = positionY, positionZ = positionZ,
-        ).sendTo(sender)
-    }
-
-    private fun bodyCreateMovingCapsule(ctx: CommandContext<C>) {
-        val sender = ctx.sender
-        val (count, positionX, positionY, positionZ) = bodyCreateMoving(ctx, capsuleGeom(ctx))
-        messages.forAudience(sender).command.body.create.moving.capsule(
             count = count,
             positionX = positionX, positionY = positionY, positionZ = positionZ,
         ).sendTo(sender)
@@ -452,9 +421,9 @@ abstract class RattleCommand<C : Audience, W>(
                 world.withLock { (physics, world) ->
                     messages.command.stats.space(
                         world = server.key(world).asString(),
-                        numColliders = physics.colliders.count,
-                        numBodies = physics.bodies.count,
-                        numActiveBodies = physics.bodies.activeCount,
+                        colliders = physics.colliders.count,
+                        rigidBodies = physics.rigidBodies.count,
+                        activeRigidBodies = physics.rigidBodies.activeCount,
                     ).sendTo(sender)
                 }
             }

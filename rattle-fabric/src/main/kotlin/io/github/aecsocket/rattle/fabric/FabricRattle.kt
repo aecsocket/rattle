@@ -1,8 +1,8 @@
 package io.github.aecsocket.rattle.fabric
 
 import io.github.aecsocket.alexandria.fabric.AlexandriaMod
-import io.github.aecsocket.alexandria.fabric.extension.alexandriaFabricSerializers
-import io.github.aecsocket.alexandria.fabric.extension.forLevel
+import io.github.aecsocket.alexandria.fabric.extension.fabricSerializers
+import io.github.aecsocket.alexandria.fabric.extension.forWorld
 import io.github.aecsocket.alexandria.hook.AlexandriaHook
 import io.github.aecsocket.alexandria.sync.Locked
 import io.github.aecsocket.alexandria.sync.Sync
@@ -33,7 +33,7 @@ class FabricRattle : AlexandriaMod<RattleHook.Settings>(
     manifest = rattleManifest,
     configOptions = ConfigurationOptions.defaults()
         .serializers { it
-            .registerAll(alexandriaFabricSerializers)
+            .registerAll(fabricSerializers)
             .registerAnnotatedObjects(ObjectMapper.factoryBuilder()
                 .addDiscoverer(dataClassFieldDiscoverer())
                 .build()
@@ -112,11 +112,12 @@ class FabricRattle : AlexandriaMod<RattleHook.Settings>(
     fun physicsOrCreate(world: ServerLevel): Sync<FabricWorldPhysics> {
         world as LevelPhysicsAccess
         val physics = world.rattle_getPhysics() ?: run {
+            val settings = settings.worlds.forWorld(world) ?: RattleHook.Settings.World()
             val platform = world.server.rattle()
-            val physics = engine.createSpace(settings.worlds.forLevel(world) ?: PhysicsSpace.Settings())
-            val terrain = FabricDynamicTerrain(this, physics, world)
+            val physics = engine.createSpace(settings.physics)
+            val terrain = FabricDynamicTerrain(this, physics, world, settings.terrain)
             val entities = NoOpEntityStrategy
-            val simpleBodies = FabricSimpleBodies(world, platform, physics)
+            val simpleBodies = FabricSimpleBodies(world, platform, physics, this.settings.simpleBodies)
 
             Locked(FabricWorldPhysics(world, physics, terrain, entities, simpleBodies)).also {
                 world.rattle_setPhysics(it)

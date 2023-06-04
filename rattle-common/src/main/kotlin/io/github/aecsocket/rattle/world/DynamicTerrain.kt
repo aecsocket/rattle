@@ -35,13 +35,13 @@ const val BLOCKS_IN_SECTION = 16 * 16 * 16
  *   - Set that section to [SectionState.Pending]
  *   - Send it over to the platform implementation to process into a [SectionState.Snapshot]
  * - Any positions that were in the section map but not anymore?
- *   - Mark that section as "to be destroyed" (TODO)
+ *   - Mark that section as "to be destroyed" in the future
  *
  * ## Snapshotting
  *
  * This process is platform-dependent, runs during [scheduleToSnapshot], and should iterate
  * over all chunk positions passed to it. On platforms with a single main thread (Fabric, Paper),
- * this will run on the main tick thread. On platforms where chunksare processed concurrently (Folia),
+ * this will run on the main tick thread. On platforms where chunks are processed concurrently (Folia),
  * this will run on the thread responsible for the current chunk.
  *
  * For each section position...
@@ -65,10 +65,10 @@ const val BLOCKS_IN_SECTION = 16 * 16 * 16
  * # Structures
  *
  * For [Block.Solid], the strategy builds up a collider per block, using a compound shape if necessary to
- * represent the block's shape, and adds it as a solid collider. (TODO)
+ * represent the block's shape, and adds it as a solid collider.
  *
  * For [Block.Fluid], the strategy builds up a collider as for blocks, but adds it as a sensor collider. This sensor
- * can later be queried to see what bodies are touching it, and to apply buoyancy forces.
+ * can later be queried to see what bodies are touching it, and to apply buoyancy forces. (TODO)
  */
 abstract class DynamicTerrain(
     private val rattle: RattleHook,
@@ -79,7 +79,14 @@ abstract class DynamicTerrain(
     @ConfigSerializable
     data class Settings(
         val removeTime: Long = 500,
-    )
+        val expansion: Expansion = Expansion(),
+    ) {
+        @ConfigSerializable
+        data class Expansion(
+            val velocityFactor: Real = 0.1,
+            val constant: Real = 4.0,
+        )
+    }
 
     data class SectionLayer(
         val terrain: TerrainLayer,
@@ -230,8 +237,8 @@ abstract class DynamicTerrain(
         val toRemove = sections.withLock { it.map.keys.toMutableSet() }
 
         // find chunk sections which bodies are intersecting
-        fun forCollider(body: RigidBody, coll: Collider) {
-            val bounds = computeBounds(body, coll)
+        fun forCollider(linVel: Vec, coll: Collider) {
+            val bounds = computeBounds(linVel, coll)
             val sectionPos = enclosedPoints(bounds / 16.0).toSet()
 
             toRemove -= sectionPos
@@ -246,11 +253,12 @@ abstract class DynamicTerrain(
             }
         }
 
-        physics.bodies.active().forEach body@ { bodyKey ->
-            val body = physics.bodies.read(bodyKey) ?: return@body
+        physics.rigidBodies.active().forEach body@ { bodyKey ->
+            val body = physics.rigidBodies.read(bodyKey) ?: return@body
+            val linVel = body.linearVelocity
             body.colliders.forEach collider@ { collKey ->
                 val coll = physics.colliders.read(collKey) ?: return@collider
-                forCollider(body, coll)
+                forCollider(linVel, coll)
             }
         }
 
@@ -292,12 +300,21 @@ abstract class DynamicTerrain(
         }
     }
 
-    private fun computeBounds(body: RigidBody, coll: Collider): Aabb {
-        val bounds = coll.bounds()
-        // TODO constant scaling
-        expand(bounds, DVec3(4.0))
-        // TODO velocity scaling
-        return bounds
+    private fun computeBounds(linVel: Vec, coll: Collider): Aabb {
+        val from = coll.position.translation
+        val to = from + linVel * settings.expansion.velocityFactor
+        val collBound = coll.bounds()
+
+        return expand(
+            expand(
+                Aabb(
+                    min(from, to),
+                    max(from, to),
+                ), // a box spanning the current coll pos, up to a bit in front of it (determined by velocity)
+                (collBound.max - collBound.min) / 2.0,
+            ), // that velocity box, expanded by the actual collider bounds
+            DVec3(settings.expansion.constant), // that box, expanded by the constant factor
+        )
     }
 
     private fun createSection(pos: IVec3, state: SectionState.Snapshot): SectionState {
@@ -318,7 +335,7 @@ abstract class DynamicTerrain(
                 position = Iso(
                     DVec3(x.toDouble() + 0.5, y.toDouble() + 0.5, z.toDouble() + 0.5),
                 ),
-                mass = Mass.Density(1.0), // TODO
+                mass = Mass.Infinite,
                 physics = when (block) {
                     is Block.Solid -> PhysicsMode.SOLID
                     is Block.Fluid -> PhysicsMode.SENSOR

@@ -1,12 +1,13 @@
 package io.github.aecsocket.rattle.impl
 
-import io.github.aecsocket.alexandria.BossBarDescriptor
+import io.github.aecsocket.alexandria.desc.BossBarDesc
 import io.github.aecsocket.alexandria.hook.AlexandriaHook
 import io.github.aecsocket.glossa.Glossa
 import io.github.aecsocket.glossa.MessageProxy
 import io.github.aecsocket.glossa.messageProxy
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.rapier.RapierEngine
+import io.github.aecsocket.rattle.world.DynamicTerrain
 import io.github.oshai.kotlinlogging.KLogger
 import net.kyori.adventure.text.format.TextColor
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
@@ -29,16 +30,23 @@ abstract class RattleHook {
     data class Settings(
         override val defaultLocale: Locale = AlexandriaHook.FallbackLocale,
         val timeStepMultiplier: Real = 1.0,
-        val worlds: Map<String, PhysicsSpace.Settings> = emptyMap(),
+        val worlds: Map<String, World> = emptyMap(),
+        val simpleBodies: SimpleBodies.Settings = SimpleBodies.Settings(),
         val stats: Stats = Stats(),
         val jobs: Jobs = Jobs(),
         val rapier: RapierEngine.Settings = RapierEngine.Settings(),
     ) : AlexandriaHook.Settings {
         @ConfigSerializable
+        data class World(
+            val physics: PhysicsSpace.Settings = PhysicsSpace.Settings(),
+            val terrain: DynamicTerrain.Settings = DynamicTerrain.Settings(),
+        )
+
+        @ConfigSerializable
         data class Stats(
             val timingBuffers: List<Double> = listOf(5.0, 15.0, 60.0),
             val timingBarBuffer: Double = 5.0,
-            val timingBar: BossBarDescriptor = BossBarDescriptor(),
+            val timingBar: BossBarDesc = BossBarDesc(),
         )
 
         @ConfigSerializable

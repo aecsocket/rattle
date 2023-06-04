@@ -46,11 +46,6 @@ translations:
                 one {<p1>#</p1> moving sphere}
                 other {<p1>#</p1> moving spheres}
               } at <p1>{position_x}, {position_y}, {position_z}</p1>
-            capsule: >-
-              <p2>Created {count, plural,
-                one {<p1>#</p1> moving capsule}
-                other {<p1>#</p1> moving capsules}
-              } at <p1>{position_x}, {position_y}, {position_z}</p1>
         destroy:
           all: >-
             <p2>Destroyed {count, plural,
@@ -71,8 +66,8 @@ translations:
           }
         space: |-
           <p2>  · <sk>{world}</sk>:
-          <p2>    {num_colliders, plural, one {<p1>#</p1> collider} other {<p1>#</p1> colliders}}
-          <p2>    <p1>{num_active_bodies}</p1> active / {num_bodies, plural, one {<p1>#</p1> body} other {<p1>#</p1> bodies}}
+          <p2>    {colliders, plural, one {<p1>#</p1> collider} other {<p1>#</p1> colliders}}
+          <p2>    <p1>{active_rigid_bodies}</p1> active / {rigid_bodies, plural, one {<p1>#</p1> body} other {<p1>#</p1> bodies}}
 
     timing: >-
       {time, number, :: .0}
@@ -81,4 +76,4 @@ translations:
       none: >-
         <p2><sk>{world}</sk>: <se>no physics</se> <p3>|</p3> <p1><median> ms</p1> avg / <p1><best5> ms</p1> 5%ile / <p1><worst5> ms</p1> 95%ile
       some: >-
-        <p2><sk>{world}</sk>: <p1>{num_active_bodies}</p1> active / <p1>{num_bodies}</p1> bodies <p3>|</p3> <p1><median> ms</p1> avg / <p1><best5> ms</p1> 5%ile / <p1><worst5> ms</p1> 95%ile
+        <p2><sk>{world}</sk>: <p1>{active_rigid_bodies}</p1> active / <p1>{rigid_bodies}</p1> bodies <p3>|</p3> <p1><median> ms</p1> avg / <p1><best5> ms</p1> 5%ile / <p1><worst5> ms</p1> 95%ile

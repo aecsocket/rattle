@@ -1,8 +1,7 @@
 package io.github.aecsocket.rattle.world
 
-import io.github.aecsocket.rattle.AbstractSimpleBodies
-import io.github.aecsocket.rattle.Destroyable
-import io.github.aecsocket.rattle.PhysicsSpace
+import io.github.aecsocket.rattle.*
+import java.util.concurrent.atomic.AtomicLong
 
 interface WorldHook {
     fun enable()
@@ -57,20 +56,52 @@ object NoOpEntityStrategy : EntityStrategy {
  * wouldn't want a terrain strategy to stop working in the middle of processing a physics step.
  * Therefore, its locking is controlled by the WorldPhysics' container (Sync and the like).
  */
-interface WorldPhysics<W> : Destroyable {
-    val world: W
-    val physics: PhysicsSpace
-    val terrain: TerrainStrategy
-    val entities: EntityStrategy
-    val simpleBodies: AbstractSimpleBodies<W>
+abstract class WorldPhysics<W>(
+    open val world: W,
+    val physics: PhysicsSpace,
+    val terrain: TerrainStrategy,
+    val entities: EntityStrategy,
+    open val simpleBodies: SimpleBodies<W>,
+) : Destroyable {
+    private val destroyed = DestroyFlag()
+
+    data class Stats(
+        val colliders: Int = 0,
+        val rigidBodies: Int = 0,
+        val activeRigidBodies: Int = 0,
+    )
+
+    private val mCurrentTick = AtomicLong(0)
+    val currentTick: Long
+        get() = mCurrentTick.get()
+
+    var stats: Stats = Stats()
+        internal set
 
     operator fun component1() = physics
 
     operator fun component2() = world
 
+    protected abstract fun destroyInternal()
+
+    override fun destroy() {
+        destroyed()
+        destroyInternal()
+        terrain.destroy()
+        entities.destroy()
+        simpleBodies.destroy()
+        physics.destroy()
+    }
+
     fun onPhysicsStep() {
+        mCurrentTick.incrementAndGet()
         terrain.onPhysicsStep()
         entities.onPhysicsStep()
         simpleBodies.onPhysicsStep()
+        stats = Stats(
+            colliders = physics.colliders.count,
+            rigidBodies = physics.rigidBodies.count,
+            activeRigidBodies = physics.rigidBodies.activeCount,
+        )
     }
 }

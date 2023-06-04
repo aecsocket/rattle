@@ -175,6 +175,11 @@ data class PhysicsMaterial(
  */
 sealed interface Mass {
     /**
+     * The collider has infinite mass, and cannot be pushed at all.
+     */
+    /* TODO: Kotlin 1.9 data */ object Infinite : Mass
+
+    /**
      * The mass properties will be calculated based on the shape's volume and the given [density], with a default of 1.
      * - Mass is calculated
      * - Density is provided
