@@ -7,6 +7,8 @@ import io.github.aecsocket.alexandria.paper.extension.location
 import io.github.aecsocket.klam.FAffine3
 import io.github.aecsocket.klam.FQuat
 import io.github.aecsocket.rattle.*
+import net.kyori.adventure.text.Component
+import org.bukkit.Bukkit
 import org.bukkit.Material
 import org.bukkit.World
 import org.bukkit.inventory.ItemStack
@@ -44,6 +46,9 @@ class PaperSimpleBodies(
                     return@runRepeating
                 }
                 instance.nextPosition?.let { pos ->
+                    // this is required to make the interpolation work properly
+                    // because this game SUCKS
+                    render.interpolationDelay = 0
                     render.position = pos.translation
                     render.transform = render.transform.copy(rotation = FQuat(pos.rotation))
                     instance.nextPosition = null

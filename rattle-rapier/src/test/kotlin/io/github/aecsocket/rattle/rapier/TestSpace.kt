@@ -17,7 +17,7 @@ class TestSpace {
 
         repeat(256) {
             val coll = engine.createCollider(
-                shape = shape,
+                shape = shape.acquire(),
                 material = PhysicsMaterial(),
             )
             val key = physics.colliders.add(coll)

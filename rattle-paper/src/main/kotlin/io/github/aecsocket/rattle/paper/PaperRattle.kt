@@ -2,8 +2,8 @@ package io.github.aecsocket.rattle.paper
 
 import io.github.aecsocket.alexandria.hook.AlexandriaHook
 import io.github.aecsocket.alexandria.paper.AlexandriaPlugin
-import io.github.aecsocket.alexandria.paper.extension.alexandriaPaperSerializers
 import io.github.aecsocket.alexandria.paper.extension.forWorld
+import io.github.aecsocket.alexandria.paper.extension.paperSerializers
 import io.github.aecsocket.alexandria.paper.extension.registerEvents
 import io.github.aecsocket.alexandria.sync.Locked
 import io.github.aecsocket.alexandria.sync.Sync
@@ -33,7 +33,7 @@ class PaperRattle : AlexandriaPlugin<RattleHook.Settings>(
     manifest = rattleManifest,
     configOptions = ConfigurationOptions.defaults()
         .serializers { it
-            .registerAll(alexandriaPaperSerializers)
+            .registerAll(paperSerializers)
             .registerAnnotatedObjects(ObjectMapper.factoryBuilder()
                 .addDiscoverer(dataClassFieldDiscoverer())
                 .build()

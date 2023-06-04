@@ -63,10 +63,10 @@ interface RigidBodyKey
  * - [RigidBodyType.DYNAMIC] - the body's position and velocity is managed by the physics engine, so it can be pushed
  *   by other colliders.
  * - [RigidBodyType.KINEMATIC] - the body's position and velocity is managed by the physics engine, but the user
- *   manually sets a desired target position via [Write.kinematicMoveTo], and the engine calculates the required
+ *   manually sets a desired target position via [Mut.kinematicMoveTo], and the engine calculates the required
  *   velocity to move it there.
  *
- * Note that not all operations can be applied to all body types - for example, [Write.applyForce] on a
+ * Note that not all operations can be applied to all body types - for example, [Mut.applyForce] on a
  * [RigidBodyType.FIXED] does not make sense. In these cases, the API will simply fail silently, rather than
  * throw an exception. It is your responsibility to make sure your bodies are of the correct type before you
  * call methods on them.
@@ -75,12 +75,12 @@ interface RigidBodyKey
  *
  * Since a [PhysicsSpace] uses a discrete time-stepping approach, collisions may get missed if a body is moving too
  * fast. This is known as "tunneling", and it allows a body to effectively move through another body without any
- * collisions being detected. In this case, setting the fast-moving body to have CCD enabled (using [Write.isCcdEnabled])
+ * collisions being detected. In this case, setting the fast-moving body to have CCD enabled (using [Mut.isCcdEnabled])
  * will allow it to detect collisions via a "sweep" between its old and new position, and find collisions in between.
  * If there is a collision, it will be teleported back to just before it collides that body, effectively preventing
  * tunneling. This works for both the linear and angular velocities.
  *
- * To check if a body is currently being simulated with CCD, use [Access.isCcdActive].
+ * To check if a body is currently being simulated with CCD, use [isCcdActive].
  *
  * # Sleeping
  *
@@ -93,91 +93,86 @@ interface RigidBodyKey
  * To simulate phenomena like air resistance, it would be too computationally expensive to actually simulate fluid
  * dynamics. Instead, we use a simple factor which the body's velocities are multiplied by on every time step. This
  * effectively slows the body down more the faster that it moves. There are two damping factors:
- * - [Access.linearDamping] - the multiplier for the linear velocity (default [DEFAULT_LINEAR_DAMPING]).
- * - [Access.angularDamping] - the multiplier for the angular velocity (default [DEFAULT_ANGULAR_DAMPING]).
+ * - [linearDamping] - the multiplier for the linear velocity (default [DEFAULT_LINEAR_DAMPING]).
+ * - [angularDamping] - the multiplier for the angular velocity (default [DEFAULT_ANGULAR_DAMPING]).
  */
-object RigidBody {
+interface RigidBody {
     /**
-     * Immutable interface for a [RigidBody].
+     * The body type (see [RigidBody]).
      */
-    interface Read {
-        /**
-         * The body type (see [RigidBody]).
-         */
-        val type: RigidBodyType
+    val type: RigidBodyType
 
-        /**
-         * The handles to colliders attached to this body.
-         */
-        val colliders: Collection<ColliderKey>
+    /**
+     * The handles to colliders attached to this body.
+     */
+    val colliders: Collection<ColliderKey>
 
-        // TODO: how does center of mass work??
-        /**
-         * The absolute position of this body in the world.
-         */
-        val position: Iso
+    // TODO: how does center of mass work??
+    /**
+     * The absolute position of this body in the world.
+     */
+    val position: Iso
 
-        /**
-         * How fast and in what direction the body is moving linearly, in meters/second.
-         */
-        val linearVelocity: Vec
+    /**
+     * How fast and in what direction the body is moving linearly, in meters/second.
+     */
+    val linearVelocity: Vec
 
-        /**
-         * How fast and in what direction the body is moving around its angular axes, in radians/second.
-         * This is represented as an axis-angle vector, where the magnitude is the angle.
-         */
-        val angularVelocity: Vec
+    /**
+     * How fast and in what direction the body is moving around its angular axes, in radians/second.
+     * This is represented as an axis-angle vector, where the magnitude is the angle.
+     */
+    val angularVelocity: Vec
 
-        /**
-         * If this body is currently sleeping (see [RigidBody]).
-         */
-        val isSleeping: Boolean
+    /**
+     * If this body is currently sleeping (see [RigidBody]).
+     */
+    val isSleeping: Boolean
 
-        /**
-         * If this body has CCD enabled (see [RigidBody]).
-         */
-        val isCcdEnabled: Boolean
+    /**
+     * If this body has CCD enabled (see [RigidBody]).
+     */
+    val isCcdEnabled: Boolean
 
-        /**
-         * If this body is currently being simulated with CCD (see [RigidBody]).
-         */
-        val isCcdActive: Boolean
+    /**
+     * If this body is currently being simulated with CCD (see [RigidBody]).
+     */
+    val isCcdActive: Boolean
 
-        /**
-         * The factor by which gravity is applied to this body. Default of 1.
-         */
-        val gravityScale: Real
+    /**
+     * The factor by which gravity is applied to this body. Default of 1.
+     */
+    val gravityScale: Real
 
-        /**
-         * The linear damping factor (see [RigidBody]).
-         */
-        val linearDamping: Real
+    /**
+     * The linear damping factor (see [RigidBody]).
+     */
+    val linearDamping: Real
 
-        /**
-         * The angular damping factor (see [RigidBody]).
-         */
-        val angularDamping: Real
+    /**
+     * The angular damping factor (see [RigidBody]).
+     */
+    val angularDamping: Real
 
-        /**
-         * How much force has been applied by the user in this simulation step.
-         */
-        val appliedForce: Vec
+    /**
+     * How much force has been applied by the user in this simulation step.
+     */
+    val appliedForce: Vec
 
-        /**
-         * How much torque has been applied by the user in this simulation step.
-         */
-        val appliedTorque: Vec
+    /**
+     * How much torque has been applied by the user in this simulation step.
+     */
+    val appliedTorque: Vec
 
-        /**
-         * Calculates the kinetic energy of this body.
-         */
-        fun kineticEnergy(): Real
-    }
+    /**
+     * Calculates the kinetic energy of this body.
+     */
+    fun kineticEnergy(): Real
 
     /**
      * Mutable interface for a [RigidBody].
      */
-    interface Write : Read {
+    interface Mut : RigidBody {
         override var type: RigidBodyType
 
         // TODO center of mass
@@ -261,5 +256,5 @@ object RigidBody {
     /**
      * Mutable owned interface for a [RigidBody].
      */
-    interface Own : Write, Destroyable
+    interface Own : Mut, Destroyable
 }

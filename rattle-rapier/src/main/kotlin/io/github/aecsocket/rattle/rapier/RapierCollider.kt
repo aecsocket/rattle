@@ -14,64 +14,68 @@ class RapierShape internal constructor(
     override fun release() = this.apply { handle.release() }
 }
 
-data class RapierColliderKey(val id: Long) : ColliderKey {
+@JvmInline
+value class RapierColliderKey(val id: Long) : ColliderKey {
     override fun toString(): String = ArenaKey.asString(id)
 }
 
-object RapierCollider {
-    sealed class Base(
-        override val handle: rapier.geometry.Collider,
-        var space: RapierSpace? = null,
-    ) : RapierNative(), Collider.Read {
-        override val shape: Shape
-            get() = RapierShape(handle.shape)
+open class RapierCollider internal constructor(
+    override val handle: rapier.geometry.Collider,
+    var space: RapierSpace? = null,
+) : RapierNative(), Collider {
+    override val nativeType get() = "RapierCollider"
 
-        override val material: PhysicsMaterial
-            get() = PhysicsMaterial(
-                friction = handle.friction,
-                restitution = handle.restitution,
-                frictionCombine = handle.frictionCombineRule.convert(),
-                restitutionCombine = handle.restitutionCombineRule.convert(),
-            )
+    override val shape: Shape
+        get() = RapierShape(handle.shape)
 
-        override val position: Iso
-            get() = pushArena { arena ->
-                handle.getPosition(arena).toIso()
-            }
+    override val material: PhysicsMaterial
+        get() = PhysicsMaterial(
+            friction = handle.friction,
+            restitution = handle.restitution,
+            frictionCombine = handle.frictionCombineRule.convert(),
+            restitutionCombine = handle.restitutionCombineRule.convert(),
+        )
 
-        override val physicsMode: PhysicsMode
-            get() = when (handle.isSensor) {
-                false -> PhysicsMode.SOLID
-                true -> PhysicsMode.SENSOR
-            }
+    override val collisionGroup: InteractionGroup
+        get() = pushArena { arena ->
+            handle.getCollisionGroups(arena).convert()
+        }
 
-        override val relativePosition: Iso
-            get() = pushArena { arena ->
-                handle.getPositionWrtParent(arena)?.toIso() ?: Iso()
-            }
+    override val solverGroup: InteractionGroup
+        get() = pushArena { arena ->
+            handle.getSolverGroups(arena).convert()
+        }
 
-        override val parent: RigidBodyKey?
-            get() = handle.parent?.let { RapierRigidBodyKey(it) }
+    override val position: Iso
+        get() = pushArena { arena ->
+            handle.getPosition(arena).toIso()
+        }
 
-        override fun bounds(): Aabb {
-            return pushArena { arena ->
-                handle.computeAabb(arena).toAabb()
-            }
+    override val physicsMode: PhysicsMode
+        get() = when (handle.isSensor) {
+            false -> PhysicsMode.SOLID
+            true -> PhysicsMode.SENSOR
+        }
+
+    override val relativePosition: Iso
+        get() = pushArena { arena ->
+            handle.getPositionWrtParent(arena)?.toIso() ?: Iso()
+        }
+
+    override val parent: RigidBodyKey?
+        get() = handle.parent?.let { RapierRigidBodyKey(it) }
+
+    override fun bounds(): Aabb {
+        return pushArena { arena ->
+            handle.computeAabb(arena).toAabb()
         }
     }
 
-    class Read internal constructor(
-        handle: rapier.geometry.Collider,
-        space: RapierSpace? = null,
-    ) : Base(handle, space) {
-        override val nativeType get() = "RapierCollider.Read"
-    }
-
-    open class Write internal constructor(
+    open class Mut internal constructor(
         override val handle: rapier.geometry.Collider.Mut,
         space: RapierSpace? = null,
-    ) : Base(handle, space), Collider.Write {
-        override val nativeType get() = "RapierCollider.Write"
+    ) : RapierCollider(handle, space), Collider.Mut {
+        override val nativeType get() = "RapierCollider.Mut"
 
         override var shape: Shape
             get() = super.shape
@@ -87,6 +91,18 @@ object RapierCollider {
                 handle.restitution = value.restitution
                 handle.frictionCombineRule = value.frictionCombine.convert()
                 handle.restitutionCombineRule = value.restitutionCombine.convert()
+            }
+
+        override var collisionGroup: InteractionGroup
+            get() = super.collisionGroup
+            set(value) = pushArena { arena ->
+                handle.setCollisionGroups(value.convert(arena))
+            }
+
+        override var solverGroup: InteractionGroup
+            get() = super.solverGroup
+            set(value) = pushArena { arena ->
+                handle.setSolverGroups(value.convert(arena))
             }
 
         override var position: Iso
@@ -114,7 +130,7 @@ object RapierCollider {
     class Own internal constructor(
         handle: rapier.geometry.Collider.Mut,
         space: RapierSpace? = null,
-    ) : Write(handle, space), Collider.Own {
+    ) : Mut(handle, space), Collider.Own {
         override val nativeType get() = "RapierCollider.Own"
 
         private val destroyed = DestroyFlag()

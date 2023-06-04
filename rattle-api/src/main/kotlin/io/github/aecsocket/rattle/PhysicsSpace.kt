@@ -28,13 +28,13 @@ interface PhysicsSpace : Destroyable {
 
     var settings: Settings
 
-    val colliders: SingleContainer<Collider.Read, Collider.Write, Collider.Own, ColliderKey>
+    val colliders: SingleContainer<Collider, Collider.Mut, Collider.Own, ColliderKey>
 
-    val bodies: ActiveContainer<RigidBody.Read, RigidBody.Write, RigidBody.Own, RigidBodyKey>
+    val bodies: ActiveContainer<RigidBody, RigidBody.Mut, RigidBody.Own, RigidBodyKey>
 
-//    val impulseJoints: JointContainer<ImpulseJoint>
+//    val impulseJoints: JointContainer<ImpulseJoint, ImpulseJoint.Mut, ImpulseJoint.Own, ImpulseJointKey>
 //
-//    val multibodyJoints: JointContainer<MultibodyJoint>
+//    val multibodyJoints: JointContainer<MultibodyJoint, MultibodyJoint.Mut, MultibodyJoint.Own, MultibodyJointKey>
 
     fun attach(coll: ColliderKey, to: RigidBodyKey)
 
@@ -62,9 +62,7 @@ interface PhysicsSpace : Destroyable {
         fun active(): Collection<K>
     }
 
-//    interface JointContainer<R, W : R, > : Container<T> {
-//        fun add(value: T, bodyA: RigidBody, bodyB: RigidBody)
-//
-//        fun remove(value: T)
-//    }
+    interface JointContainer<R, W : R, O : W, K> : Container<R, W, O, K> {
+        fun add(value: O, bodyA: RigidBodyKey, bodyB: RigidBodyKey)
+    }
 }

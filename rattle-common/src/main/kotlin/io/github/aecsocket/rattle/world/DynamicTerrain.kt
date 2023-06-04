@@ -230,7 +230,7 @@ abstract class DynamicTerrain(
         val toRemove = sections.withLock { it.map.keys.toMutableSet() }
 
         // find chunk sections which bodies are intersecting
-        fun forCollider(body: RigidBody.Read, coll: Collider.Read) {
+        fun forCollider(body: RigidBody, coll: Collider) {
             val bounds = computeBounds(body, coll)
             val sectionPos = enclosedPoints(bounds / 16.0).toSet()
 
@@ -292,7 +292,7 @@ abstract class DynamicTerrain(
         }
     }
 
-    private fun computeBounds(body: RigidBody.Read, coll: Collider.Read): Aabb {
+    private fun computeBounds(body: RigidBody, coll: Collider): Aabb {
         val bounds = coll.bounds()
         // TODO constant scaling
         expand(bounds, DVec3(4.0))
@@ -310,8 +310,10 @@ abstract class DynamicTerrain(
             val block = b as? Block.Shaped ?: return@forEachIndexed
             val (x, y, z) = (pos * 16) + posInChunk(i)
 
+            // SAFETY: acquire a new ref to this shape, since this shape will probably be used by multiple blocks
+            // we release it on destruction as well
             val coll = rattle.engine.createCollider(
-                shape = block.shape,
+                shape = block.shape.acquire(),
                 material = PhysicsMaterial(friction = 0.5, restitution = 0.2), // TODO
                 position = Iso(
                     DVec3(x.toDouble() + 0.5, y.toDouble() + 0.5, z.toDouble() + 0.5),

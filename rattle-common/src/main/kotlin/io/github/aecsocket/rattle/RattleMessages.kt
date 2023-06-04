@@ -6,6 +6,8 @@ import net.kyori.adventure.text.Component
 interface RattleMessages {
     val error: Error
     interface Error {
+        fun taskTimedOut(): Message
+
         val space: Space
         interface Space {
             fun alreadyExists(

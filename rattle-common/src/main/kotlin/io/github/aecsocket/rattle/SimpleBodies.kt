@@ -1,7 +1,7 @@
 package io.github.aecsocket.rattle
 
 import io.github.aecsocket.alexandria.ArenaKey
-import io.github.aecsocket.alexandria.genArena
+import io.github.aecsocket.alexandria.GenArena
 import io.github.aecsocket.alexandria.sync.Locked
 import io.github.aecsocket.rattle.impl.RattlePlatform
 
@@ -42,9 +42,8 @@ abstract class AbstractSimpleBodies<W>(
     private val physics: PhysicsSpace,
 ) : SimpleBodies<W>, Destroyable {
     inner class Instance(
-        val shape: Shape,
-        val body: RigidBodyKey,
         val collider: ColliderKey,
+        val body: RigidBodyKey,
     ) {
         var nextPosition: Iso? = null
         val destroyed = DestroyFlag()
@@ -55,7 +54,6 @@ abstract class AbstractSimpleBodies<W>(
                 physics.colliders.remove(collider)?.destroy()
                 physics.bodies.remove(body)?.destroy()
             }
-            shape.release()
         }
     }
 
@@ -63,7 +61,7 @@ abstract class AbstractSimpleBodies<W>(
     private value class Key(val key: ArenaKey) : SimpleBodyKey
 
     private val destroyed = DestroyFlag()
-    private val instances = Locked(genArena<Instance>())
+    private val instances = Locked(GenArena<Instance>())
 
     override val count: Int
         get() = instances.withLock { it.size }
@@ -95,7 +93,13 @@ abstract class AbstractSimpleBodies<W>(
     override fun create(position: Iso, desc: SimpleBodyDesc): SimpleBodyKey {
         val engine = platform.rattle.engine
 
+        // SAFETY: we don't increment the ref count, so `collider` will fully own this shape
         val shape = engine.createShape(desc.geom)
+        val collider = engine.createCollider(
+            shape = shape,
+            material = desc.material,
+            mass = desc.mass,
+        ).let { physics.colliders.add(it) }
         val body = engine.createBody(
             type = desc.type,
             position = position,
@@ -104,17 +108,11 @@ abstract class AbstractSimpleBodies<W>(
             linearDamping = desc.linearDamping,
             angularDamping = desc.angularDamping,
         ).let { physics.bodies.add(it) }
-        val collider = engine.createCollider(
-            shape = shape,
-            material = desc.material,
-            mass = desc.mass,
-        ).let { physics.colliders.add(it) }
         physics.attach(collider, body)
 
         val instance = Instance(
-            shape = shape,
-            body = body,
             collider = collider,
+            body = body,
         )
         val key = instances.withLock { it.insert(instance) }
         when (desc.visibility) {

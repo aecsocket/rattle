@@ -4,13 +4,12 @@ import io.github.aecsocket.rattle.*
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import rapier.Rapier
 import rapier.dynamics.RigidBodyBuilder
-import rapier.dynamics.joint.GenericJoint
 import rapier.geometry.ColliderBuilder
 import rapier.pipeline.PhysicsPipeline
-import rapier.shape.Segment
+import rapier.shape.CompoundChild
 import rapier.shape.SharedShape
 
-class RapierEngine(var settings: Settings = Settings()) : PhysicsEngine {
+class RapierEngine internal constructor(var settings: Settings = Settings()) : PhysicsEngine {
     @ConfigSerializable
     data class Settings(
         val integration: Integration = Integration(),
@@ -50,42 +49,79 @@ class RapierEngine(var settings: Settings = Settings()) : PhysicsEngine {
     }
 
     override fun createShape(geom: Geometry): Shape {
-        val handle = pushArena { arena ->
+        val handle: SharedShape = pushArena { arena ->
             when (geom) {
-                is Sphere -> SharedShape.of(
-                    rapier.shape.Ball.of(arena, geom.radius)
-                )
-                is Box -> SharedShape.of(
-                    rapier.shape.Cuboid.of(arena, geom.halfExtent.toVector(arena))
-                )
-                is Capsule -> SharedShape.of(
-                    rapier.shape.Capsule.of(
-                        arena,
-                        when (geom.axis) {
-                            LinAxis.X -> Segment.of(
-                                arena,
-                                Vec(-geom.halfHeight, 0.0, 0.0).toVector(arena),
-                                Vec( geom.halfHeight, 0.0, 0.0).toVector(arena),
-                            )
-                            LinAxis.Y -> Segment.of(
-                                arena,
-                                Vec(0.0, -geom.halfHeight, 0.0).toVector(arena),
-                                Vec(0.0,  geom.halfHeight, 0.0).toVector(arena),
-                            )
-                            LinAxis.Z -> Segment.of(
-                                arena,
-                                Vec(0.0, 0.0, -geom.halfHeight).toVector(arena),
-                                Vec(0.0, 0.0,  geom.halfHeight).toVector(arena),
-                            )
-                        },
+                is Sphere -> SharedShape.ball(geom.radius)
+                is Box -> if (geom.margin > 0.0) {
+                    SharedShape.roundCuboid(geom.halfExtent.x, geom.halfExtent.y, geom.halfExtent.z, geom.margin)
+                } else {
+                    SharedShape.cuboid(geom.halfExtent.x, geom.halfExtent.y, geom.halfExtent.z)
+                }
+                is Capsule -> when (geom.axis) {
+                    LinAxis.X -> SharedShape.capsule(
+                        Vec(-geom.halfHeight, 0.0, 0.0).toVector(arena),
+                        Vec( geom.halfHeight, 0.0, 0.0).toVector(arena),
                         geom.radius,
                     )
-                )
-                is Cylinder -> SharedShape.of(
-                    rapier.shape.Cylinder.of(arena, geom.halfHeight, geom.radius)
-                )
-                is Cone -> SharedShape.of(
-                    rapier.shape.Cone.of(arena, geom.halfHeight, geom.radius)
+                    LinAxis.Y -> SharedShape.capsule(
+                        Vec(0.0, -geom.halfHeight, 0.0).toVector(arena),
+                        Vec(0.0,  geom.halfHeight, 0.0).toVector(arena),
+                        geom.radius,
+                    )
+                    LinAxis.Z -> SharedShape.capsule(
+                        Vec(0.0, 0.0, -geom.halfHeight).toVector(arena),
+                        Vec(0.0, 0.0,  geom.halfHeight).toVector(arena),
+                        geom.radius,
+                    )
+                }
+                is Cylinder -> if (geom.margin > 0.0) {
+                    SharedShape.roundCylinder(geom.halfHeight, geom.radius, geom.margin)
+                } else {
+                    SharedShape.cylinder(geom.halfHeight, geom.radius)
+                }
+                is Cone -> if (geom.margin > 0.0) {
+                    SharedShape.roundCone(geom.halfHeight, geom.radius, geom.margin)
+                } else {
+                    SharedShape.cone(geom.halfHeight, geom.radius)
+                }
+                is ConvexHull -> {
+                    val points = geom.points.map { it.toVector(arena) }.toTypedArray()
+                    val shape = if (geom.margin > 0.0) {
+                        SharedShape.roundConvexHull(points, geom.margin)
+                    } else {
+                        SharedShape.convexHull(*points)
+                    }
+                    shape ?: throw IllegalArgumentException("Could not create convex hull")
+                }
+                is ConvexMesh -> {
+                    val vertices = geom.vertices.map { it.toVector(arena) }.toTypedArray()
+                    val indices = geom.indices.map { intArrayOf(it.x, it.y, it.z) }.toTypedArray()
+                    val shape = if (geom.margin > 0.0) {
+                        SharedShape.roundConvexMesh(vertices, indices, geom.margin)
+                    } else {
+                        SharedShape.convexMesh(vertices, indices)
+                    }
+                    shape ?: throw IllegalArgumentException("Could not create convex mesh")
+                }
+                is ConvexDecomposition -> {
+                    val vertices = geom.vertices.map { it.toVector(arena) }.toTypedArray()
+                    val indices = geom.indices.map { intArrayOf(it.x, it.y, it.z) }.toTypedArray()
+                    if (geom.margin > 0.0) SharedShape.roundConvexDecomposition(
+                        vertices,
+                        indices,
+                        geom.vhacd.toParams(arena),
+                        geom.margin,
+                    ) else SharedShape.convexDecomposition(
+                        vertices,
+                        indices,
+                        geom.vhacd.toParams(arena),
+                    )
+                }
+                is Compound -> SharedShape.compound(
+                    *geom.children.map { child ->
+                        val shape = child.shape as RapierShape
+                        CompoundChild.of(arena, child.delta.toIsometry(arena), shape.handle)
+                    }.toTypedArray()
                 )
             }
         }
@@ -95,18 +131,22 @@ class RapierEngine(var settings: Settings = Settings()) : PhysicsEngine {
     override fun createCollider(
         shape: Shape,
         material: PhysicsMaterial,
+        collisionGroup: InteractionGroup,
+        solverGroup: InteractionGroup,
         position: Iso,
         mass: Mass,
         physics: PhysicsMode,
     ): Collider.Own {
         shape as RapierShape
         val coll = pushArena { arena ->
-            // DO manually acquire the shape here; Rapier will NOT increment the Arc ref count itself
-            ColliderBuilder.of(shape.acquire().handle)
+            // rely on the caller to increment the shape ref; neither Rapier nor us will increment the Arc ref count
+            ColliderBuilder.of(shape.handle)
                 .friction(material.friction)
                 .restitution(material.restitution)
                 .frictionCombineRule(material.frictionCombine.convert())
                 .restitutionCombineRule(material.restitutionCombine.convert())
+                .collisionGroups(collisionGroup.convert(arena))
+                .solverGroups(solverGroup.convert(arena))
                 .position(position.toIsometry(arena))
                 .sensor(when (physics) {
                     PhysicsMode.SOLID -> false
@@ -157,35 +197,6 @@ class RapierEngine(var settings: Settings = Settings()) : PhysicsEngine {
         return RapierRigidBody.Own(body)
     }
 
-    private fun createJoint(axes: JointAxes): RapierJoint {
-        val joint = GenericJoint.create(0).apply {
-            var lockedAxes = 0
-            axes.forEach { (axis, state) ->
-                val rAxis = axis.convert()
-
-                when (state) {
-                    is AxisState.Locked -> {
-                        lockedAxes = lockedAxes or rAxis.ordinal
-                    }
-                    is AxisState.Limited -> {
-                        setLimits(rAxis, state.min, state.max)
-                    }
-                    is AxisState.Free -> {}
-                }
-            }
-            lockAxes(lockedAxes.toByte())
-        }
-        return RapierJoint(RapierJoint.State.Removed(joint))
-    }
-
-    override fun createImpulseJoint(axes: JointAxes): ImpulseJoint {
-        return createJoint(axes)
-    }
-
-    override fun createMultibodyJoint(axes: JointAxes): MultibodyJoint {
-        return createJoint(axes)
-    }
-
     override fun createSpace(
         settings: PhysicsSpace.Settings,
     ): PhysicsSpace {
@@ -216,5 +227,20 @@ class RapierEngine(var settings: Settings = Settings()) : PhysicsEngine {
             spaces.map { it.queryPipeline }.toTypedArray(),
         )
         integrationParameters.forEach { it.drop() }
+    }
+
+    class Builder(
+        private val settings: Settings = Settings(),
+    ) : PhysicsEngine.Builder {
+        private var nextLayer = 0
+
+        override fun registerInteractionLayer(): InteractionLayer {
+            if (nextLayer >= 32)
+                throw IllegalStateException("Cannot register more than 32 interaction layers")
+            return InteractionLayer.fromRaw(1 shl nextLayer)
+                .also { nextLayer += 1 }
+        }
+
+        override fun build() = RapierEngine(settings)
     }
 }

@@ -2,7 +2,6 @@ package io.github.aecsocket.rattle.impl
 
 import io.github.aecsocket.alexandria.BossBarDescriptor
 import io.github.aecsocket.alexandria.hook.AlexandriaHook
-import io.github.aecsocket.alexandria.hook.fallbackLocale
 import io.github.aecsocket.glossa.Glossa
 import io.github.aecsocket.glossa.MessageProxy
 import io.github.aecsocket.glossa.messageProxy
@@ -28,7 +27,7 @@ val rattleManifest = AlexandriaHook.Manifest(
 abstract class RattleHook {
     @ConfigSerializable
     data class Settings(
-        override val defaultLocale: Locale = fallbackLocale,
+        override val defaultLocale: Locale = AlexandriaHook.FallbackLocale,
         val timeStepMultiplier: Real = 1.0,
         val worlds: Map<String, PhysicsSpace.Settings> = emptyMap(),
         val stats: Stats = Stats(),
@@ -45,7 +44,8 @@ abstract class RattleHook {
         @ConfigSerializable
         data class Jobs(
             val workerThreads: Int = 0,
-            val threadTerminateTime: Double = 10.0,
+            val threadTerminateTime: Double = 5.0,
+            val commandTaskTerminateTime: Double = 5.0,
         )
     }
 
@@ -61,7 +61,8 @@ abstract class RattleHook {
         private set
 
     fun init() {
-        engine = RapierEngine(settings.rapier)
+        // TODO allow plugins to hook in and register interaction layers
+        engine = RapierEngine.Builder(settings.rapier).build()
         log.info { "Loaded physics engine ${engine.name} v${engine.version}" }
 
         val executorId = AtomicInteger(1)
@@ -82,8 +83,6 @@ abstract class RattleHook {
     }
 
     fun destroy(platform: RattlePlatform<*, *>?) {
-        platform?.destroy()
-
         executor.shutdown()
         log.info { "Waiting ${settings.jobs.threadTerminateTime} sec for physics jobs" }
         if (!executor.awaitTermination((settings.jobs.threadTerminateTime * 1000).toLong(), TimeUnit.MILLISECONDS)) {
@@ -91,10 +90,18 @@ abstract class RattleHook {
             log.warn { "Could not wait for physics jobs to finish" }
         }
 
+        platform?.destroy()
+
         engine.destroy()
     }
 
     fun runTask(task: Runnable) {
-        executor.submit(task)
+        executor.submit {
+            try {
+                task.run()
+            } catch (ex: Exception) {
+                log.warn(ex) { "Could not run physics task" }
+            }
+        }
     }
 }

@@ -4,7 +4,6 @@ import cloud.commandframework.CommandManager
 import cloud.commandframework.arguments.CommandArgument
 import cloud.commandframework.arguments.standard.BooleanArgument
 import cloud.commandframework.arguments.standard.DoubleArgument
-import cloud.commandframework.arguments.standard.EnumArgument
 import cloud.commandframework.arguments.standard.IntegerArgument
 import cloud.commandframework.context.CommandContext
 import io.github.aecsocket.alexandria.extension.flag
@@ -17,6 +16,8 @@ import io.github.aecsocket.rattle.impl.RattlePlatform
 import io.github.aecsocket.rattle.stats.formatTiming
 import io.github.aecsocket.rattle.stats.timingStatsOf
 import net.kyori.adventure.audience.Audience
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.TimeUnit
 import kotlin.random.Random
 
 private const val ALL = "all"
@@ -185,6 +186,21 @@ abstract class RattleCommand<C : Audience, W>(
         }
     }
 
+    private fun CommandContext<C>.runTask(task: () -> Unit) {
+        val future = CompletableFuture<Unit>()
+        rattle.runTask {
+            task()
+            future.complete(Unit)
+        }
+
+        try {
+            future.get((rattle.settings.jobs.commandTaskTerminateTime * 1000).toLong(), TimeUnit.MILLISECONDS)
+        } catch (ex: Throwable) {
+            rattle.log.warn { "Timed out waiting for task for command by $sender: $rawInputJoined" }
+            error(messages.forAudience(sender).error.taskTimedOut())
+        }
+    }
+
     private fun spaceCreate(ctx: CommandContext<C>) {
         val server = ctx.server
         val sender = ctx.sender
@@ -213,7 +229,7 @@ abstract class RattleCommand<C : Audience, W>(
         val lock = server.physicsOrNull(world) ?: error(messages.error.space.doesNotExist(
             world = server.key(world).asString()
         ))
-        rattle.runTask {
+        ctx.runTask {
             lock.withLock { physics ->
                 physics.destroy()
             }
@@ -252,7 +268,7 @@ abstract class RattleCommand<C : Audience, W>(
         )
         val visibility = if (virtual) Visibility.INVISIBLE else Visibility.VISIBLE
 
-        rattle.runTask {
+        ctx.runTask {
             server.physicsOrCreate(location.world).withLock { physics ->
                 repeat(count) {
                     val offset = (Random.nextDVec3() * 2.0 - 1.0) * spread
@@ -391,7 +407,7 @@ abstract class RattleCommand<C : Audience, W>(
             world = server.key(world).asString()
         ))
 
-        rattle.runTask {
+        ctx.runTask {
             lock.withLock { physics ->
                 val count = physics.simpleBodies.count
                 physics.simpleBodies.destroyAll()
@@ -432,7 +448,7 @@ abstract class RattleCommand<C : Audience, W>(
             // during this time, we don't want to lock and block the main thread
             // scheduling a task will mean that the order the spaces are printed in is non-deterministic
             // but that's fine
-            rattle.runTask {
+            ctx.runTask {
                 world.withLock { (physics, world) ->
                     messages.command.stats.space(
                         world = server.key(world).asString(),
