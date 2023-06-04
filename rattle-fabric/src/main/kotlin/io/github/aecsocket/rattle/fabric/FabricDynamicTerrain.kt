@@ -9,7 +9,8 @@ class FabricDynamicTerrain(
     rattle: FabricRattle,
     physics: PhysicsSpace,
     private val world: ServerLevel,
-) : DynamicTerrain(rattle.rattle, physics) {
+    settings: Settings = Settings(),
+) : DynamicTerrain(rattle.rattle, physics, settings) {
     private val toSnapshot = ArrayList<IVec3>()
 
     override fun scheduleToSnapshot(sectionPos: Iterable<IVec3>) {

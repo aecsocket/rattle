@@ -4,6 +4,7 @@ import io.github.aecsocket.alexandria.sync.Locked
 import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.impl.RattleHook
+import org.spongepowered.configurate.objectmapping.ConfigSerializable
 
 interface TerrainLayer {
     object Solid : TerrainLayer
@@ -73,7 +74,13 @@ abstract class DynamicTerrain(
     private val rattle: RattleHook,
     // SAFETY: we only access the physics while the containing WorldPhysics is locked
     val physics: PhysicsSpace,
+    val settings: Settings = Settings(),
 ) : TerrainStrategy {
+    @ConfigSerializable
+    data class Settings(
+        val removeTime: Long = 500,
+    )
+
     data class SectionLayer(
         val terrain: TerrainLayer,
         val colliders: List<ColliderKey>,
@@ -267,7 +274,7 @@ abstract class DynamicTerrain(
                             sections.remove(pos)
                         }
                     } else {
-                        section.toBeRemoved(500) // TODO
+                        section.toBeRemoved(settings.removeTime)
                     }
                 } else if (section.toBeRemoved()) {
                     // we no longer want to remove it

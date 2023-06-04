@@ -8,10 +8,14 @@ import net.kyori.adventure.audience.Audience
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
 
+private val spinnerStates = listOf("|", "|", "/", "/", "-", "-", "\\", "\\")
+
 abstract class RattlePlayer<W, P : Audience>(
     private val platform: RattlePlatform<W, *>,
     val player: P,
 ) {
+    private var spinnerState = 0
+
     abstract val messages: RattleMessages
     abstract val world: W
 
@@ -58,7 +62,9 @@ abstract class RattlePlayer<W, P : Audience>(
                 worst5 = formatTiming(worst5, messages),
             )
 
-            statsBar.name(text.component())
+            // TODO spinner actually configurable
+            statsBar.name(text.component().append(Component.text(" ${spinnerStates[spinnerState]}")))
+            spinnerState = (spinnerState + 1) % spinnerStates.size
         }
     }
 }

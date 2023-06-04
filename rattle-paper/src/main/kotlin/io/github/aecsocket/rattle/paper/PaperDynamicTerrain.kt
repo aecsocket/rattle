@@ -24,8 +24,10 @@ class PaperDynamicTerrain(
     private val rattle: PaperRattle,
     physics: PhysicsSpace,
     private val world: World,
-) : DynamicTerrain(rattle.rattle, physics) {
-    private val negativeYSlices = -world.minHeight / 16
+    settings: Settings = Settings(),
+) : DynamicTerrain(rattle.rattle, physics, settings) {
+    private val negativeYSections = -world.minHeight / 16
+    private val ySections = (world.maxHeight - world.minHeight) / 16
     private val shapeCache = ConcurrentHashMap<BlockData, Shape?>()
 
     // SAFETY: scheduleToSnapshot will only be called sequentially, so byXZ will no longer be in use
@@ -98,7 +100,7 @@ class PaperDynamicTerrain(
     }
 
     private fun createSnapshot(chunk: Chunk, pos: IVec3): SectionState.Snapshot {
-        val iy = pos.y + negativeYSlices
+        val iy = pos.y + negativeYSections
         val sections = (chunk as CraftChunk).handle.sections
         if (iy < 0 || iy >= sections.size || sections[iy].hasOnlyAir()) {
             return SectionState.Snapshot(onlyPassable)
