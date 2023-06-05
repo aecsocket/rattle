@@ -71,9 +71,9 @@ abstract class WorldPhysics<W>(
         val activeRigidBodies: Int = 0,
     )
 
-    private val mCurrentTick = AtomicLong(0)
-    val currentTick: Long
-        get() = mCurrentTick.get()
+    private val mLastStep = AtomicLong(0)
+    val lastStep: Long
+        get() = mLastStep.get()
 
     var stats: Stats = Stats()
         internal set
@@ -94,7 +94,7 @@ abstract class WorldPhysics<W>(
     }
 
     fun onPhysicsStep() {
-        mCurrentTick.incrementAndGet()
+        mLastStep.set(System.currentTimeMillis())
         terrain.onPhysicsStep()
         entities.onPhysicsStep()
         simpleBodies.onPhysicsStep()

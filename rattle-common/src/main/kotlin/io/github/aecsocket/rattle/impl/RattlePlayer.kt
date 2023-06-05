@@ -1,6 +1,7 @@
 package io.github.aecsocket.rattle.impl
 
 import io.github.aecsocket.glossa.component
+import io.github.aecsocket.klam.clamp
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.stats.formatTiming
 import io.github.aecsocket.rattle.stats.timingStatsOf
@@ -9,11 +10,7 @@ import net.kyori.adventure.audience.ForwardingAudience
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
 
-private const val BOSS_BAR_FLASH_INTERVAL = 5L
-private val bossBarColorStates = listOf(
-    BossBar.Color.YELLOW,
-    BossBar.Color.GREEN,
-)
+private const val STATS_BAR_STEP_TIME = 2500L
 
 abstract class RattlePlayer<W, P : Audience>(
     private val platform: RattlePlatform<W, *>,
@@ -31,6 +28,7 @@ abstract class RattlePlayer<W, P : Audience>(
     abstract val world: W
 
     private var statsBar: BossBar? = null
+    private var lastStep: Long = 0
     var launcher: Launcher? = null
 
     override fun audience() = player
@@ -65,7 +63,7 @@ abstract class RattlePlayer<W, P : Audience>(
             )
 
             // SAFETY: we will only access atomic fields, not any stateful fields, so we're fine
-            val (text, currentTick) = platform.physicsOrNull(world)?.leak()?.let { physics ->
+            val (text, lastStep) = platform.physicsOrNull(world)?.leak()?.let { physics ->
                 messages.statsBar.some(
                     world = platform.key(world).asString(),
                     rigidBodies = physics.stats.rigidBodies,
@@ -73,7 +71,7 @@ abstract class RattlePlayer<W, P : Audience>(
                     median = formatTiming(median, messages),
                     best5 = formatTiming(best5, messages),
                     worst5 = formatTiming(worst5, messages),
-                ) to physics.currentTick
+                ) to physics.lastStep
             } ?: (messages.statsBar.none(
                 world = platform.key(world).asString(),
                 median = formatTiming(median, messages),
@@ -81,8 +79,16 @@ abstract class RattlePlayer<W, P : Audience>(
                 worst5 = formatTiming(worst5, messages),
             ) to 0L)
 
+            val timeSinceUpdate = System.currentTimeMillis() - lastStep
+            val invBarProgress = timeSinceUpdate.toFloat() / STATS_BAR_STEP_TIME
+
             statsBar.name(text.component())
-            statsBar.color(bossBarColorStates[((currentTick / BOSS_BAR_FLASH_INTERVAL) % bossBarColorStates.size).toInt()])
+            statsBar.progress(clamp(1.0f - (invBarProgress % 1.0f), 0.0f, 1.0f))
+            statsBar.color(when {
+                invBarProgress <= 1.0f -> BossBar.Color.WHITE
+                invBarProgress <= 2.0f -> BossBar.Color.YELLOW
+                else -> BossBar.Color.RED
+            })
         }
     }
 
