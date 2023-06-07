@@ -50,7 +50,7 @@ data class Sphere(
 @ConfigSerializable
 data class Box(
     val halfExtent: Vec,
-    val margin: Real = 0.0,
+    val margin: Real = DEFAULT_MARGIN,
 ) : ConvexGeometry {
     init {
         require(halfExtent.x > 0.0) { "requires halfExtent.x > 0.0" }

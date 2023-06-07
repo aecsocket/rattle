@@ -26,18 +26,35 @@ interface PhysicsSpace : Destroyable {
         val gravity: Vec = Vec(0.0, -9.81, 0.0),
     )
 
+    /**
+     * Settings for the simulation of the physics space. Note that not all options will be configurable here, as
+     * some are considered implementation details. In this case, the settings need to be configured with the actual
+     * implementation.
+     */
     var settings: Settings
 
+    /**
+     * Provides access to the [Collider] instances in this space.
+     */
     val colliders: SingleContainer<Collider, Collider.Mut, Collider.Own, ColliderKey>
 
+    /**
+     * Provides access to the [RigidBody] instances in this space.
+     */
     val rigidBodies: ActiveContainer<RigidBody, RigidBody.Mut, RigidBody.Own, RigidBodyKey>
 
 //    val impulseJoints: JointContainer<ImpulseJoint, ImpulseJoint.Mut, ImpulseJoint.Own, ImpulseJointKey>
 //
 //    val multibodyJoints: JointContainer<MultibodyJoint, MultibodyJoint.Mut, MultibodyJoint.Own, MultibodyJointKey>
 
+    /**
+     * Attaches a [Collider] to a [RigidBody] (see [Collider]).
+     */
     fun attach(coll: ColliderKey, to: RigidBodyKey)
 
+    /**
+     * Detaches a [Collider] from any parent [RigidBody] (see [Collider]).
+     */
     fun detach(coll: ColliderKey)
 
     interface Container<R, W : R, O : W, K> {

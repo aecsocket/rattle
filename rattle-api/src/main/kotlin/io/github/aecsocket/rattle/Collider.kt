@@ -217,6 +217,14 @@ interface ColliderKey
  * A collider may also be attached (parented) to a [RigidBody], which will make the collider determine its
  * position based on its parent body.
  *
+ * # Attaching
+ *
+ * A collider may optionally be attached to a [RigidBody] in the same [PhysicsSpace] by providing the
+ * [RigidBodyKey]. This has the effect of forcing the collider's position to be relative to the body's - it is
+ * effectively parented to that body. This means that setting [position] **has no effect** - instead, use
+ * [relativePosition], which sets the offset relative to this parent body. This persists even if the parent body
+ * is removed.
+ *
  * # Interaction groups
  *
  * A collider has two [InteractionGroup]s, which determine if a pair of colliders are considered in contact:

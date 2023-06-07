@@ -4,6 +4,7 @@ import io.github.aecsocket.rattle.*
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import rapier.Rapier
 import rapier.dynamics.RigidBodyBuilder
+import rapier.dynamics.joint.GenericJoint
 import rapier.geometry.ColliderBuilder
 import rapier.pipeline.PhysicsPipeline
 import rapier.shape.CompoundChild
@@ -196,6 +197,35 @@ class RapierEngine internal constructor(var settings: Settings = Settings()) : P
                 .use { it.build() }
         }
         return RapierRigidBody.Own(body)
+    }
+
+    data class JointAxis(
+        val state: State,
+        val motor: Motor,
+    ) {
+        sealed interface State {
+            /* TODO: Kotlin 1.9 data */ object Locked : State
+
+            data class Limited(
+                val min: Real = Real.MIN_VALUE,
+                val max: Real = Real.MAX_VALUE,
+                val impulse: Real = 0.0,
+            ) : State
+
+            /* TODO: Kotlin 1.9 data */ object Free : State
+        }
+
+        sealed interface Motor {
+
+        }
+    }
+
+    fun createJoint(
+        localFrameA: Iso = Iso(),
+        localFrameB: Iso = Iso(),
+        contactsEnabled: Boolean = true,
+    ): Joint {
+        TODO()
     }
 
     override fun createSpace(
