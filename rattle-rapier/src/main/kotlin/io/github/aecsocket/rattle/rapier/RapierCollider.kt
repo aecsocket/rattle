@@ -71,66 +71,10 @@ open class RapierCollider internal constructor(
         }
     }
 
-    open class Mut internal constructor(
+    class Own internal constructor(
         override val handle: rapier.geometry.Collider.Mut,
         space: RapierSpace? = null,
-    ) : RapierCollider(handle, space), Collider.Mut {
-        override val nativeType get() = "RapierCollider.Mut"
-
-        override var shape: Shape
-            get() = super.shape
-            set(value) {
-                value as RapierShape
-                handle.shape = value.handle
-            }
-
-        override var material: PhysicsMaterial
-            get() = super.material
-            set(value) {
-                handle.friction = value.friction
-                handle.restitution = value.restitution
-                handle.frictionCombineRule = value.frictionCombine.convert()
-                handle.restitutionCombineRule = value.restitutionCombine.convert()
-            }
-
-        override var collisionGroup: InteractionGroup
-            get() = super.collisionGroup
-            set(value) = pushArena { arena ->
-                handle.setCollisionGroups(value.convert(arena))
-            }
-
-        override var solverGroup: InteractionGroup
-            get() = super.solverGroup
-            set(value) = pushArena { arena ->
-                handle.setSolverGroups(value.convert(arena))
-            }
-
-        override var position: Iso
-            get() = super.position
-            set(value) = pushArena { arena ->
-                handle.setPosition(value.toIsometry(arena))
-            }
-
-        override var physicsMode: PhysicsMode
-            get() = super.physicsMode
-            set(value) {
-                handle.isSensor = when (value) {
-                    PhysicsMode.SOLID -> false
-                    PhysicsMode.SENSOR -> true
-                }
-            }
-
-        override var relativePosition: Iso
-            get() = super.relativePosition
-            set(value) = pushArena { arena ->
-                handle.setPositionWrtParent(value.toIsometry(arena))
-            }
-    }
-
-    class Own internal constructor(
-        handle: rapier.geometry.Collider.Mut,
-        space: RapierSpace? = null,
-    ) : Mut(handle, space), Collider.Own {
+    ) : RapierCollider(handle, space), Collider.Own {
         override val nativeType get() = "RapierCollider.Own"
 
         private val destroyed = DestroyFlag()
@@ -141,6 +85,65 @@ open class RapierCollider internal constructor(
                 throw IllegalStateException("Attempting to remove $this while still attached to $space")
             }
             handle.drop()
+        }
+
+        override fun shape(value: Shape): Own {
+            value as RapierShape
+            handle.shape = value.handle
+            return this
+        }
+
+        override fun material(value: PhysicsMaterial): Own {
+            handle.friction = value.friction
+            handle.restitution = value.restitution
+            handle.frictionCombineRule = value.frictionCombine.convert()
+            handle.restitutionCombineRule = value.restitutionCombine.convert()
+            return this
+        }
+
+        override fun collisionGroup(value: InteractionGroup): Own {
+            pushArena { arena ->
+                handle.setCollisionGroups(value.convert(arena))
+            }
+            return this
+        }
+
+        override fun solverGroup(value: InteractionGroup): Own {
+            pushArena { arena ->
+                handle.setSolverGroups(value.convert(arena))
+            }
+            return this
+        }
+
+        override fun position(value: Iso): Own {
+            pushArena { arena ->
+                handle.setPosition(value.toIsometry(arena))
+            }
+            return this
+        }
+
+        override fun mass(value: Mass): Own {
+            when (value) {
+                is Mass.Constant -> handle.mass = value.mass
+                is Mass.Density -> handle.density = value.density
+                is Mass.Infinite -> handle.mass = 0.0
+            }
+            return this
+        }
+
+        override fun physicsMode(value: PhysicsMode): Own {
+            handle.isSensor = when (value) {
+                PhysicsMode.SOLID -> false
+                PhysicsMode.SENSOR -> true
+            }
+            return this
+        }
+
+        override fun relativePosition(value: Iso): Own {
+            pushArena { arena ->
+                handle.setPositionWrtParent(value.toIsometry(arena))
+            }
+            return this
         }
     }
 }

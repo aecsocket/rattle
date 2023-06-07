@@ -67,62 +67,82 @@ open class RapierRigidBody internal constructor(
         return handle.kineticEnergy
     }
 
-    open class Mut internal constructor(
+    class Own internal constructor(
         override val handle: rapier.dynamics.RigidBody.Mut,
         space: RapierSpace? = null,
-    ) : RapierRigidBody(handle, space), RigidBody.Mut {
-        override val nativeType get() = "RapierRigidBody.Mut"
+    ) : RapierRigidBody(handle, space), RigidBody.Own {
+        override val nativeType get() = "RapierRigidBody.Own"
 
-        override var position: Iso
-            get() = super.position
-            set(value) = pushArena { arena ->
+        private val destroyed = DestroyFlag()
+
+        override fun destroy() {
+            destroyed()
+            space?.let { space ->
+                throw IllegalStateException("Attempting to remove $this while still attached to $space")
+            }
+            handle.drop()
+        }
+
+        override fun type(value: RigidBodyType): Own {
+            handle.setBodyType(value.convert(), false)
+            return this
+        }
+
+        override fun position(value: Iso): Own {
+            pushArena { arena ->
                 handle.setPosition(value.toIsometry(arena), false)
             }
+            return this
+        }
 
-        override var type: RigidBodyType
-            get() = super.type
-            set(value) {
-                val oldType = handle.bodyType
-                val newType = value.convert()
-                if (oldType == newType) return
-                handle.setBodyType(newType, false)
-            }
-
-        override var isCcdEnabled: Boolean
-            get() = super.isCcdEnabled
-            set(value) {
-                handle.enableCcd(value)
-            }
-
-        override var linearVelocity: Vec
-            get() = super.linearVelocity
-            set(value) = pushArena { arena ->
+        override fun linearVelocity(value: Vec): Own {
+            pushArena { arena ->
                 handle.setLinearVelocity(value.toVector(arena), false)
             }
+            return this
+        }
 
-        override var angularVelocity: Vec
-            get() = super.angularVelocity
-            set(value) = pushArena { arena ->
+        override fun angularVelocity(value: Vec): Own {
+            pushArena { arena ->
                 handle.setAngularVelocity(value.toAngVector(arena), false)
             }
+            return this
+        }
 
-        override var gravityScale: Real
-            get() = super.gravityScale
-            set(value) {
-                handle.setGravityScale(value, false)
-            }
+        override fun isCcdEnabled(value: Boolean): Own {
+            handle.enableCcd(value)
+            return this
+        }
 
-        override var linearDamping: Real
-            get() = super.linearDamping
-            set(value) {
-                handle.linearDamping = value
-            }
+        override fun gravityScale(value: Real): Own {
+            handle.setGravityScale(value, false)
+            return this
+        }
 
-        override var angularDamping: Real
-            get() = super.angularDamping
-            set(value) {
-                handle.angularDamping = value
+        override fun linearDamping(value: Real): Own {
+            handle.linearDamping = value
+            return this
+        }
+
+        override fun angularDamping(value: Real): Own {
+            handle.angularDamping = value
+            return this
+        }
+
+        override fun canSleep(value: Boolean): Own {
+            // values taken from rigid_body_components.rs > impl RigidBodyActivation
+            when (value) {
+                false -> {
+                    handle.activation.linearThreshold = -1.0
+                    handle.activation.angularThreshold = -1.0
+                }
+                true -> {
+                    handle.activation.linearThreshold = 0.4
+                    handle.activation.angularThreshold = 0.5
+                }
             }
+            return this
+        }
 
         override fun sleep() {
             handle.sleep()
@@ -172,23 +192,6 @@ open class RapierRigidBody internal constructor(
             pushArena { arena ->
                 handle.setNextKinematicPosition(to.toIsometry(arena))
             }
-        }
-    }
-
-    class Own internal constructor(
-        handle: rapier.dynamics.RigidBody.Mut,
-        space: RapierSpace? = null,
-    ) : Mut(handle, space), RigidBody.Own {
-        override val nativeType get() = "RapierRigidBody.Own"
-
-        private val destroyed = DestroyFlag()
-
-        override fun destroy() {
-            destroyed()
-            space?.let { space ->
-                throw IllegalStateException("Attempting to remove $this while still attached to $space")
-            }
-            handle.drop()
         }
     }
 }

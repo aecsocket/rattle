@@ -331,18 +331,15 @@ abstract class DynamicTerrain(
 
             // SAFETY: acquire a new ref to this shape, since this shape will probably be used by multiple blocks
             // we release it on destruction as well
-            val coll = rattle.engine.createCollider(
-                shape = block.shape.acquire(),
-                material = PhysicsMaterial(friction = 0.5, restitution = 0.2), // TODO
-                position = Iso(
-                    DVec3(x.toDouble() + 0.5, y.toDouble() + 0.5, z.toDouble() + 0.5),
-                ),
-                mass = Mass.Infinite,
-                physics = when (block) {
+            val coll = rattle.engine.createCollider(block.shape.acquire())
+                .material(PhysicsMaterial(friction = 0.5, restitution = 0.2)) // TODO
+                .position(Iso(Vec(x.toDouble() + 0.5, y.toDouble() + 0.5, z.toDouble() + 0.5)))
+                .mass(Mass.Infinite)
+                .physicsMode(when (block) {
                     is Block.Solid -> PhysicsMode.SOLID
                     is Block.Fluid -> PhysicsMode.SENSOR
-                },
-            ).let { physics.colliders.add(it) }
+                })
+                .let { physics.colliders.add(it) }
 
             val layer = when (block) {
                 is Block.Solid -> TerrainLayer.Solid

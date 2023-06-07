@@ -121,21 +121,18 @@ abstract class SimpleBodies<W>(
 
         // SAFETY: we don't increment the ref count, so `collider` will fully own this shape
         val shape = engine.createShape(desc.geom.handle)
-        val collider = engine.createCollider(
-            shape = shape,
-            material = desc.material,
-            mass = desc.mass,
-        ).let { physics.colliders.add(it) }
-        val body = engine.createBody(
-            type = desc.type,
-            position = position,
-            linearVelocity = desc.linearVelocity,
-            angularVelocity = desc.angularVelocity,
-            isCcdEnabled = desc.isCcdEnabled,
-            gravityScale = desc.gravityScale,
-            linearDamping = desc.linearDamping,
-            angularDamping = desc.angularDamping,
-        ).let { physics.rigidBodies.add(it) }
+        val collider = engine.createCollider(shape)
+            .material(desc.material)
+            .mass(desc.mass)
+            .let { physics.colliders.add(it) }
+        val body = engine.createBody(desc.type, position)
+            .linearVelocity(desc.linearVelocity)
+            .angularVelocity(desc.angularVelocity)
+            .isCcdEnabled(desc.isCcdEnabled)
+            .gravityScale(desc.gravityScale)
+            .linearDamping(desc.linearDamping)
+            .angularDamping(desc.angularDamping)
+            .let { physics.rigidBodies.add(it) }
         physics.attach(collider, body)
 
         val instance = Instance(

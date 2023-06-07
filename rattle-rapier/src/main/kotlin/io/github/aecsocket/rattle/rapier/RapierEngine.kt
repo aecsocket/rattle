@@ -4,7 +4,6 @@ import io.github.aecsocket.rattle.*
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import rapier.Rapier
 import rapier.dynamics.RigidBodyBuilder
-import rapier.dynamics.joint.GenericJoint
 import rapier.geometry.ColliderBuilder
 import rapier.pipeline.PhysicsPipeline
 import rapier.shape.CompoundChild
@@ -129,71 +128,16 @@ class RapierEngine internal constructor(var settings: Settings = Settings()) : P
         return RapierShape(handle)
     }
 
-    override fun createCollider(
-        shape: Shape,
-        material: PhysicsMaterial,
-        collisionGroup: InteractionGroup,
-        solverGroup: InteractionGroup,
-        position: Iso,
-        mass: Mass,
-        physics: PhysicsMode,
-    ): Collider.Own {
+    override fun createCollider(shape: Shape): Collider.Own {
         shape as RapierShape
-        val coll = pushArena { arena ->
-            // rely on the caller to increment the shape ref; neither Rapier nor us will increment the Arc ref count
-            ColliderBuilder.of(shape.handle)
-                .friction(material.friction)
-                .restitution(material.restitution)
-                .frictionCombineRule(material.frictionCombine.convert())
-                .restitutionCombineRule(material.restitutionCombine.convert())
-                .collisionGroups(collisionGroup.convert(arena))
-                .solverGroups(solverGroup.convert(arena))
-                .position(position.toIsometry(arena))
-                .sensor(when (physics) {
-                    PhysicsMode.SOLID -> false
-                    PhysicsMode.SENSOR -> true
-                })
-                .use {
-                    when (mass) {
-                        is Mass.Infinite -> it.mass(0.0)
-                        is Mass.Constant -> it.mass(mass.mass)
-                        is Mass.Density -> it.density(mass.density)
-                    }
-                    it.build()
-                }
-        }
+        val coll = ColliderBuilder.of(shape.handle).use { it.build() }
         return RapierCollider.Own(coll)
     }
 
-    override fun createBody(
-        type: RigidBodyType,
-        position: Iso,
-        linearVelocity: Vec,
-        angularVelocity: Vec,
-        isCcdEnabled: Boolean,
-        gravityScale: Real,
-        linearDamping: Real,
-        angularDamping: Real,
-        sleeping: Sleeping
-    ): RigidBody.Own {
+    override fun createBody(type: RigidBodyType, position: Iso): RigidBody.Own {
         val body = pushArena { arena ->
             RigidBodyBuilder.of(type.convert())
                 .position(position.toIsometry(arena))
-                .linvel(linearVelocity.toVector(arena))
-                .angvel(angularVelocity.toAngVector(arena))
-                .ccdEnabled(isCcdEnabled)
-                .gravityScale(gravityScale)
-                .linearDamping(linearDamping)
-                .angularDamping(angularDamping)
-                .apply {
-                    when (sleeping) {
-                        is Sleeping.Disabled -> canSleep(false)
-                        is Sleeping.Enabled -> {
-                            canSleep(true)
-                            sleeping(sleeping.sleeping)
-                        }
-                    }
-                }
                 .use { it.build() }
         }
         return RapierRigidBody.Own(body)

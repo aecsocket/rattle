@@ -71,48 +71,17 @@ interface PhysicsEngine : Destroyable {
     fun createShape(geom: Geometry): Shape
 
     /**
-     * Creates a [Collider] from the specified parameters, which by default is not attached to any [RigidBody].
+     * Creates a [Collider] from the specified parameters, which is not attached to any [RigidBody] or [PhysicsSpace].
      * @param shape The baked shape to use for this collider.
-     * @param material The physical material properties of this collider.
-     * @param collisionGroup The groups which this collider can generate contacts with (see [InteractionGroup]).
-     * @param solverGroup The groups which this collider can compute forces with (see [InteractionGroup]).
-     * @param position The absolute position of this collider in the world - **not** the position relative to the parent body.
-     * @param mass The mass properties of this collider.
-     * @param physics The physics interaction mode of this collider.
      */
-    fun createCollider(
-        shape: Shape,
-        material: PhysicsMaterial,
-        collisionGroup: InteractionGroup = InteractionGroup.All,
-        solverGroup: InteractionGroup = InteractionGroup.All,
-        position: Iso = Iso(),
-        mass: Mass = Mass.Density(1.0),
-        physics: PhysicsMode = PhysicsMode.SOLID,
-    ): Collider.Own
+    fun createCollider(shape: Shape): Collider.Own
 
     /**
-     * Creates a body from the specified parameters.
-     * @param position The absolute position of this body in the world.
+     * Creates a body from the specified parameters, which is not attached to any [PhysicsSpace].
      * @param type The dynamics type of this body (see [RigidBodyType]).
-     * @param linearVelocity The starting linear velocity, in m/s.
-     * @param angularVelocity The starting angular velocity, in rad/s.
-     * @param isCcdEnabled If continuous collision detection is enabled (see [RigidBody]).
-     * @param gravityScale The gravity multiplier for this body.
-     * @param linearDamping The linear damping (see [RigidBody]).
-     * @param angularDamping The angular damping (see [RigidBody]).
-     * @param sleeping The sleep parameters (see [Sleeping]).
+     * @param position The absolute position of this body in the world.
      */
-    fun createBody(
-        type: RigidBodyType,
-        position: Iso,
-        linearVelocity: Vec = Vec.Zero,
-        angularVelocity: Vec = Vec.Zero,
-        isCcdEnabled: Boolean = false,
-        gravityScale: Real = 1.0,
-        linearDamping: Real = DEFAULT_LINEAR_DAMPING,
-        angularDamping: Real = DEFAULT_ANGULAR_DAMPING,
-        sleeping: Sleeping = Sleeping.Enabled(false),
-    ): RigidBody.Own
+    fun createBody(type: RigidBodyType, position: Iso): RigidBody.Own
 
 //    fun createJoint(axes: JointAxes): Joint
 

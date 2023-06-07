@@ -282,19 +282,41 @@ interface Collider {
      * Mutable interface for a [Collider].
      */
     interface Mut : Collider {
-        override var shape: Shape
+        fun shape(value: Shape): Mut
 
-        override var material: PhysicsMaterial
+        fun material(value: PhysicsMaterial): Mut
 
-        override var position: Iso
+        fun collisionGroup(value: InteractionGroup): Mut
 
-        override var physicsMode: PhysicsMode
+        fun solverGroup(value: InteractionGroup): Mut
 
-        override var relativePosition: Iso
+        fun position(value: Iso): Mut
+
+        fun mass(value: Mass): Mut
+
+        fun physicsMode(value: PhysicsMode): Mut
+
+        fun relativePosition(value: Iso): Mut
     }
 
     /**
      * Mutable owned interface for a [Collider].
      */
-    interface Own : Mut, Destroyable
+    interface Own : Mut, Destroyable {
+        override fun shape(value: Shape): Own
+
+        override fun material(value: PhysicsMaterial): Own
+
+        override fun collisionGroup(value: InteractionGroup): Own
+
+        override fun solverGroup(value: InteractionGroup): Own
+
+        override fun position(value: Iso): Own
+
+        override fun mass(value: Mass): Own
+
+        override fun physicsMode(value: PhysicsMode): Own
+
+        override fun relativePosition(value: Iso): Own
+    }
 }

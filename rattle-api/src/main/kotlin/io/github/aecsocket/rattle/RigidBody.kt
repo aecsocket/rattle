@@ -31,23 +31,6 @@ enum class RigidBodyType {
 }
 
 /**
- * Properties around a [RigidBody]'s ability to go to sleep (not be simulated in order to save
- * resources).
- */
-sealed interface Sleeping {
-    /**
-     * This body is not allowed to go to sleep automatically.
-     */
-    /* TODO Kotlin 1.9: data */ object Disabled : Sleeping
-
-    /**
-     * This body is allowed to go to sleep automatically.
-     * @param sleeping The initial sleep state of the body.
-     */
-    data class Enabled(val sleeping: Boolean) : Sleeping
-}
-
-/**
  * A key used to index into a [PhysicsSpace] to gain a reference, mutable or immutable, to a [RigidBody].
  */
 interface RigidBodyKey
@@ -97,6 +80,16 @@ interface RigidBodyKey
  * - [angularDamping] - the multiplier for the angular velocity (default [DEFAULT_ANGULAR_DAMPING]).
  */
 interface RigidBody {
+    /*
+            linearVelocity: Vec = Vec.Zero,
+        angularVelocity: Vec = Vec.Zero,
+        isCcdEnabled: Boolean = false,
+        gravityScale: Real = 1.0,
+        linearDamping: Real = DEFAULT_LINEAR_DAMPING,
+        angularDamping: Real = DEFAULT_ANGULAR_DAMPING,
+        sleeping: Sleeping = Sleeping.Enabled(false),
+     */
+
     /**
      * The body type (see [RigidBody]).
      */
@@ -125,11 +118,6 @@ interface RigidBody {
     val angularVelocity: Vec
 
     /**
-     * If this body is currently sleeping (see [RigidBody]).
-     */
-    val isSleeping: Boolean
-
-    /**
      * If this body has CCD enabled (see [RigidBody]).
      */
     val isCcdEnabled: Boolean
@@ -155,6 +143,11 @@ interface RigidBody {
     val angularDamping: Real
 
     /**
+     * If this body is currently sleeping (see [RigidBody]).
+     */
+    val isSleeping: Boolean
+
+    /**
      * How much force has been applied by the user in this simulation step.
      */
     val appliedForce: Vec
@@ -173,7 +166,7 @@ interface RigidBody {
      * Mutable interface for a [RigidBody].
      */
     interface Mut : RigidBody {
-        override var type: RigidBodyType
+        fun type(value: RigidBodyType): Mut
 
         // TODO center of mass
         /**
@@ -184,19 +177,21 @@ interface RigidBody {
          * moves, but have it still consider collisions in between, consider using a [RigidBodyType.KINEMATIC] and
          * [kinematicMoveTo].
          */
-        override var position: Iso
+        fun position(value: Iso): Mut
 
-        override var linearVelocity: Vec
+        fun linearVelocity(value: Vec): Mut
 
-        override var angularVelocity: Vec
+        fun angularVelocity(value: Vec): Mut
 
-        override var isCcdEnabled: Boolean
+        fun isCcdEnabled(value: Boolean): Mut
 
-        override var gravityScale: Real
+        fun gravityScale(value: Real): Mut
 
-        override var linearDamping: Real
+        fun linearDamping(value: Real): Mut
 
-        override var angularDamping: Real
+        fun angularDamping(value: Real): Mut
+
+        fun canSleep(value: Boolean): Mut
 
         /**
          * For [RigidBodyType.DYNAMIC]: applies a (linear) force in Newtons at the center of the body.
@@ -256,5 +251,23 @@ interface RigidBody {
     /**
      * Mutable owned interface for a [RigidBody].
      */
-    interface Own : Mut, Destroyable
+    interface Own : Mut, Destroyable {
+        override fun type(value: RigidBodyType): Own
+
+        override fun position(value: Iso): Own
+
+        override fun linearVelocity(value: Vec): Own
+
+        override fun angularVelocity(value: Vec): Own
+
+        override fun isCcdEnabled(value: Boolean): Own
+
+        override fun gravityScale(value: Real): Own
+
+        override fun linearDamping(value: Real): Own
+
+        override fun angularDamping(value: Real): Own
+
+        override fun canSleep(value: Boolean): Own
+    }
 }

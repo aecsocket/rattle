@@ -87,7 +87,7 @@ class RapierSpace internal constructor(
 
         override fun write(key: ColliderKey): Collider.Mut? {
             key as RapierColliderKey
-            return colliderSet.getMut(key.id)?.let { RapierCollider.Mut(it, this@RapierSpace) }
+            return colliderSet.getMut(key.id)?.let { RapierCollider.Own(it, this@RapierSpace) }
         }
 
         override fun all(): Collection<ColliderKey> {
@@ -128,7 +128,7 @@ class RapierSpace internal constructor(
 
         override fun write(key: RigidBodyKey): RigidBody.Mut? {
             key as RapierRigidBodyKey
-            return rigidBodySet.getMut(key.id)?.let { RapierRigidBody.Mut(it, this@RapierSpace) }
+            return rigidBodySet.getMut(key.id)?.let { RapierRigidBody.Own(it, this@RapierSpace) }
         }
 
         override fun all(): Collection<RigidBodyKey> {
