@@ -53,9 +53,23 @@ enum class PhysicsMode {
 class InteractionLayer private constructor(val raw: Int) {
     companion object {
         /**
-         * Creates a layer from a raw integer value. The integer have exactly one bit set.
+         * Creates a layer from a raw integer value. The integer must have exactly one bit set.
          */
-        fun fromRaw(raw: Int) = InteractionLayer(raw)
+        fun fromRaw(raw: Int): InteractionLayer {
+            if (raw == 0 || (raw and (raw - 1) != 0))
+                throw IllegalArgumentException("Must have exactly 1 bit set")
+            return InteractionLayer(raw)
+        }
+
+        /**
+         * Creates a layer from an index in the bit set. The index must be between 0 and 32 inclusive.
+         */
+        fun fromIndex(index: Int): InteractionLayer {
+            if (index < 0 || index > 32)
+                throw IllegalArgumentException("Index must be between 0 and 32 inclusive")
+            val bits = 1 shl index
+            return fromRaw(bits)
+        }
     }
 }
 
@@ -64,7 +78,7 @@ private fun Array<out InteractionLayer>.bitMask() = fold(0) { acc, layer -> acc 
 /**
  * A field in an [InteractionGroup], consisting of [InteractionLayer]s.
  */
-data class InteractionField(val raw: Int) {
+class InteractionField private constructor(val raw: Int) {
     companion object {
         /**
          * This field is enabled for all other layers.
@@ -75,6 +89,13 @@ data class InteractionField(val raw: Int) {
          * This field is disabled for all other layers.
          */
         val None = InteractionField(0)
+
+        /**
+         * Creates a field from a raw integer value, where each bit corresponds to a [InteractionLayer].
+         */
+        fun fromRaw(raw: Int): InteractionField {
+            return InteractionField(raw)
+        }
     }
 
     constructor(vararg layer: InteractionLayer) : this(layer.bitMask())
@@ -175,11 +196,6 @@ data class PhysicsMaterial(
  */
 sealed interface Mass {
     /**
-     * The collider has infinite mass, and cannot be pushed at all.
-     */
-    /* TODO: Kotlin 1.9 data */ object Infinite : Mass
-
-    /**
      * The mass properties will be calculated based on the shape's volume and the given [density], with a default of 1.
      * - Mass is calculated
      * - Density is provided
@@ -204,6 +220,11 @@ sealed interface Mass {
             require(mass > 0.0) { "requires mass > 0.0" }
         }
     }
+
+    /**
+     * The collider has infinite mass, and cannot be pushed at all.
+     */
+    /* TODO: Kotlin 1.9 data */ object Infinite : Mass
 }
 
 /**

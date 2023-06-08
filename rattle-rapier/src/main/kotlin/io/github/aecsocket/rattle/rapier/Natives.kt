@@ -97,8 +97,8 @@ fun VhacdSettings.toParams(alloc: SegmentAllocator) = VHACDParameters.create(all
 fun InteractionGroup.convert(alloc: SegmentAllocator) = rapier.geometry.InteractionGroups.of(alloc, memberships.raw, filter.raw)
 
 fun rapier.geometry.InteractionGroups.convert() = InteractionGroup(
-    memberships = InteractionField(memberships),
-    filter = InteractionField(filter),
+    memberships = InteractionField.fromRaw(memberships),
+    filter = InteractionField.fromRaw(filter),
 )
 
 fun RigidBodyType.convert() = when (this) {

@@ -36,16 +36,22 @@ interface PhysicsSpace : Destroyable {
     /**
      * Provides access to the [Collider] instances in this space.
      */
-    val colliders: SingleContainer<Collider, Collider.Mut, Collider.Own, ColliderKey>
+    val colliders: SimpleContainer<Collider, Collider.Mut, Collider.Own, ColliderKey>
 
     /**
      * Provides access to the [RigidBody] instances in this space.
      */
     val rigidBodies: ActiveContainer<RigidBody, RigidBody.Mut, RigidBody.Own, RigidBodyKey>
 
-//    val impulseJoints: JointContainer<ImpulseJoint, ImpulseJoint.Mut, ImpulseJoint.Own, ImpulseJointKey>
-//
-//    val multibodyJoints: JointContainer<MultibodyJoint, MultibodyJoint.Mut, MultibodyJoint.Own, MultibodyJointKey>
+    /**
+     * Provides access to the [ImpulseJoint] instances in this space.
+     */
+    val impulseJoints: ImpulseJointContainer
+
+    /**
+     * Provides access to the [MultibodyJoint] instances in this space.
+     */
+    val multibodyJoints: MultibodyJointContainer
 
     /**
      * Attaches a [Collider] to a [RigidBody] (see [Collider]).
@@ -57,29 +63,43 @@ interface PhysicsSpace : Destroyable {
      */
     fun detach(coll: ColliderKey)
 
-    interface Container<R, W : R, O : W, K> {
+    interface SimpleContainer<R, W, O, K> {
         val count: Int
+
+        fun all(): Collection<K>
 
         fun read(key: K): R?
 
         fun write(key: K): W?
 
-        fun all(): Collection<K>
+        fun add(value: O): K
 
         fun remove(key: K): O?
     }
 
-    interface SingleContainer<R, W : R, O : W, K> : Container<R, W, O, K> {
-        fun add(value: O): K
-    }
-
-    interface ActiveContainer<R, W : R, O : W, K> : SingleContainer<R, W, O, K> {
+    interface ActiveContainer<R, W, O, K> : SimpleContainer<R, W, O, K> {
         val activeCount: Int
 
         fun active(): Collection<K>
     }
 
-    interface JointContainer<R, W : R, O : W, K> : Container<R, W, O, K> {
-        fun add(value: O, bodyA: RigidBodyKey, bodyB: RigidBodyKey)
+    interface ImpulseJointContainer {
+        val count: Int
+
+        fun all(): Collection<ImpulseJointKey>
+
+        fun read(key: ImpulseJointKey): ImpulseJoint?
+
+        fun write(key: ImpulseJointKey): ImpulseJoint.Mut?
+
+        fun add(value: Joint.Own, bodyA: RigidBodyKey, bodyB: RigidBodyKey): ImpulseJointKey
+
+        fun remove(key: ImpulseJointKey): Joint.Own?
+    }
+
+    interface MultibodyJointContainer {
+        fun add(value: Joint.Own, bodyA: RigidBodyKey, bodyB: RigidBodyKey)
+
+        fun removeOn(bodyKey: RigidBodyKey)
     }
 }

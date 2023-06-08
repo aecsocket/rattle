@@ -8,12 +8,10 @@ value class RapierRigidBodyKey(val id: Long) : RigidBodyKey {
     override fun toString(): String = ArenaKey.asString(id)
 }
 
-open class RapierRigidBody internal constructor(
+sealed class RapierRigidBody(
     override val handle: rapier.dynamics.RigidBody,
-    var space: RapierSpace? = null,
-) : RapierNative(), RigidBody {
-    override val nativeType get() = "RapierRigidBody"
-
+    override var space: RapierSpace?,
+) : RapierNative(), RapierPhysicsNative, RigidBody {
     override val type: RigidBodyType
         get() = handle.bodyType.convert()
 
@@ -67,11 +65,18 @@ open class RapierRigidBody internal constructor(
         return handle.kineticEnergy
     }
 
-    class Own internal constructor(
+    class Read internal constructor(
+        handle: rapier.dynamics.RigidBody,
+        space: RapierSpace?,
+    ) : RapierRigidBody(handle, space) {
+        override val nativeType get() = "RapierRigidBody.Read"
+    }
+
+    class Write internal constructor(
         override val handle: rapier.dynamics.RigidBody.Mut,
-        space: RapierSpace? = null,
+        space: RapierSpace?,
     ) : RapierRigidBody(handle, space), RigidBody.Own {
-        override val nativeType get() = "RapierRigidBody.Own"
+        override val nativeType get() = "RapierRigidBody.Write"
 
         private val destroyed = DestroyFlag()
 
@@ -83,53 +88,53 @@ open class RapierRigidBody internal constructor(
             handle.drop()
         }
 
-        override fun type(value: RigidBodyType): Own {
+        override fun type(value: RigidBodyType): Write {
             handle.setBodyType(value.convert(), false)
             return this
         }
 
-        override fun position(value: Iso): Own {
+        override fun position(value: Iso): Write {
             pushArena { arena ->
                 handle.setPosition(value.toIsometry(arena), false)
             }
             return this
         }
 
-        override fun linearVelocity(value: Vec): Own {
+        override fun linearVelocity(value: Vec): Write {
             pushArena { arena ->
                 handle.setLinearVelocity(value.toVector(arena), false)
             }
             return this
         }
 
-        override fun angularVelocity(value: Vec): Own {
+        override fun angularVelocity(value: Vec): Write {
             pushArena { arena ->
                 handle.setAngularVelocity(value.toAngVector(arena), false)
             }
             return this
         }
 
-        override fun isCcdEnabled(value: Boolean): Own {
+        override fun isCcdEnabled(value: Boolean): Write {
             handle.enableCcd(value)
             return this
         }
 
-        override fun gravityScale(value: Real): Own {
+        override fun gravityScale(value: Real): Write {
             handle.setGravityScale(value, false)
             return this
         }
 
-        override fun linearDamping(value: Real): Own {
+        override fun linearDamping(value: Real): Write {
             handle.linearDamping = value
             return this
         }
 
-        override fun angularDamping(value: Real): Own {
+        override fun angularDamping(value: Real): Write {
             handle.angularDamping = value
             return this
         }
 
-        override fun canSleep(value: Boolean): Own {
+        override fun canSleep(value: Boolean): Write {
             // values taken from rigid_body_components.rs > impl RigidBodyActivation
             when (value) {
                 false -> {

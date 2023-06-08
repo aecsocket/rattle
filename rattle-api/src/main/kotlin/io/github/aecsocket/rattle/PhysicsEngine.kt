@@ -71,19 +71,22 @@ interface PhysicsEngine : Destroyable {
     fun createShape(geom: Geometry): Shape
 
     /**
-     * Creates a [Collider] from the specified parameters, which is not attached to any [RigidBody] or [PhysicsSpace].
+     * Creates a [Collider] with default parameters, which is not attached to any [RigidBody] or [PhysicsSpace].
      * @param shape The baked shape to use for this collider.
      */
     fun createCollider(shape: Shape): Collider.Own
 
     /**
-     * Creates a body from the specified parameters, which is not attached to any [PhysicsSpace].
-     * @param type The dynamics type of this body (see [RigidBodyType]).
+     * Creates a [RigidBody] with default parameters, which is not attached to any [PhysicsSpace].
+     * @param type The dynamics type of this body.
      * @param position The absolute position of this body in the world.
      */
     fun createBody(type: RigidBodyType, position: Iso): RigidBody.Own
 
-//    fun createJoint(axes: JointAxes): Joint
+    /**
+     * Creates a [Joint] with default parameters, which is not attached to any [RigidBody] or [PhysicsSpace].
+     */
+    fun createJoint(): Joint
 
     /**
      * Creates an independent container for physics structures from the specified settings.

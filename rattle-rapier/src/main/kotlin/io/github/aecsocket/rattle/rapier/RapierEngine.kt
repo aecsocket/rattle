@@ -4,6 +4,7 @@ import io.github.aecsocket.rattle.*
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import rapier.Rapier
 import rapier.dynamics.RigidBodyBuilder
+import rapier.dynamics.joint.GenericJoint
 import rapier.geometry.ColliderBuilder
 import rapier.pipeline.PhysicsPipeline
 import rapier.shape.CompoundChild
@@ -131,7 +132,7 @@ class RapierEngine internal constructor(var settings: Settings = Settings()) : P
     override fun createCollider(shape: Shape): Collider.Own {
         shape as RapierShape
         val coll = ColliderBuilder.of(shape.handle).use { it.build() }
-        return RapierCollider.Own(coll)
+        return RapierCollider.Write(coll, space = null)
     }
 
     override fun createBody(type: RigidBodyType, position: Iso): RigidBody.Own {
@@ -140,36 +141,12 @@ class RapierEngine internal constructor(var settings: Settings = Settings()) : P
                 .position(position.toIsometry(arena))
                 .use { it.build() }
         }
-        return RapierRigidBody.Own(body)
+        return RapierRigidBody.Write(body, space = null)
     }
 
-    data class JointAxis(
-        val state: State,
-        val motor: Motor,
-    ) {
-        sealed interface State {
-            /* TODO: Kotlin 1.9 data */ object Locked : State
-
-            data class Limited(
-                val min: Real = Real.MIN_VALUE,
-                val max: Real = Real.MAX_VALUE,
-                val impulse: Real = 0.0,
-            ) : State
-
-            /* TODO: Kotlin 1.9 data */ object Free : State
-        }
-
-        sealed interface Motor {
-
-        }
-    }
-
-    fun createJoint(
-        localFrameA: Iso = Iso(),
-        localFrameB: Iso = Iso(),
-        contactsEnabled: Boolean = true,
-    ): Joint {
-        TODO()
+    override fun createJoint(): Joint {
+        val joint = GenericJoint.of(0.toByte())
+        return RapierJoint.Write(joint, space = null)
     }
 
     override fun createSpace(
@@ -200,6 +177,8 @@ class RapierEngine internal constructor(var settings: Settings = Settings()) : P
             spaces.map { it.multibodyJointSet }.toTypedArray(),
             spaces.map { it.ccdSolver }.toTypedArray(),
             spaces.map { it.queryPipeline }.toTypedArray(),
+            spaces.map { it.hooks }.toTypedArray(),
+            spaces.map { it.events }.toTypedArray(),
         )
         integrationParameters.forEach { it.drop() }
     }
