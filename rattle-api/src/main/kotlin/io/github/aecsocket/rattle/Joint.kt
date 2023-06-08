@@ -1,72 +1,65 @@
 package io.github.aecsocket.rattle
 
-sealed interface AxisState {
-    /* TODO: Kotlin 1.9 data */ object Free : AxisState
-
-    data class Limited(
-        val min: Real,
-        val max: Real,
-    ) : AxisState
-
-    /* TODO: Kotlin 1.9 data */ object Locked : AxisState
-}
-
-enum class JointAxis {
-    X,
-    Y,
-    Z,
-    ANG_X,
-    ANG_Y,
-    ANG_Z,
-}
-
-data class JointAxes(
-    val x: AxisState = AxisState.Free,
-    val y: AxisState = AxisState.Free,
-    val z: AxisState = AxisState.Free,
-    val angX: AxisState = AxisState.Free,
-    val angY: AxisState = AxisState.Free,
-    val angZ: AxisState = AxisState.Free,
-) : Iterable<JointAxes.Entry> {
-    data class Entry(
-        val axis: JointAxis,
-        val state: AxisState,
-    )
-
-    override fun iterator() = object : Iterator<Entry> {
-        var cursor = 0
-
-        override fun hasNext() = cursor < 5
-
-        override fun next(): Entry {
-            return when (cursor) {
-                0 -> Entry(JointAxis.X, x)
-                1 -> Entry(JointAxis.Y , y)
-                2 -> Entry(JointAxis.Z , z)
-                3 -> Entry(JointAxis.ANG_X , angX)
-                4 -> Entry(JointAxis.ANG_Y , angY)
-                5 -> Entry(JointAxis.ANG_Z , angZ)
-                else -> throw NoSuchElementException()
-            }.also { cursor += 1 }
-        }
-    }
-}
-
 /**
  * A key used to index into a [PhysicsSpace] to gain a reference, mutable or immutable, to an [ImpulseJoint].
  */
 interface ImpulseJointKey
 
-/**
- * A key used to index into a [PhysicsSpace] to gain a reference, mutable or immutable, to a [MultibodyJoint].
- */
-interface MultibodyJointKey
+interface JointAxis {
+    val state: State
+
+    val motor: Motor
+
+    interface Mut : JointAxis {
+        fun state(value: State): Mut
+
+        fun motor(value: Motor): Mut
+    }
+
+    sealed interface State {
+        /* TODO: Kotlin 1.9 data */ object Free : State
+
+        data class Limited(
+            val min: Real,
+            val max: Real,
+            val impulse: Real,
+        ) : State
+
+        /* TODO: Kotlin 1.9 data */ object Locked : State
+    }
+
+    sealed interface Motor {
+        /* TODO: Kotlin 1.9 data */ object Disabled : Motor
+
+        data class Enabled(
+            val targetVel: Real,
+            val targetPos: Real,
+            val stiffness: Real,
+            val damping: Real,
+            val maxForce: Real,
+            val impulse: Real,
+            val model: Model,
+        ) : Motor {
+            init {
+                // TODO there's probably more requirements here
+                require(impulse >= 0.0) { "requires impulse >= 0.0" }
+            }
+        }
+
+        enum class Model {
+            ACCELERATION_BASED,
+            FORCE_BASED,
+        }
+    }
+}
 
 interface Joint {
     val localFrameA: Iso
 
     val localFrameB: Iso
 
+    // these four fields are just accessors into a slice of the localFrame effectively
+    // but they're more convenient to use
     val localAxisA: Vec
 
     val localAxisB: Vec
@@ -77,7 +70,31 @@ interface Joint {
 
     val contactsEnabled: Boolean
 
+    val x: JointAxis
+
+    val y: JointAxis
+
+    val z: JointAxis
+
+    val angX: JointAxis
+
+    val angY: JointAxis
+
+    val angZ: JointAxis
+
     interface Mut : Joint {
+        override val x: JointAxis.Mut
+
+        override val y: JointAxis.Mut
+
+        override val z: JointAxis.Mut
+
+        override val angX: JointAxis.Mut
+
+        override val angY: JointAxis.Mut
+
+        override val angZ: JointAxis.Mut
+
         fun localFrameA(value: Iso): Mut
 
         fun localFrameB(value: Iso): Mut
@@ -91,6 +108,10 @@ interface Joint {
         fun localAnchorB(value: Vec): Mut
 
         fun contactsEnabled(value: Boolean): Mut
+
+        fun lockAll(vararg degrees: Dof): Mut
+
+        fun freeAll(vararg degrees: Dof): Mut
     }
 
     interface Own : Mut {
@@ -107,6 +128,10 @@ interface Joint {
         override fun localAnchorB(value: Vec): Own
 
         override fun contactsEnabled(value: Boolean): Own
+
+        override fun lockAll(vararg degrees: Dof): Own
+
+        override fun freeAll(vararg degrees: Dof): Own
     }
 }
 
@@ -127,7 +152,5 @@ interface ImpulseJoint : Joint {
 }
 
 interface MultibodyJoint : Joint {
-    interface Mut : MultibodyJoint, Joint.Mut {
-
-    }
+    interface Mut : MultibodyJoint, Joint.Mut
 }

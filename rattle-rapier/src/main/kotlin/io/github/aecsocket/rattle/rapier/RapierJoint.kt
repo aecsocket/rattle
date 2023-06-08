@@ -3,10 +3,104 @@ package io.github.aecsocket.rattle.rapier
 import io.github.aecsocket.rattle.*
 import rapier.data.ArenaKey
 import rapier.dynamics.joint.GenericJoint
+import kotlin.experimental.and
+import kotlin.experimental.inv
+import kotlin.experimental.or
 
 @JvmInline
 value class RapierImpulseJointKey(val id: Long) : ImpulseJointKey {
     override fun toString(): String = ArenaKey.asString(id)
+}
+
+private fun Array<out Dof>.bitMask() = (fold(0) { acc, layer -> acc or (1 shl layer.ordinal) }).toByte()
+
+sealed class RapierJointAxis(
+    override val handle: GenericJoint,
+    val axis: rapier.dynamics.joint.JointAxis,
+) : RapierNative(), JointAxis {
+    val axisBit = (1 shl axis.ordinal).toByte()
+
+    // the order that we get `state` in is a bit arbitrary here
+    // we will prioritise `limitAxes`, since if the bit is set for our axis,
+    // it means it doesn't support SIMD processing, which may mean the joint processes slower
+    override val state: JointAxis.State
+        get() {
+            handle.getLimits(axis)?.let { limits ->
+                return JointAxis.State.Limited(
+                    min = limits.min,
+                    max = limits.max,
+                    impulse = limits.impulse,
+                )
+            }
+            return when {
+                (handle.lockedAxes and axisBit) != 0.toByte() -> JointAxis.State.Locked
+                else -> JointAxis.State.Free
+            }
+        }
+
+    override val motor: JointAxis.Motor
+        get() {
+            val motor = handle.getMotor(axis) ?: return JointAxis.Motor.Disabled
+            return JointAxis.Motor.Enabled(
+                targetVel = motor.targetVel,
+                targetPos = motor.targetPos,
+                stiffness = motor.stiffness,
+                damping = motor.damping,
+                maxForce = motor.maxForce,
+                impulse = motor.impulse,
+                model = motor.model.convert(),
+            )
+        }
+
+    class Read internal constructor(
+        handle: GenericJoint,
+        axis: rapier.dynamics.joint.JointAxis,
+    ) : RapierJointAxis(handle, axis) {
+        override val nativeType get() = "RapierJointAxis.Read"
+    }
+
+    class Write internal constructor(
+        override val handle: GenericJoint.Mut,
+        axis: rapier.dynamics.joint.JointAxis,
+    ) : RapierJointAxis(handle, axis), JointAxis.Mut {
+        override val nativeType get() = "RapierJointAxis.Write"
+
+        private fun set(from: Byte) = from or axisBit
+
+        private fun clear(from: Byte) = from and (axisBit.inv())
+
+        override fun state(value: JointAxis.State): Write {
+            when (value) {
+                is JointAxis.State.Free -> {
+                    handle.lockedAxes = clear(handle.lockedAxes)
+                    handle.limitAxes = clear(handle.limitAxes)
+                }
+                is JointAxis.State.Limited -> {
+                    handle.lockedAxes = clear(handle.lockedAxes)
+                    handle.setLimits(axis, value.min, value.max)
+                    // TODO oops I forgot to make bindings for the `limits` array!
+                }
+                is JointAxis.State.Locked -> {
+                    handle.lockedAxes = set(handle.lockedAxes)
+                    handle.limitAxes = clear(handle.limitAxes)
+                }
+            }
+            return this
+        }
+
+        override fun motor(value: JointAxis.Motor): Write {
+            when (value) {
+                is JointAxis.Motor.Disabled -> {
+                    handle.motorAxes = clear(handle.motorAxes)
+                }
+                is JointAxis.Motor.Enabled -> {
+                    handle.motorAxes = set(handle.motorAxes)
+                    // TODO oops I forgot to make bindings for the `motor` array!
+                }
+            }
+            return this
+        }
+    }
 }
 
 sealed class RapierJoint(
@@ -46,6 +140,16 @@ sealed class RapierJoint(
     override val contactsEnabled: Boolean
         get() = handle.contactsEnabled
 
+    private fun wrapAxis(axis: rapier.dynamics.joint.JointAxis): JointAxis =
+        RapierJointAxis.Read(handle, axis)
+
+    override val x = wrapAxis(rapier.dynamics.joint.JointAxis.X)
+    override val y = wrapAxis(rapier.dynamics.joint.JointAxis.Y)
+    override val z = wrapAxis(rapier.dynamics.joint.JointAxis.Z)
+    override val angX = wrapAxis(rapier.dynamics.joint.JointAxis.ANG_X)
+    override val angY = wrapAxis(rapier.dynamics.joint.JointAxis.ANG_Y)
+    override val angZ = wrapAxis(rapier.dynamics.joint.JointAxis.ANG_Z)
+
     class Read internal constructor(
         handle: GenericJoint,
         space: RapierSpace?,
@@ -58,6 +162,16 @@ sealed class RapierJoint(
         space: RapierSpace?,
     ) : RapierJoint(handle, space), Joint.Own {
         override val nativeType get() = "RapierJoint.Write"
+
+        private fun wrapAxis(axis: rapier.dynamics.joint.JointAxis): JointAxis.Mut =
+            RapierJointAxis.Write(handle, axis)
+
+        override val x = wrapAxis(rapier.dynamics.joint.JointAxis.X)
+        override val y = wrapAxis(rapier.dynamics.joint.JointAxis.Y)
+        override val z = wrapAxis(rapier.dynamics.joint.JointAxis.Z)
+        override val angX = wrapAxis(rapier.dynamics.joint.JointAxis.ANG_X)
+        override val angY = wrapAxis(rapier.dynamics.joint.JointAxis.ANG_Y)
+        override val angZ = wrapAxis(rapier.dynamics.joint.JointAxis.ANG_Z)
 
         override fun localFrameA(value: Iso): Write {
             pushArena { arena ->
@@ -103,6 +217,17 @@ sealed class RapierJoint(
 
         override fun contactsEnabled(value: Boolean): Write {
             handle.contactsEnabled = value
+            return this
+        }
+
+        override fun lockAll(vararg degrees: Dof): Write {
+            // why is `Byte.or` experimental? come on
+            handle.lockedAxes = handle.lockedAxes or degrees.bitMask()
+            return this
+        }
+
+        override fun freeAll(vararg degrees: Dof): Write {
+            handle.lockedAxes = handle.lockedAxes and (degrees.bitMask().inv())
             return this
         }
     }

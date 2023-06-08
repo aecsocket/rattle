@@ -3,6 +3,7 @@ package io.github.aecsocket.rattle.rapier
 import io.github.aecsocket.rattle.*
 import rapier.Droppable
 import rapier.Native
+import rapier.dynamics.joint.MotorModel
 import rapier.geometry.CoefficientCombineRule
 import rapier.geometry.VHACDParameters
 import rapier.math.AngVector
@@ -127,11 +128,12 @@ fun CoefficientCombineRule.convert() = when (this) {
     CoefficientCombineRule.MAX      -> CoeffCombineRule.MAX
 }
 
-fun JointAxis.convert() = when (this) {
-    JointAxis.X     -> rapier.dynamics.joint.JointAxis.X
-    JointAxis.Y     -> rapier.dynamics.joint.JointAxis.Y
-    JointAxis.Z     -> rapier.dynamics.joint.JointAxis.Z
-    JointAxis.ANG_X -> rapier.dynamics.joint.JointAxis.ANG_X
-    JointAxis.ANG_Y -> rapier.dynamics.joint.JointAxis.ANG_Y
-    JointAxis.ANG_Z -> rapier.dynamics.joint.JointAxis.ANG_Z
+fun JointAxis.Motor.Model.convert() = when (this) {
+    JointAxis.Motor.Model.ACCELERATION_BASED -> MotorModel.ACCELERATION_BASED
+    JointAxis.Motor.Model.FORCE_BASED        -> MotorModel.FORCE_BASED
+}
+
+fun MotorModel.convert() = when (this) {
+    MotorModel.ACCELERATION_BASED -> JointAxis.Motor.Model.ACCELERATION_BASED
+    MotorModel.FORCE_BASED        -> JointAxis.Motor.Model.FORCE_BASED
 }

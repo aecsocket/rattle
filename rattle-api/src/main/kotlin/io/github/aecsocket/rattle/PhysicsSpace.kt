@@ -12,6 +12,18 @@ enum class LinAxis {
 }
 
 /**
+ * A degree of freedom in 3D space.
+ */
+enum class Dof {
+    X,
+    Y,
+    Z,
+    ANG_X,
+    ANG_Y,
+    ANG_Z,
+}
+
+/**
  * An independent object storing simulation data for a set of physics structures. This takes ownership of objects like
  * [RigidBody] and [Collider] instances, and allows manipulating and querying the internal structures. An instance
  * can be created through [PhysicsEngine.createSpace].
