@@ -56,22 +56,6 @@ abstract class RattlePlayer<W, P : Audience>(
     fun tick() {
         val world = world
 
-        // todo
-        platform.rattle.runTask {
-            platform.physicsOrNull(world)?.withLock { (physics) ->
-                val text = physics.query.rayCast(
-                    ray = Ray(eyePosition(), eyeDirection()),
-                    maxDistance = 16.0,
-                    settings = RayCastSettings(isSolid = false),
-                    filter = QueryFilter(),
-                )?.let { rayCast ->
-                    Component.text("hit ${rayCast.collider}")
-                } ?: Component.text("no hit")
-                player.sendActionBar(text)
-            }
-        }
-
-
         statsBar?.let { statsBar ->
             val (median, best5, worst5) = timingStatsOf(
                 platform.engineTimings.getLast(
