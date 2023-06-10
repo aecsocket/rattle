@@ -46,7 +46,7 @@ interface RigidBodyKey
  * - [RigidBodyType.DYNAMIC] - the body's position and velocity is managed by the physics engine, so it can be pushed
  *   by other colliders.
  * - [RigidBodyType.KINEMATIC] - the body's position and velocity is managed by the physics engine, but the user
- *   manually sets a desired target position via [Mut.kinematicMoveTo], and the engine calculates the required
+ *   manually sets a desired target position via [Mut.moveTo], and the engine calculates the required
  *   velocity to move it there.
  *
  * Note that not all operations can be applied to all body types - for example, [Mut.applyForce] on a
@@ -175,7 +175,7 @@ interface RigidBody {
          * **Note:** this is not a physically accurate action, as the body will effectively teleport from one position
          * to another without considering collisions in between. If you want to have fine control over where the body
          * moves, but have it still consider collisions in between, consider using a [RigidBodyType.KINEMATIC] and
-         * [kinematicMoveTo].
+         * [moveTo].
          */
         fun position(value: Iso): Mut
 
@@ -233,7 +233,7 @@ interface RigidBody {
          * In this way, the movement is physically accurate (pushing other physics objects out of the way) but this
          * body will not be pushed by others.
          */
-        fun kinematicMoveTo(to: Iso)
+        fun moveTo(to: Iso)
 
         /**
          * Puts this body to sleep (see [RigidBody]).

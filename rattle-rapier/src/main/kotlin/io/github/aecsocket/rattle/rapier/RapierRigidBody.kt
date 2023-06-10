@@ -193,7 +193,7 @@ sealed class RapierRigidBody(
             }
         }
 
-        override fun kinematicMoveTo(to: Iso) {
+        override fun moveTo(to: Iso) {
             pushArena { arena ->
                 handle.setNextKinematicPosition(to.toIsometry(arena))
             }

@@ -18,3 +18,7 @@ sealed interface Block {
 
     data class Fluid(override val shape: Shape) : Shaped
 }
+
+interface Entity {
+    val position: Iso
+}
