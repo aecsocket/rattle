@@ -9,6 +9,7 @@ typealias Mat = DMat3
 typealias Iso = DIso3
 typealias Affine = DAffine3
 typealias Aabb = DAabb3
+typealias Ray = DRay3
 
 val DVec3.Companion.Left     get() = Vec( 1.0,  0.0,  0.0)
 val DVec3.Companion.Right    get() = Vec(-1.0,  0.0,  0.0)

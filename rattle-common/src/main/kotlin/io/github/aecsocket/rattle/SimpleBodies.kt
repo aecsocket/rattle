@@ -133,7 +133,7 @@ abstract class SimpleBodies<W>(
             .linearDamping(desc.linearDamping)
             .angularDamping(desc.angularDamping)
             .let { physics.rigidBodies.add(it) }
-        physics.attach(collider, body)
+        physics.colliders.attach(collider, body)
 
         val instance = Instance(
             collider = collider,

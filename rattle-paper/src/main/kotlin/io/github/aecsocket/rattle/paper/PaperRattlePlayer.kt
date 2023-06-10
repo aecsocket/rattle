@@ -1,9 +1,7 @@
 package io.github.aecsocket.rattle.paper
 
 import io.github.aecsocket.alexandria.paper.extension.direction
-import io.github.aecsocket.alexandria.paper.extension.isometry
 import io.github.aecsocket.alexandria.paper.extension.position
-import io.github.aecsocket.rattle.Iso
 import io.github.aecsocket.rattle.RattleMessages
 import io.github.aecsocket.rattle.Vec
 import io.github.aecsocket.rattle.impl.RattlePlayer

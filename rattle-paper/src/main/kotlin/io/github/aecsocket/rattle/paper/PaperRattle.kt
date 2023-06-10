@@ -13,6 +13,7 @@ import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.impl.RattleHook
 import io.github.aecsocket.rattle.impl.rattleManifest
 import io.github.aecsocket.rattle.world.NoOpEntityStrategy
+import io.github.aecsocket.rattle.world.NoOpTerrainStrategy
 import io.github.oshai.kotlinlogging.KLogger
 import org.bukkit.World
 import org.bukkit.entity.Player

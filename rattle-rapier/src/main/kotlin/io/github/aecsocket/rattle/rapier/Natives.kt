@@ -10,13 +10,21 @@ import rapier.math.AngVector
 import rapier.math.Isometry
 import rapier.math.Rotation
 import rapier.math.Vector
+import rapier.pipeline.ComplexPointProject
+import rapier.pipeline.ComplexRayResult
+import rapier.pipeline.FeatureId
+import rapier.pipeline.SimplePointProject
+import rapier.pipeline.SimpleRayResult
+import rapier.pipeline.TOI
+import rapier.pipeline.TOIStatus
 import java.lang.foreign.Addressable
 import java.lang.foreign.SegmentAllocator
 
 // TODO Java 20: just use Arena directly
 typealias Arena = java.lang.foreign.MemorySession
 
-typealias RAabb = rapier.math.Aabb
+private typealias RAabb = rapier.math.Aabb
+private typealias RRay = rapier.math.Ray
 
 fun Addressable.addr() = address().toRawLongValue()
 
@@ -80,6 +88,9 @@ fun Isometry.toIso() = Iso(translation.toVec(), rotation.toQuat())
 fun Aabb.toRapier(alloc: SegmentAllocator) = RAabb.of(alloc, min.toVector(alloc), max.toVector(alloc))
 fun RAabb.toAabb() = Aabb(min.toVec(), max.toVec())
 
+fun Ray.toRapier(alloc: SegmentAllocator) = RRay.of(alloc, origin.toVector(alloc), direction.toVector(alloc))
+fun RRay.toRay() = Ray(origin.toVec(), dir.toVec())
+
 fun VhacdSettings.toParams(alloc: SegmentAllocator) = VHACDParameters.create(alloc).also {
     it.concavity = concavity
     it.alpha = alpha
@@ -137,3 +148,85 @@ fun MotorModel.convert() = when (this) {
     MotorModel.ACCELERATION_BASED -> JointAxis.Motor.Model.ACCELERATION_BASED
     MotorModel.FORCE_BASED        -> JointAxis.Motor.Model.FORCE_BASED
 }
+
+fun QueryFilter.convert(arena: Arena, space: RapierSpace): rapier.pipeline.QueryFilter {
+    val filter = rapier.pipeline.QueryFilter.of(
+        arena,
+        predicate?.let { predicate ->
+            { handle, coll ->
+                when (predicate(RapierCollider.Read(coll, space), RapierColliderKey(handle))) {
+                    QueryResult.CONTINUE -> false
+                    QueryResult.STOP -> true
+                }
+            }
+        }
+    )
+    filter.flags = flags.raw
+    filter.groups = group.convert(arena)
+    excludeCollider?.let { exclude ->
+        exclude as RapierColliderKey
+        filter.excludeCollider = exclude.id
+    }
+    excludeRigidBody?.let { exclude ->
+        exclude as RapierRigidBodyKey
+        filter.excludeCollider = exclude.id
+    }
+    return filter
+}
+
+fun FeatureId.convert() = when (this) {
+    is FeatureId.Vertex -> ShapeFeature.Vertex(id)
+    is FeatureId.Edge -> ShapeFeature.Edge(id)
+    is FeatureId.Face -> ShapeFeature.Face(id)
+    is FeatureId.Unknown -> throw IllegalStateException("Did not expect an Unknown FeatureId")
+}
+
+fun TOI.convert(): Intersect = when (val status = status) {
+    TOIStatus.PENETRATING -> Intersect.Penetrating
+    else -> Intersect.Separated(
+        state = when (status) {
+            TOIStatus.CONVERGED -> Intersect.State.CONVERGED
+            TOIStatus.OUT_OF_ITERATIONS -> Intersect.State.OUT_OF_ITERATIONS
+            TOIStatus.FAILED -> Intersect.State.FAILED
+            else -> throw IllegalStateException()
+        },
+        time = toi,
+        localPointA = witness1.toVec(),
+        localPointB = witness2.toVec(),
+        normalA = normal1.toVec(),
+        normalB = normal2.toVec(),
+    )
+}
+
+fun SimpleRayResult.convert() = RayCast.Simple(
+    collider = RapierColliderKey(collider),
+    hitTime = toi,
+)
+
+fun ComplexRayResult.convert() = RayCast.Complex(
+    collider = RapierColliderKey(collider),
+    hitTime = toi,
+    normal = normal.toVec(),
+    feature = feature.convert(),
+)
+
+fun rapier.pipeline.ShapeCast.convert(): ShapeCast {
+    val toi = toi
+    return ShapeCast(
+        collider = RapierColliderKey(collider),
+        intersect = toi.convert(),
+    )
+}
+
+fun SimplePointProject.convert() = PointProject.Simple(
+    collider = RapierColliderKey(collider),
+    wasInside = isInside,
+    point = point.toVec(),
+)
+
+fun ComplexPointProject.convert() = PointProject.Complex(
+    collider = RapierColliderKey(collider),
+    wasInside = isInside,
+    point = point.toVec(),
+    feature = feature.convert(),
+)
