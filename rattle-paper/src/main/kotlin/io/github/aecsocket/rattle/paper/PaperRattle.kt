@@ -4,21 +4,25 @@ import io.github.aecsocket.alexandria.hook.AlexandriaHook
 import io.github.aecsocket.alexandria.paper.AlexandriaPlugin
 import io.github.aecsocket.alexandria.paper.extension.forWorld
 import io.github.aecsocket.alexandria.paper.extension.paperSerializers
+import io.github.aecsocket.alexandria.paper.extension.position
 import io.github.aecsocket.alexandria.paper.extension.registerEvents
 import io.github.aecsocket.alexandria.sync.Locked
 import io.github.aecsocket.alexandria.sync.Sync
 import io.github.aecsocket.glossa.Glossa
 import io.github.aecsocket.glossa.MessageProxy
+import io.github.aecsocket.klam.IVec3
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.impl.RattleHook
 import io.github.aecsocket.rattle.impl.rattleManifest
 import io.github.aecsocket.rattle.world.NoOpEntityStrategy
-import io.github.aecsocket.rattle.world.NoOpTerrainStrategy
 import io.github.oshai.kotlinlogging.KLogger
 import org.bukkit.World
+import org.bukkit.block.Block
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
+import org.bukkit.event.block.BlockBreakEvent
+import org.bukkit.event.block.BlockPlaceEvent
 import org.bukkit.event.player.PlayerInteractEvent
 import org.bukkit.event.player.PlayerQuitEvent
 import org.bukkit.event.world.WorldUnloadEvent
@@ -27,7 +31,6 @@ import org.spongepowered.configurate.ConfigurationOptions
 import org.spongepowered.configurate.kotlin.dataClassFieldDiscoverer
 import org.spongepowered.configurate.kotlin.extensions.get
 import org.spongepowered.configurate.objectmapping.ObjectMapper
-import java.util.concurrent.locks.ReentrantLock
 
 lateinit var Rattle: PaperRattle
     private set
@@ -119,6 +122,28 @@ class PaperRattle : AlexandriaPlugin<RattleHook.Settings>(
                 if (event.action.isLeftClick) {
                     players[event.player]?.onClick()
                 }
+            }
+
+            private fun terrainUpdate(block: Block) {
+                val world = block.world
+                val tilePos = block.position()
+                // this is different to `/ 16`
+                val slicePos = IVec3(tilePos.x shr 4, tilePos.y shr 4, tilePos.z shr 4)
+                runTask {
+                    physicsOrNull(world)?.withLock { physics ->
+                        (physics.terrain as? PaperDynamicTerrain)?.onUpdate(slicePos)
+                    }
+                }
+            }
+
+            @EventHandler
+            fun on(event: BlockBreakEvent) {
+                terrainUpdate(event.block)
+            }
+
+            @EventHandler
+            fun on(event: BlockPlaceEvent) {
+                terrainUpdate(event.block)
             }
         })
     }

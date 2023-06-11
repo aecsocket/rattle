@@ -13,14 +13,16 @@ import org.bukkit.Chunk
 import org.bukkit.Particle
 import org.bukkit.Particle.DustOptions
 import org.bukkit.World
+import org.bukkit.block.Block
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 
 private val airTiles = arrayOfNulls<PaperDynamicTerrain.Tile?>(TILES_IN_SLICE)
 
 private val debugColliderBound = PaperDynamicTerrain.DebugInfo(NamedTextColor.WHITE, 0.0)
-private val debugNewSlice = PaperDynamicTerrain.DebugInfo(NamedTextColor.BLUE, 0.25)
-private val debugPersistSlice = PaperDynamicTerrain.DebugInfo(NamedTextColor.YELLOW, 0.0)
-private val debugRemoveSlice = PaperDynamicTerrain.DebugInfo(NamedTextColor.RED, 0.25)
+private val debugNewSlice = PaperDynamicTerrain.DebugInfo(NamedTextColor.BLUE, 0.2)
+private val debugPersistSlice = PaperDynamicTerrain.DebugInfo(NamedTextColor.GRAY, 0.0)
+private val debugUpdateSlice = PaperDynamicTerrain.DebugInfo(NamedTextColor.GREEN, 0.4)
+private val debugRemoveSlice = PaperDynamicTerrain.DebugInfo(NamedTextColor.RED, 0.2)
 
 class PaperDynamicTerrain(
     private val rattle: PaperRattle,
@@ -30,7 +32,7 @@ class PaperDynamicTerrain(
 ) : TerrainStrategy {
     @ConfigSerializable
     data class Settings(
-        val removeIn: Double = 0.5,
+        val removeIn: Double = 1.0,
         val expandVelocity: Real = 0.1,
         val expandConstant: Real = 1.0,
     )
@@ -41,18 +43,22 @@ class PaperDynamicTerrain(
     )
 
     interface Tile {
+        val layerId: Int
         val shapes: List<Compound.Child>
     }
 
     inner class Slice(val pos: IVec3, var state: SliceState) {
-        var removeAt = -1L
+        var remove: SliceRemove = SliceRemove.None
         var data: SliceData? = null
             private set
 
         fun destroyData() {
             val data = data ?: return
             data.layers.forEach { collKey ->
-                physics.colliders.remove(collKey)
+                // todo this causes a natives freeze
+                val coll = physics.colliders.write(collKey) ?: return@forEach
+                //coll.position(Iso(Vec(0.0, 5000.0, 0.0)))
+                //physics.colliders.remove(collKey)//?.destroy()
             }
         }
 
@@ -60,18 +66,14 @@ class PaperDynamicTerrain(
             destroyData()
             data = value
         }
+    }
 
-        fun toRemove() = removeAt >= 0
+    sealed interface SliceRemove {
+        /* TODO: Kotlin 1.9 data */ object None : SliceRemove
 
-        fun toRemoveNow() = toRemove() && System.currentTimeMillis() >= removeAt
+        data class PendingMove(val at: Long) : SliceRemove
 
-        fun removeIn(ms: Long) {
-            removeAt = System.currentTimeMillis() + ms
-        }
-
-        fun stopRemoval() {
-            removeAt = -1
-        }
+        /* TODO: Kotlin 1.9 data */ object PendingDestroy : SliceRemove
     }
 
     sealed interface SliceState {
@@ -97,6 +99,14 @@ class PaperDynamicTerrain(
     class Slices {
         private val map = HashMap<IVec3, Slice>()
         private val dirty = HashSet<IVec3>()
+
+        fun destroy() {
+            map.forEach { (_, slice) ->
+                slice.destroyData()
+            }
+            map.clear()
+            dirty.clear()
+        }
 
         fun all(): Map<IVec3, Slice> = map
 
@@ -126,6 +136,9 @@ class PaperDynamicTerrain(
     private val slices = Locked(Slices())
 
     override fun destroy() {
+        slices.withLock { slices ->
+            slices.destroy()
+        }
     }
 
     override fun enable() {
@@ -173,11 +186,56 @@ class PaperDynamicTerrain(
         }
     }
 
+    fun onUpdate(pos: IVec3) {
+        slices.withLock { slices ->
+            val slice = slices[pos] ?: return@withLock
+            drawDebugAabb(sliceBounds(pos), debugUpdateSlice)
+            // reschedule a snapshot if we need to
+            when (slice.state) {
+                is SliceState.PendingScheduleSnapshot -> {}
+                is SliceState.PendingSnapshot -> {}
+                else -> {
+                    slice.state = SliceState.PendingScheduleSnapshot
+                    slices.dirty(pos)
+                    scheduleSnapshot(pos)
+                }
+            }
+        }
+    }
+
     private fun transformStates(slices: Slices, toRemove: Set<IVec3>) {
         slices.clean().forEach { pos ->
             val slice = slices[pos] ?: return@forEach
+            when (val remove = slice.remove) {
+                is SliceRemove.None -> {
+                    if (toRemove.contains(pos)) {
+                        slice.remove = SliceRemove.PendingMove(
+                            at = System.currentTimeMillis() + (settings.removeIn * 1000).toLong(),
+                        )
+                    }
+                }
+                is SliceRemove.PendingMove -> {
+                    slices.dirty(pos)
+                    if (System.currentTimeMillis() >= remove.at) {
+                        // move colliders
+                        slice.data?.layers
+                        slice.remove = SliceRemove.PendingDestroy
+                    }
+                }
+                // then delete them
+            }
+
             if (toRemove.contains(pos)) {
                 slices.dirty(pos)
+                when (slice.remove) {
+                    is SliceRemove.None -> {
+                        slice.remove = SliceRemove.PendingMove(
+                            at = System.currentTimeMillis() + (settings.removeIn * 1000).toLong()
+                        )
+                    }
+                    is SliceRemove.PendingMove -> {}
+                }
+
                 if (!slice.toRemove()) {
                     slice.removeIn((settings.removeIn * 1000).toLong())
                 }
@@ -190,9 +248,9 @@ class PaperDynamicTerrain(
 
             when (val state = slice.state) {
                 is SliceState.PendingScheduleSnapshot -> {
-                    scheduleSnapshot(pos)
                     slice.state = SliceState.PendingSnapshot
                     slices.dirty(pos)
+                    scheduleSnapshot(pos)
                 }
                 is SliceState.PendingSnapshot -> {
                     // wait on the platform
@@ -213,7 +271,11 @@ class PaperDynamicTerrain(
     private fun createSliceData(slice: Slice, state: SliceState.Snapshot): SliceData {
         // todo
         return SliceData(
-            layers = ArrayList(),
+            layers = listOf(
+                rattle.engine.createCollider(rattle.engine.createShape(Box(Vec(4.0))))
+                    .position(Iso((slice.pos * 16).run { Vec(x.toDouble(), y.toDouble(), z.toDouble()) }))
+                    .let { physics.colliders.add(it) }
+            ),
         )
     }
 
@@ -268,10 +330,27 @@ class PaperDynamicTerrain(
     }
 
     private fun createSnapshot(chunk: Chunk, pos: IVec3): SliceState.Snapshot {
-        // TODO
+        // TODO if chunk is empty, airTiles
+
+        val tiles: Array<out Tile?> = Array(TILES_IN_SLICE) { i ->
+            val (lx, ly, lz) = posInChunk(i)
+            val gy = world.minHeight + (pos.y * 16) + ly
+            val block = chunk.getBlock(lx, gy, lz)
+            wrapBlock(block)
+        }
+
         return SliceState.Snapshot(
-            tiles = airTiles,
+            tiles = tiles,
         )
+    }
+
+    private fun wrapBlock(block: Block): Tile? {
+        if (block.isPassable) {
+            return null
+        }
+
+        // TODO
+        return null
     }
 }
 
@@ -279,6 +358,12 @@ private fun sliceBounds(pos: IVec3): Aabb {
     val min = DVec3(pos.x.toDouble(), pos.y.toDouble(), pos.z.toDouble()) * 16.0
     return Aabb(min, min + 16.0)
 }
+
+fun posInChunk(i: Int) = IVec3(
+    (i / 16 / 16) % 16,
+    (i / 16) % 16,
+    i % 16,
+)
 
 private fun enclosedPoints(b: DAabb3): Iterable<IVec3> {
     fun floor(s: Double): Int {
