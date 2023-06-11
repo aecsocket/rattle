@@ -6,7 +6,6 @@ import io.github.aecsocket.glossa.MessageProxy
 import io.github.aecsocket.glossa.messageProxy
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.rapier.RapierEngine
-import io.github.aecsocket.rattle.world.DynamicTerrain
 import io.github.oshai.kotlinlogging.KLogger
 import net.kyori.adventure.text.format.TextColor
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
@@ -38,7 +37,7 @@ abstract class RattleHook {
         @ConfigSerializable
         data class World(
             val physics: PhysicsSpace.Settings = PhysicsSpace.Settings(),
-            val terrain: DynamicTerrain.Settings = DynamicTerrain.Settings(),
+            //val terrain: DynamicTerrain.Settings = DynamicTerrain.Settings(),
         )
 
         @ConfigSerializable

@@ -1,18 +1,13 @@
 package io.github.aecsocket.rattle.world
 
 import io.github.aecsocket.alexandria.sync.Locked
+import io.github.aecsocket.alexandria.sync.Sync
 import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.impl.RattleHook
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 
-interface TerrainLayer {
-    object Solid : TerrainLayer
-
-    object Fluid : TerrainLayer // TODO
-}
-
-const val BLOCKS_IN_SECTION = 16 * 16 * 16
+const val TILES_IN_SLICE = 16 * 16 * 16
 
 /**
  * The default implementation of [TerrainStrategy], which dynamically creates terrain collision
@@ -70,10 +65,10 @@ const val BLOCKS_IN_SECTION = 16 * 16 * 16
  * For [Block.Fluid], the strategy builds up a collider as for blocks, but adds it as a sensor collider. This sensor
  * can later be queried to see what bodies are touching it, and to apply buoyancy forces. (TODO)
  */
-abstract class DynamicTerrain(
+abstract class Abcd(
     private val rattle: RattleHook,
     // SAFETY: we only access the physics while the containing WorldPhysics is locked
-    val physics: PhysicsSpace,
+    val physics: Sync<PhysicsSpace>,
     val settings: Settings = Settings(),
 ) : TerrainStrategy {
     @ConfigSerializable
@@ -88,64 +83,83 @@ abstract class DynamicTerrain(
         )
     }
 
-    data class SectionLayer(
-        val terrain: TerrainLayer,
-        val colliders: List<ColliderKey>,
-    ) {
-        override fun toString() = "SectionLayer(${colliders.size})"
+    /*
+    v2:
+      - Each block type has an associated Layer
+      - Multiple blocks can have the same Layer
+      - Layer describes material + sensor or not
+      - E.g:
+        - stone -> Layer(<bumpy>, solid)
+        - ice -> Layer(<slippery>, solid)
+        - water -> Layer(<water-y>, sensor)
+      - All Layer instances are known in advance, in a List<Layer>
+
+      - Blocks (solid + fluid) in a section are greedily combined into an Array<greedy blocks>
+        - Index determines the index of LayerDesc in that list above
+        - 1 collider per "greedy blocks" object
+     */
+
+    sealed interface Layer {
+        data class Solid(val material: PhysicsMaterial) : Layer
+
+        data class Fluid(val density: Real) : Layer
     }
 
-    sealed interface SectionState {
-        /**
-         * A section that has been marked as "should be generated", and is now waiting to be turned into a
-         * [Snapshot] by the underlying platform.
-         */
-        /* TODO: Kotlin 1.9 data */ object Pending : SectionState
+    data class Block(
+        val layerId: Int,
+        val compoundChildren: List<Compound.Child>,
+    )
 
-        /**
-         * A section with an immutable block snapshot created, ready to be turned into a [Built.Idle] by the
-         * physics thread.
-         */
-        class Snapshot(
-            val blocks: Array<out Block>,
-        ) : SectionState {
-            init {
-                require(blocks.size == BLOCKS_IN_SECTION) { "requires blocks.size == BLOCKS_IN_SECTION" }
-            }
+    inner class Section(val pos: IVec3) {
+        var state: SectionState = SectionState.Pending
+        var data: SectionData? = null
+            private set
+        private var removeAt = -1L
 
-            override fun toString() = "Snapshot"
-        }
+        fun toBeRemoved() = removeAt >= 0
 
-        /**
-         * A section with full collision and interaction with the world.
-         */
-        sealed interface Built : SectionState {
-            val layers: Map<TerrainLayer, SectionLayer>
+        fun toRemoveNow() = toBeRemoved() && System.currentTimeMillis() >= removeAt
 
-            fun colliders(): List<ColliderKey> =
-                layers.flatMap { (_, layer) -> layer.colliders }
-
-            data class Idle(
-                override val layers: Map<TerrainLayer, SectionLayer>,
-            ) : Built
-        }
-    }
-
-    data class Section(
-        var state: SectionState,
-        var toRemove: Long = -1,
-    ) {
-        fun toBeRemoved() = toRemove >= 0
-
-        fun removeNow() = toBeRemoved() && System.currentTimeMillis() >= toRemove
-
-        fun toBeRemoved(inMs: Long) {
-            toRemove = System.currentTimeMillis() + inMs
+        fun removeIn(ms: Long) {
+            removeAt = System.currentTimeMillis() + ms
         }
 
         fun stopRemoval() {
-            toRemove = -1
+            removeAt = -1
         }
+
+        fun destroy() {
+            val data = data ?: return
+            data.layers.forEach { collKey ->
+                // TODO: when removing, any bodies touching the terrain will be woken up
+                // we need to avoid this, because it means the next update, the terrain will be recreated
+                // since the bodies will be awake, and processed by the system
+                physics.withLock { physics -> physics.colliders.remove(collKey) }?.destroy()
+            }
+        }
+
+        fun swapData(newData: SectionData?) {
+            destroy()
+            data = newData
+        }
+    }
+
+    data class SectionData(
+        val layers: List<ColliderKey>,
+    )
+
+    sealed interface SectionState {
+        /* TODO: Kotlin 1.9 data */ object Pending : SectionState
+
+        class Snapshot(
+            val blocks: Array<out Block?>,
+        ) : SectionState {
+            init {
+                require(blocks.size == TILES_IN_SLICE) { "requires blocks.size == BLOCKS_IN_SECTION" }
+            }
+        }
+
+        /* TODO: Kotlin 1.9 data */ object Built : SectionState
     }
 
     inner class Sections {
@@ -157,16 +171,17 @@ abstract class DynamicTerrain(
 
         operator fun get(pos: IVec3) = mMap[pos]
 
-        fun add(pos: IVec3, state: SectionState) {
+        fun add(section: Section) {
+            val pos = section.pos
             if (mMap.contains(pos))
                 throw IllegalStateException("Already contains a section for $pos")
-            mMap[pos] = Section(state)
+            mMap[pos] = section
             mDirty += pos
         }
 
         fun remove(pos: IVec3): Section? {
             val section = mMap.remove(pos) ?: return null
-            destroy(section.state)
+            section.destroy()
             return section
         }
 
@@ -180,29 +195,18 @@ abstract class DynamicTerrain(
 
         fun destroy() {
             mMap.forEach { (_, section) ->
-                destroy(section.state)
+                section.destroy()
             }
             mMap.clear()
             mDirty.clear()
-        }
-
-        private fun destroy(state: SectionState) {
-            when (state) {
-                is SectionState.Built -> {
-                    state.colliders().forEach { collKey ->
-                        // TODO: when removing, any bodies touching the terrain will be woken up
-                        // we need to avoid this, because it means the next update, the terrain will be recreated
-                        physics.colliders.remove(collKey)?.destroy()
-                    }
-                }
-                else -> {}
-            }
         }
     }
 
     private var enabled = true
 
     val sections = Locked(Sections())
+
+    protected abstract val layers: Array<out Layer>
 
     protected abstract fun scheduleToSnapshot(sectionPos: Iterable<IVec3>)
 
@@ -222,9 +226,9 @@ abstract class DynamicTerrain(
 
     override fun onPhysicsStep() {
         if (!enabled) return
-
-        // TODO we could probably turn this into a debug fn
-        // where would we put it on the HUD?
+        physics.withLock { physics ->
+            // TODO we could probably turn this into a debug fn
+            // where would we put it on the HUD?
 //        println("sections:")
 //        sections.withLock { s ->
 //            s.map.forEach { (pos, sc) ->
@@ -232,69 +236,72 @@ abstract class DynamicTerrain(
 //            }
 //        }
 
-        val toSnapshot = HashSet<IVec3>()
-        // clone the key set, so it's not modified while we're using it
-        val toRemove = sections.withLock { it.map.keys.toMutableSet() }
+            val toSnapshot = HashSet<IVec3>()
+            // clone the key set, so it's not modified while we're using it
+            val toRemove = sections.withLock { it.map.keys.toMutableSet() }
 
-        // find chunk sections which bodies are intersecting
-        fun forCollider(linVel: Vec, coll: Collider) {
-            val bounds = computeBounds(linVel, coll)
-            val sectionPos = enclosedPoints(bounds / 16.0).toSet()
+            // find chunk sections which bodies are intersecting
+            fun forCollider(linVel: Vec, coll: Collider) {
+                val bounds = computeBounds(linVel, coll)
+                val sectionPos = enclosedPoints(bounds / 16.0).toSet()
 
-            toRemove -= sectionPos
-            // only schedule snapshotting for sections that aren't already created or going to be generated
-            sections.withLock { sections ->
-                sectionPos.forEach { pos ->
-                    if (!sections.map.contains(pos)) {
-                        sections.add(pos, SectionState.Pending)
-                        toSnapshot += pos
-                    }
-                }
-            }
-        }
-
-        physics.rigidBodies.active().forEach body@ { bodyKey ->
-            val body = physics.rigidBodies.read(bodyKey) ?: return@body
-            val linVel = body.linearVelocity
-            body.colliders.forEach collider@ { collKey ->
-                val coll = physics.colliders.read(collKey) ?: return@collider
-                forCollider(linVel, coll)
-            }
-        }
-
-        // consume toSnapshot; clone the toSnapshot set and send the positions off to be snapshot
-        scheduleToSnapshot(toSnapshot)
-
-        // process all dirty sections and turn them into their next state
-        sections.withLock { sections ->
-            // needed so that the `.clean()` call below will have all of our toRemove sections
-            toRemove.forEach { pos ->
-                sections.dirty(pos)
-            }
-
-            // fetch and clear; once we start working, all sections are clean,
-            // and while we work we mark them as dirty
-            sections.clean().forEach { pos ->
-                val section = sections[pos] ?: return@forEach
-                if (toRemove.contains(pos)) {
-                    if (section.toBeRemoved()) {
-                        if (section.removeNow()) {
-                            sections.remove(pos)
+                toRemove -= sectionPos
+                // only schedule snapshotting for sections that aren't already created or going to be generated
+                sections.withLock { sections ->
+                    sectionPos.forEach { pos ->
+                        if (!sections.map.contains(pos)) {
+                            sections.add(Section(pos))
+                            toSnapshot += pos
                         }
-                    } else {
-                        section.toBeRemoved((settings.removeTime * 1000).toLong())
                     }
-                } else if (section.toBeRemoved()) {
-                    // we no longer want to remove it
-                    section.stopRemoval()
+                }
+            }
+
+            physics.rigidBodies.active().forEach body@ { bodyKey ->
+                val body = physics.rigidBodies.read(bodyKey) ?: return@body
+                val linVel = body.linearVelocity
+                body.colliders.forEach collider@ { collKey ->
+                    val coll = physics.colliders.read(collKey) ?: return@collider
+                    forCollider(linVel, coll)
+                }
+            }
+
+            // consume toSnapshot; clone the toSnapshot set and send the positions off to be snapshot
+            scheduleToSnapshot(toSnapshot)
+
+            // process all dirty sections and turn them into their next state
+            sections.withLock { sections ->
+                // needed so that the `.clean()` call below will have all of our toRemove sections
+                toRemove.forEach { pos ->
+                    sections.dirty(pos)
                 }
 
-                when (val state = section.state) {
-                    is SectionState.Pending -> {}
-                    is SectionState.Snapshot -> {
-                        section.state = createSection(pos, state)
+                // fetch and clear; once we start working, all sections are clean,
+                // and while we work we mark them as dirty
+                sections.clean().forEach { pos ->
+                    val section = sections[pos] ?: return@forEach
+                    if (toRemove.contains(pos)) {
+                        if (section.toBeRemoved()) {
+                            if (section.toRemoveNow()) {
+                                sections.remove(pos)
+                            }
+                        } else {
+                            section.removeIn((settings.removeTime * 1000).toLong())
+                        }
+                    } else if (section.toBeRemoved()) {
+                        // we no longer want to remove it
+                        section.stopRemoval()
                     }
-                    is SectionState.Built -> {}
+
+                    when (val state = section.state) {
+                        is SectionState.Pending -> {}
+                        is SectionState.Snapshot -> {
+                            section.swapData(createSection(pos, state))
+                            section.state = SectionState.Built
+                            sections.dirty(pos)
+                        }
+                        is SectionState.Built -> {}
+                    }
                 }
             }
         }
@@ -317,40 +324,44 @@ abstract class DynamicTerrain(
         )
     }
 
-    private fun createSection(pos: IVec3, state: SectionState.Snapshot): SectionState {
-        class SectionLayerData {
-            val colliders = ArrayList<ColliderKey>()
-        }
+    private fun createSection(pos: IVec3, snapshot: SectionState.Snapshot): SectionData {
+        val layerChildren = Array<MutableList<Compound.Child>>(layers.size) { ArrayList() }
+        snapshot.blocks.forEachIndexed { i, block ->
+            block ?: return@forEachIndexed
+            val (lx, ly, lz) = posInChunk(i)
 
-        val layers = HashMap<TerrainLayer, SectionLayerData>()
-        state.blocks.forEachIndexed { i, b ->
-            val block = b as? Block.Shaped ?: return@forEachIndexed
-            val (x, y, z) = (pos * 16) + posInChunk(i)
-
-            // SAFETY: acquire a new ref to this shape, since this shape will probably be used by multiple blocks
-            // we release it on destruction as well
-            val coll = rattle.engine.createCollider(block.shape.acquire())
-                .material(PhysicsMaterial(friction = 0.5, restitution = 0.2)) // TODO
-                .position(Iso(Vec(x.toDouble() + 0.5, y.toDouble() + 0.5, z.toDouble() + 0.5)))
-                .mass(Mass.Infinite)
-                .physicsMode(when (block) {
-                    is Block.Solid -> PhysicsMode.SOLID
-                    is Block.Fluid -> PhysicsMode.SENSOR
-                })
-                .let { physics.colliders.add(it) }
-
-            val layer = when (block) {
-                is Block.Solid -> TerrainLayer.Solid
-                is Block.Fluid -> TerrainLayer.Fluid
+            val children = block.compoundChildren.map { child ->
+                Compound.Child(
+                    child.shape,
+                    child.delta.copy(
+                        translation = child.delta.translation + Vec(lx.toDouble(), ly.toDouble(), lz.toDouble()) + 0.5,
+                    ),
+                )
             }
-            val layerData = layers.computeIfAbsent(layer) { SectionLayerData() }
-            layerData.colliders += coll
+            layerChildren[block.layerId] += children
         }
 
-        return SectionState.Built.Idle(
-            layers = layers.map { (terrainLayer, data) ->
-                terrainLayer to SectionLayer(terrainLayer, data.colliders)
-            }.associate { it },
+        val layers = layerChildren.mapIndexedNotNull { layerId, children ->
+            if (children.isEmpty()) return@mapIndexedNotNull null
+            val layer = layers[layerId]
+            // SAFETY: this collider owns this compound shape
+            rattle.engine.createCollider(rattle.engine.createShape(Compound(children)))
+                .position(Iso(Vec(pos.x.toDouble(), pos.y.toDouble(), pos.z.toDouble())))
+                .also {
+                    when (layer) {
+                        is Layer.Solid -> it
+                            .material(layer.material)
+                            .physicsMode(PhysicsMode.SOLID)
+                        is Layer.Fluid -> it
+                            .physicsMode(PhysicsMode.SENSOR)
+                    }
+                }
+                .mass(Mass.Infinite)
+                .let { physics.withLock { physics -> physics.colliders.add(it) } }
+        }
+
+        return SectionData(
+            layers = layers,
         )
     }
 }

@@ -27,6 +27,7 @@ import org.spongepowered.configurate.ConfigurationOptions
 import org.spongepowered.configurate.kotlin.dataClassFieldDiscoverer
 import org.spongepowered.configurate.kotlin.extensions.get
 import org.spongepowered.configurate.objectmapping.ObjectMapper
+import java.util.concurrent.locks.ReentrantLock
 
 lateinit var Rattle: PaperRattle
     private set
@@ -141,7 +142,7 @@ class PaperRattle : AlexandriaPlugin<RattleHook.Settings>(
         mWorlds.computeIfAbsent(world) {
             val settings = settings.worlds.forWorld(world) ?: RattleHook.Settings.World()
             val physics = engine.createSpace(settings.physics)
-            val terrain = NoOpTerrainStrategy // TODO PaperDynamicTerrain(this, physics, world, settings.terrain)
+            val terrain = PaperDynamicTerrain(this, physics, world)
             val entities = NoOpEntityStrategy // TODO
             val simpleBodies = PaperSimpleBodies(this, world, physics, this.settings.simpleBodies)
             Locked(PaperWorldPhysics(this, world, physics, terrain, entities, simpleBodies))

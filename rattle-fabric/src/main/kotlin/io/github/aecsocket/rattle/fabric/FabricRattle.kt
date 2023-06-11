@@ -12,6 +12,7 @@ import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.impl.RattleHook
 import io.github.aecsocket.rattle.impl.rattleManifest
 import io.github.aecsocket.rattle.world.NoOpEntityStrategy
+import io.github.aecsocket.rattle.world.NoOpTerrainStrategy
 import io.github.oshai.kotlinlogging.KLogger
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
@@ -24,6 +25,7 @@ import org.spongepowered.configurate.ConfigurationOptions
 import org.spongepowered.configurate.kotlin.dataClassFieldDiscoverer
 import org.spongepowered.configurate.kotlin.extensions.get
 import org.spongepowered.configurate.objectmapping.ObjectMapper
+import java.util.concurrent.locks.ReentrantLock
 
 lateinit var Rattle: FabricRattle
     private set
@@ -112,14 +114,15 @@ class FabricRattle : AlexandriaMod<RattleHook.Settings>(
     fun physicsOrCreate(world: ServerLevel): Sync<FabricWorldPhysics> {
         world as LevelPhysicsAccess
         val physics = world.rattle_getPhysics() ?: run {
+            val lock = ReentrantLock()
             val settings = settings.worlds.forWorld(world) ?: RattleHook.Settings.World()
             val platform = world.server.rattle()
             val physics = engine.createSpace(settings.physics)
-            val terrain = FabricDynamicTerrain(this, physics, world, settings.terrain)
+            val terrain = NoOpTerrainStrategy // FabricDynamicTerrain(this, Locked(physics, lock), world, settings.terrain)
             val entities = NoOpEntityStrategy
             val simpleBodies = FabricSimpleBodies(world, platform, physics, this.settings.simpleBodies)
 
-            Locked(FabricWorldPhysics(world, physics, terrain, entities, simpleBodies)).also {
+            Locked(FabricWorldPhysics(world, physics, terrain, entities, simpleBodies), lock).also {
                 world.rattle_setPhysics(it)
             }
         }
