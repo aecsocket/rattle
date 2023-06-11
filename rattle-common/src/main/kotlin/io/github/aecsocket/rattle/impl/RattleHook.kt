@@ -97,6 +97,16 @@ abstract class RattleHook {
             log.warn { "Could not wait for physics jobs to finish - this might wait for individual physics spaces" }
         }
 
+        // SAFETY: The platform `.destroy()` will prefer leaking memory instead of crashing the JVM if it cannot
+        // lock and destroy a space safely. However, there is an alternative: on a server environment we could
+        // add a shutdown hook instead. Therefore, the process would be:
+        //  - server starts shutting down
+        //  - we fail to acquire locks; register shutdown hooks
+        //  - server saves worlds and state
+        //  - our shutdown hooks run, and potentially crash the JVM
+        //    but that isn't a problem now, since state is saved
+        // I've decided to *not* go for this approach, because it means on a client environment, we might crash
+        // the entire game. I'd rather just leak memory.
         platform?.destroy()
         engine.destroy()
     }
