@@ -141,7 +141,7 @@ class PaperRattle : AlexandriaPlugin<RattleHook.Settings>(
         mWorlds.computeIfAbsent(world) {
             val settings = settings.worlds.forWorld(world) ?: RattleHook.Settings.World()
             val physics = engine.createSpace(settings.physics)
-            val terrain = PaperDynamicTerrain(this, physics, world, settings.terrain)
+            val terrain = NoOpTerrainStrategy // TODO PaperDynamicTerrain(this, physics, world, settings.terrain)
             val entities = NoOpEntityStrategy // TODO
             val simpleBodies = PaperSimpleBodies(this, world, physics, this.settings.simpleBodies)
             Locked(PaperWorldPhysics(this, world, physics, terrain, entities, simpleBodies))

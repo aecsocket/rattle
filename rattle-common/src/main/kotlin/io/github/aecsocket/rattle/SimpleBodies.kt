@@ -75,10 +75,8 @@ abstract class SimpleBodies<W>(
 
         internal fun destroy() {
             destroyed()
-            platform.physicsOrNull(world)?.withLock { (physics) ->
-                physics.colliders.remove(collider)?.destroy()
-                physics.rigidBodies.remove(body)?.destroy()
-            }
+            physics.colliders.remove(collider)?.destroy()
+            physics.rigidBodies.remove(body)?.destroy()
         }
     }
 

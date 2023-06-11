@@ -88,8 +88,6 @@ abstract class DynamicTerrain(
         )
     }
 
-
-
     data class SectionLayer(
         val terrain: TerrainLayer,
         val colliders: List<ColliderKey>,

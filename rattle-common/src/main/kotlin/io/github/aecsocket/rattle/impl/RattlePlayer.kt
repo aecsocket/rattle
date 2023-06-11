@@ -44,8 +44,7 @@ abstract class RattlePlayer<W, P : Audience>(
     fun showStatsBar(enabled: Boolean) {
         val statsBar = statsBar
         if (enabled && statsBar == null) {
-            this.statsBar = platform.rattle.settings.stats.timingBar
-                .create(Component.empty())
+            this.statsBar = BossBar.bossBar(Component.empty(), 1.0f, BossBar.Color.WHITE, BossBar.Overlay.PROGRESS)
                 .also { player.showBar(it) }
         } else if (!enabled && statsBar != null) {
             player.hideBar(statsBar)

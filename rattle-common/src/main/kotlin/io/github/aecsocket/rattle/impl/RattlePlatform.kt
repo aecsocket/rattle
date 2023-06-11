@@ -5,6 +5,7 @@ import io.github.aecsocket.rattle.Real
 import io.github.aecsocket.rattle.stats.TimestampedList
 import io.github.aecsocket.rattle.world.*
 import net.kyori.adventure.key.Key
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 abstract class RattlePlatform<W, C>(
@@ -41,12 +42,25 @@ abstract class RattlePlatform<W, C>(
     fun destroy() {
         val count = worlds.sumOf { world ->
             val res: Int = run {
-                // SAFETY: this isn't safe, but at this point we just need to destroy this world
-                // if it's still locked, then we are going to completely screw up the internal state
-                // hopefully it won't matter since we're destroying the space and platform anyway
-                val physics = physicsOrNull(world)?.leak() ?: return@run 0
-                physics.destroy()
-                1
+                // SAFETY: if some part of the program has screwed up, we will never be able to acquire this lock
+                // however we don't really care about this space anymore; we just want to attempt to clean it up.
+                // If we cannot acquire a lock in time, we cannot destroy the object, therefore we leak memory.
+                // However, this is better than the alternative if we ignored the lock and destroyed the world
+                // immediately: if the native code is stuck somewhere, it has a high chance of just crashing
+                // the entire JVM, possibly before other world state has been saved.
+                // And anyway, on a server environment, we don't care.
+                physicsOrNull(world)?.let { lock ->
+                    lock.tryLock(
+                        time = (rattle.settings.jobs.spaceTerminateTime * 1000).toLong(),
+                        unit = TimeUnit.MILLISECONDS,
+                    )?.let { physics ->
+                        physics.destroy()
+                        1
+                    } ?: run {
+                        rattle.log.warn { "Could not acquire lock for physics space of $world - space not destroyed, memory leaked!" }
+                        null
+                    }
+                } ?: 0
             }
             // weird syntax because Kotlin gets confused between sumOf((T) -> Int) and ((T) -> Long)
             res
@@ -69,6 +83,7 @@ abstract class RattlePlatform<W, C>(
                 val worlds = locks.map { it.lock() }
 
                 worlds.forEach { it.onPhysicsStep() }
+
                 rattle.engine.stepSpaces(dt, worlds.map { it.physics })
 
                 locks.forEach { it.unlock() }

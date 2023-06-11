@@ -1,25 +1,36 @@
-default-locale: en-US
+# Example file is available at
+# https://github.com/aecsocket/rattle/blob/main/rattle-common/src/main/resources/settings.yaml
+# Units are metres, seconds, kilograms.
 
+# The default locale to use for the plugin. Must be a valid Java locale.
+default-locale: en-US
+# The multiplier for the physics engine update rate.
+# If below 1, acts as "slow motion". If above 1, the opposite.
 time-step-multiplier: 1.0
 
+# Settings for individual worlds.
+# To add a world, use its namespaced key e.g. `minecraft:overworld`.
 worlds:
+  # Settings for worlds not explicitly defined here.
   default:
+    # Physics space settings.
     physics:
+      # The constant acceleration applied to all moving rigid bodies.
       gravity: [0.0, -9.81, 0.0]
 
+    #
     terrain:
       remove-time: 0.5
       expansion:
         velocity-factor: 0.1
         constant: 4
 
+# Settings for the `/rattle stats` display.
 stats:
+  # For which intervals we output the stats in `/rattle stats` for.
   timing-buffers: [5.0, 15.0, 60.0]
+  # For which interval we calculate the stats in the timing stats bar.
   timing-bar-buffer: 5.0
-  timing-bar:
-    progress: 1.0
-    color: white
-    overlay: progress
 
 jobs:
   worker-threads: 0

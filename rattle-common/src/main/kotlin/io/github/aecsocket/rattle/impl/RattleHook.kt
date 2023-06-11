@@ -1,6 +1,5 @@
 package io.github.aecsocket.rattle.impl
 
-import io.github.aecsocket.alexandria.desc.BossBarDesc
 import io.github.aecsocket.alexandria.hook.AlexandriaHook
 import io.github.aecsocket.glossa.Glossa
 import io.github.aecsocket.glossa.MessageProxy
@@ -46,14 +45,14 @@ abstract class RattleHook {
         data class Stats(
             val timingBuffers: List<Double> = listOf(5.0, 15.0, 60.0),
             val timingBarBuffer: Double = 5.0,
-            val timingBar: BossBarDesc = BossBarDesc(),
         )
 
         @ConfigSerializable
         data class Jobs(
             val workerThreads: Int = 0,
-            val threadTerminateTime: Double = 5.0,
             val commandTaskTerminateTime: Double = 5.0,
+            val workerTerminateTime: Double = 5.0,
+            val spaceTerminateTime: Double = 5.0,
         )
     }
 
@@ -92,14 +91,13 @@ abstract class RattleHook {
 
     fun destroy(platform: RattlePlatform<*, *>?) {
         executor.shutdown()
-        log.info { "Waiting ${settings.jobs.threadTerminateTime} sec for physics jobs" }
-        if (!executor.awaitTermination((settings.jobs.threadTerminateTime * 1000).toLong(), TimeUnit.MILLISECONDS)) {
+        log.info { "Waiting ${settings.jobs.workerTerminateTime} sec for physics jobs" }
+        if (!executor.awaitTermination((settings.jobs.workerTerminateTime * 1000).toLong(), TimeUnit.MILLISECONDS)) {
             executor.shutdownNow()
-            log.warn { "Could not wait for physics jobs to finish" }
+            log.warn { "Could not wait for physics jobs to finish - this might wait for individual physics spaces" }
         }
 
         platform?.destroy()
-
         engine.destroy()
     }
 
