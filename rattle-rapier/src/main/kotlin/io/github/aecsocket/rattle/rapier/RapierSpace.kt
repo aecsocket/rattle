@@ -148,11 +148,14 @@ class RapierSpace internal constructor(
         override fun add(value: Collider.Own): ColliderKey {
             value as RapierCollider.Write
             assignSpace(value)
-            return RapierColliderKey(colliderSet.insert(value.handle))
+            return RapierColliderKey(colliderSet.insert(value.handle)).also {
+                println("adding $it")
+            }
         }
 
         override fun remove(key: ColliderKey): Collider.Own? {
             key as RapierColliderKey
+            println("removing $key")
             return colliderSet.remove(
                 key.id,
                 islands,

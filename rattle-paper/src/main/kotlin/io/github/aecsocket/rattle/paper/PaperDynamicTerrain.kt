@@ -52,18 +52,10 @@ class PaperDynamicTerrain(
         var data: SliceData? = null
             private set
 
-        fun destroyData() {
-            val data = data ?: return
-            data.layers.forEach { collKey ->
-                // todo this causes a natives freeze
-                val coll = physics.colliders.write(collKey) ?: return@forEach
-                //coll.position(Iso(Vec(0.0, 5000.0, 0.0)))
-                //physics.colliders.remove(collKey)//?.destroy()
-            }
-        }
-
         fun swapData(value: SliceData?) {
-            destroyData()
+            data?.layers?.forEach { collKey ->
+                physics.colliders.remove(collKey)?.destroy()
+            }
             data = value
         }
     }
@@ -73,7 +65,9 @@ class PaperDynamicTerrain(
 
         data class PendingMove(val at: Long) : SliceRemove
 
-        /* TODO: Kotlin 1.9 data */ object PendingDestroy : SliceRemove
+        data class PendingDestroy(
+            var stepsLeft: Int,
+        ) : SliceRemove
     }
 
     sealed interface SliceState {
@@ -102,7 +96,7 @@ class PaperDynamicTerrain(
 
         fun destroy() {
             map.forEach { (_, slice) ->
-                slice.destroyData()
+                slice.swapData(null)
             }
             map.clear()
             dirty.clear()
@@ -121,7 +115,7 @@ class PaperDynamicTerrain(
         }
 
         fun remove(pos: IVec3) {
-            map.remove(pos)?.destroyData()
+            map.remove(pos)
         }
 
         fun dirty(pos: IVec3) {
@@ -216,34 +210,31 @@ class PaperDynamicTerrain(
                 }
                 is SliceRemove.PendingMove -> {
                     slices.dirty(pos)
-                    if (System.currentTimeMillis() >= remove.at) {
-                        // move colliders
-                        slice.data?.layers
-                        slice.remove = SliceRemove.PendingDestroy
+                    // check that we still want to delete this slice
+                    if (toRemove.contains(pos)) {
+                        if (System.currentTimeMillis() >= remove.at) {
+                            // move colliders
+                            slice.data?.layers?.forEach coll@ { collKey ->
+                                val coll = physics.colliders.write(collKey) ?: return@coll
+                                coll.position(Iso(Vec(0.0, 10000.0, 0.0))) // todo
+                            }
+                            slice.remove = SliceRemove.PendingDestroy(
+                                stepsLeft = 2,
+                            )
+                        }
+                    } else {
+                        slice.remove = SliceRemove.None
                     }
                 }
-                // then delete them
-            }
-
-            if (toRemove.contains(pos)) {
-                slices.dirty(pos)
-                when (slice.remove) {
-                    is SliceRemove.None -> {
-                        slice.remove = SliceRemove.PendingMove(
-                            at = System.currentTimeMillis() + (settings.removeIn * 1000).toLong()
-                        )
+                is SliceRemove.PendingDestroy -> {
+                    remove.stepsLeft -= 1
+                    if (remove.stepsLeft <= 0) {
+                        // then delete them
+                        slices.remove(pos)
+                        slice.swapData(null)
+                        slice.remove = SliceRemove.None
                     }
-                    is SliceRemove.PendingMove -> {}
                 }
-
-                if (!slice.toRemove()) {
-                    slice.removeIn((settings.removeIn * 1000).toLong())
-                }
-                if (slice.toRemoveNow()) {
-                    slices.remove(pos)
-                }
-            } else {
-                slice.stopRemoval()
             }
 
             when (val state = slice.state) {
@@ -272,7 +263,7 @@ class PaperDynamicTerrain(
         // todo
         return SliceData(
             layers = listOf(
-                rattle.engine.createCollider(rattle.engine.createShape(Box(Vec(4.0))))
+                rattle.engine.createCollider(rattle.engine.createShape(Box(Vec(0.0001))))
                     .position(Iso((slice.pos * 16).run { Vec(x.toDouble(), y.toDouble(), z.toDouble()) }))
                     .let { physics.colliders.add(it) }
             ),
@@ -318,7 +309,9 @@ class PaperDynamicTerrain(
                 val slice = slices[pos] ?: return@withLock
                 when (slice.state) {
                     is SliceState.PendingSnapshot -> {
-                        slice.state = snapshot
+                        // if `snapshot` is null, it means that slice had no data (it may do in the future though)
+                        // in which case we just mark it as "built" and have it hold no colliders
+                        slice.state = snapshot ?: SliceState.Built
                         slices.dirty(pos)
                     }
                     else -> {
@@ -329,12 +322,16 @@ class PaperDynamicTerrain(
         }
     }
 
-    private fun createSnapshot(chunk: Chunk, pos: IVec3): SliceState.Snapshot {
+    private fun createSnapshot(chunk: Chunk, pos: IVec3): SliceState.Snapshot? {
         // TODO if chunk is empty, airTiles
+        if (pos.y < -world.minHeight / 16 || pos.y >= world.maxHeight / 16) {
+            return null
+        }
 
         val tiles: Array<out Tile?> = Array(TILES_IN_SLICE) { i ->
             val (lx, ly, lz) = posInChunk(i)
             val gy = world.minHeight + (pos.y * 16) + ly
+            // guaranteed to be in range because of the Y check at the start
             val block = chunk.getBlock(lx, gy, lz)
             wrapBlock(block)
         }

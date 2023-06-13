@@ -30,6 +30,7 @@ private const val COUNT = "count"
 private const val CREATE = "create"
 private const val DENSITY = "density"
 private const val DESTROY = "destroy"
+private const val DYNAMIC = "dynamic"
 private const val ENABLED = "enabled"
 private const val FIXED = "fixed"
 private const val FRICTION = "friction"
@@ -39,7 +40,6 @@ private const val LAUNCHER = "launcher"
 private const val LIN_DAMP = "lin-damp"
 private const val LOCATION = "location"
 private const val MASS = "mass"
-private const val MOVING = "moving"
 private const val NO_CCD = "no-ccd"
 private const val RADIUS = "radius"
 private const val RESTITUTION = "restitution"
@@ -129,7 +129,7 @@ abstract class RattleCommand<C : Audience, W>(
                                 )
                             }
 
-                        literal(MOVING)
+                        literal(DYNAMIC)
                             .flag(manager.flagBuilder(CCD))
                             .flag(manager.flagBuilder(GRAVITY_SCALE)
                                 .withAliases("g")
@@ -145,12 +145,12 @@ abstract class RattleCommand<C : Audience, W>(
                                 manager.command(
                                     literal(SPHERE)
                                         .argument(RealArgument.of(RADIUS))
-                                        .axHandler(::bodyCreateMovingSphere)
+                                        .axHandler(::bodyCreateDynamicSphere)
                                 )
                                 manager.command(
                                     literal(BOX)
                                         .argument(RealArgument.of(HALF_EXTENT))
-                                        .axHandler(::bodyCreateMovingBox)
+                                        .axHandler(::bodyCreateDynamicBox)
                                 )
                             }
                     }
@@ -329,7 +329,7 @@ abstract class RattleCommand<C : Audience, W>(
         }
     }
 
-    private fun bodyCreateMoving(
+    private fun bodyCreateDynamic(
         ctx: CommandContext<C>,
         geom: SimpleGeometry,
     ): BodyCreateInfo {
@@ -378,18 +378,18 @@ abstract class RattleCommand<C : Audience, W>(
         ).sendTo(sender)
     }
 
-    private fun bodyCreateMovingSphere(ctx: CommandContext<C>) {
+    private fun bodyCreateDynamicSphere(ctx: CommandContext<C>) {
         val sender = ctx.sender
-        val (count, positionX, positionY, positionZ) = bodyCreateMoving(ctx, sphereGeom(ctx))
+        val (count, positionX, positionY, positionZ) = bodyCreateDynamic(ctx, sphereGeom(ctx))
         messages.forAudience(sender).command.body.create.moving.sphere(
             count = count,
             positionX = positionX, positionY = positionY, positionZ = positionZ,
         ).sendTo(sender)
     }
 
-    private fun bodyCreateMovingBox(ctx: CommandContext<C>) {
+    private fun bodyCreateDynamicBox(ctx: CommandContext<C>) {
         val sender = ctx.sender
-        val (count, positionX, positionY, positionZ) = bodyCreateMoving(ctx, boxGeom(ctx))
+        val (count, positionX, positionY, positionZ) = bodyCreateDynamic(ctx, boxGeom(ctx))
         messages.forAudience(sender).command.body.create.moving.box(
             count = count,
             positionX = positionX, positionY = positionY, positionZ = positionZ,
