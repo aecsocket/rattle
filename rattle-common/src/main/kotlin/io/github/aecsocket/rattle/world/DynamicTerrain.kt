@@ -345,7 +345,7 @@ abstract class Abcd(
             if (children.isEmpty()) return@mapIndexedNotNull null
             val layer = layers[layerId]
             // SAFETY: this collider owns this compound shape
-            rattle.engine.createCollider(rattle.engine.createShape(Compound(children)))
+            rattle.engine.createCollider(rattle.engine.createShape(Compound(children)), StartPosition.Absolute(Iso()))
                 .position(Iso(Vec(pos.x.toDouble(), pos.y.toDouble(), pos.z.toDouble())))
                 .also {
                     when (layer) {

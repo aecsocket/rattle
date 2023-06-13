@@ -119,7 +119,7 @@ abstract class SimpleBodies<W>(
 
         // SAFETY: we don't increment the ref count, so `collider` will fully own this shape
         val shape = engine.createShape(desc.geom.handle)
-        val collider = engine.createCollider(shape)
+        val collider = engine.createCollider(shape, StartPosition.Relative(Iso()))
             .material(desc.material)
             .mass(desc.mass)
             .let { physics.colliders.add(it) }

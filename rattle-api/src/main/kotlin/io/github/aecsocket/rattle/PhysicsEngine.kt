@@ -18,6 +18,8 @@ val DVec3.Companion.Down     get() = Vec( 0.0, -1.0,  0.0)
 val DVec3.Companion.Forward  get() = Vec( 0.0,  0.0,  1.0)
 val DVec3.Companion.Backward get() = Vec( 0.0,  0.0, -1.0)
 
+fun Number.toReal() = toDouble()
+
 /**
  * An object which is tied to a resource that must be manually destroyed after use.
  * You must only call the [destroy] method once; implementations may throw an exception
@@ -74,8 +76,9 @@ interface PhysicsEngine : Destroyable {
     /**
      * Creates a [Collider] with default parameters, which is not attached to any [RigidBody] or [PhysicsSpace].
      * @param shape The baked shape to use for this collider.
+     * @param position The starting position for this collider (see [StartPosition]).
      */
-    fun createCollider(shape: Shape): Collider.Own
+    fun createCollider(shape: Shape, position: StartPosition): Collider.Own
 
     /**
      * Creates a [RigidBody] with default parameters, which is not attached to any [PhysicsSpace].

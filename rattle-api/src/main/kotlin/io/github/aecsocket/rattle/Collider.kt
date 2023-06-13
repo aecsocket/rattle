@@ -33,6 +33,40 @@ enum class CoeffCombineRule {
 }
 
 /**
+ * The default friction of a [PhysicsMaterial].
+ */
+const val DEFAULT_FRICTION: Real = 0.5
+
+/**
+ * The default restitution of a [PhysicsMaterial].
+ */
+const val DEFAULT_RESTITUTION: Real = 0.0
+
+/**
+ * A set of physical properties that can be applied to a [Collider].
+ * @param friction A coefficient representing the static + dynamic friction, which is a force that opposes
+ *                 motion between two bodies.
+ *                 Minimum 0, typically between 0 and 1. 0 implies no friction, 1 implies very strong friction.
+ * @param restitution A coefficient representing how elastic ("bouncy") a contact is.
+ *                    Minimum 0, typically between 0 and 1.
+ *                    0 implies that the exit velocity after a contact is 0,
+ *                    1 implies that the exit velocity is the same as entry velocity.
+ * @param frictionCombine Which rule is used to combine the friction coefficients of two colliding bodies.
+ * @param restitutionCombine Which rule is used to combine the restitution coefficients of two colliding bodies.
+ */
+data class PhysicsMaterial(
+    val friction: Real = DEFAULT_FRICTION,
+    val restitution: Real = DEFAULT_RESTITUTION,
+    val frictionCombine: CoeffCombineRule = CoeffCombineRule.AVERAGE,
+    val restitutionCombine: CoeffCombineRule = CoeffCombineRule.AVERAGE,
+) {
+    init {
+        require(friction >= 0) { "requires friction >= 0" }
+        require(restitution >= 0) { "requires restitution >= 0" }
+    }
+}
+
+/**
  * How a [Collider] behaves when other colliders come into contact with it.
  */
 enum class PhysicsMode {
@@ -158,40 +192,6 @@ data class InteractionGroup(
 }
 
 /**
- * The default friction of a [PhysicsMaterial].
- */
-const val DEFAULT_FRICTION: Real = 0.5
-
-/**
- * The default restitution of a [PhysicsMaterial].
- */
-const val DEFAULT_RESTITUTION: Real = 0.0
-
-/**
- * A set of physical properties that can be applied to a [Collider].
- * @param friction A coefficient representing the static + dynamic friction, which is a force that opposes
- *                 motion between two bodies.
- *                 Minimum 0, typically between 0 and 1. 0 implies no friction, 1 implies very strong friction.
- * @param restitution A coefficient representing how elastic ("bouncy") a contact is.
- *                    Minimum 0, typically between 0 and 1.
- *                    0 implies that the exit velocity after a contact is 0,
- *                    1 implies that the exit velocity is the same as entry velocity.
- * @param frictionCombine Which rule is used to combine the friction coefficients of two colliding bodies.
- * @param restitutionCombine Which rule is used to combine the restitution coefficients of two colliding bodies.
- */
-data class PhysicsMaterial(
-    val friction: Real = DEFAULT_FRICTION,
-    val restitution: Real = DEFAULT_RESTITUTION,
-    val frictionCombine: CoeffCombineRule = CoeffCombineRule.AVERAGE,
-    val restitutionCombine: CoeffCombineRule = CoeffCombineRule.AVERAGE,
-) {
-    init {
-        require(friction >= 0) { "requires friction >= 0" }
-        require(restitution >= 0) { "requires restitution >= 0" }
-    }
-}
-
-/**
  * Mass properties of a [Collider], used in calculating forces and dynamics during the simulation.
  */
 sealed interface Mass {
@@ -225,6 +225,21 @@ sealed interface Mass {
      * The collider has infinite mass, and cannot be pushed at all.
      */
     /* TODO: Kotlin 1.9 data */ object Infinite : Mass
+}
+
+/**
+ * Defines the starting position for a [Collider].
+ */
+sealed interface StartPosition {
+    /**
+     * The position is set as absolute coordinates in the world.
+     */
+    data class Absolute(val pos: Iso) : StartPosition
+
+    /**
+     * The position is set as a relative offset from a parent body.
+     */
+    data class Relative(val pos: Iso = Iso()) : StartPosition
 }
 
 /**
@@ -269,14 +284,30 @@ interface Collider {
      */
     val material: PhysicsMaterial
 
+    /**
+     * The primary, contact-generation, interaction group (see [Collider]).
+     */
     val collisionGroup: InteractionGroup
 
+    /**
+     * The secondary, contact-application, interaction group (see [Collider]).
+     */
     val solverGroup: InteractionGroup
 
     /**
      * The **absolute** position of the collider in the physics space, i.e. not relative to its parent body.
      */
     val position: Iso
+
+    /**
+     * The mass of the collider, in kg.
+     */
+    val mass: Real
+
+    /**
+     * The density of the collider, in kg/m^3.
+     */
+    val density: Real
 
     /**
      * The physics mode.

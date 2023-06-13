@@ -49,6 +49,12 @@ sealed class RapierCollider(
             handle.getPosition(arena).toIso()
         }
 
+    override val mass: Real
+        get() = handle.mass
+
+    override val density: Real
+        get() = handle.density
+
     override val physicsMode: PhysicsMode
         get() = when (handle.isSensor) {
             false -> PhysicsMode.SOLID
