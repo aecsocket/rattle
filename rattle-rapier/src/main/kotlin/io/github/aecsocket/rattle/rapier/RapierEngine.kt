@@ -50,7 +50,6 @@ class RapierEngine internal constructor(var settings: Settings = Settings()) : P
     }
 
     override fun createShape(geom: Geometry): Shape {
-        println("creating shape ${geom::class.simpleName}")
         val handle: SharedShape = pushArena { arena ->
             when (geom) {
                 is Sphere -> SharedShape.ball(geom.radius)
@@ -131,7 +130,6 @@ class RapierEngine internal constructor(var settings: Settings = Settings()) : P
     }
 
     override fun createCollider(shape: Shape, position: StartPosition): Collider.Own {
-        println("creating collider at $position")
         shape as RapierShape
         val coll = ColliderBuilder.of(shape.handle).use { it.build() }
         pushArena { arena ->
@@ -144,7 +142,6 @@ class RapierEngine internal constructor(var settings: Settings = Settings()) : P
     }
 
     override fun createBody(type: RigidBodyType, position: Iso): RigidBody.Own {
-        println("creating body at $position")
         val body = pushArena { arena ->
             RigidBodyBuilder.of(type.convert())
                 .position(position.toIsometry(arena))

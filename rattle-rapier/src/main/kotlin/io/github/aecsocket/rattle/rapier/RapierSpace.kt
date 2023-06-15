@@ -39,6 +39,8 @@ class RapierSpace internal constructor(
     val ccdSolver = CCDSolver.create()
     val queryPipeline = QueryPipeline.create()
 
+    override val onCollision = EventDelegate<PhysicsSpace.OnCollision>()
+
     val events = EventHandler.of(arena, object : EventHandler.Fn {
         override fun handleCollisionEvent(
             bodies: RigidBodySet,
@@ -46,7 +48,15 @@ class RapierSpace internal constructor(
             event: CollisionEvent,
             contactPair: ContactPair
         ) {
-            // todo
+            onCollision(PhysicsSpace.OnCollision(
+                state = when (event) {
+                    is CollisionEvent.Started -> PhysicsSpace.OnCollision.State.STARTED
+                    is CollisionEvent.Stopped -> PhysicsSpace.OnCollision.State.STOPPED
+                },
+                colliderA = RapierColliderKey(contactPair.collider1),
+                colliderB = RapierColliderKey(contactPair.collider2),
+                // todo manifolds
+            ))
         }
 
         override fun handleContactForceEvent(
@@ -153,7 +163,6 @@ class RapierSpace internal constructor(
 
         override fun remove(key: ColliderKey): Collider.Own? {
             key as RapierColliderKey
-            println("removing $key")
             return colliderSet.remove(
                 key.id,
                 islands,

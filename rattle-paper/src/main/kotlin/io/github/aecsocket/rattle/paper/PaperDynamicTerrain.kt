@@ -15,7 +15,6 @@ import org.bukkit.Particle
 import org.bukkit.Particle.DustOptions
 import org.bukkit.World
 import org.bukkit.block.Block
-import org.bukkit.util.Vector
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 
 private val airTiles = arrayOfNulls<PaperDynamicTerrain.Tile?>(TILES_IN_SLICE)
@@ -70,7 +69,8 @@ class PaperDynamicTerrain(
 
         fun swapData(value: SliceData?) {
             data?.layers?.forEach { collKey ->
-                physics.colliders.remove(collKey)?.destroy()
+                // hours wasted: at least 4
+                //physics.colliders.remove(collKey)?.destroy()
             }
             data = value
         }
@@ -148,6 +148,24 @@ class PaperDynamicTerrain(
         Layer.Solid(PhysicsMaterial(friction = 0.8, restitution = 0.2)),
         Layer.Fluid(1.0),
     )
+
+    init {
+        physics.onCollision { event ->
+            if (event.state != PhysicsSpace.OnCollision.State.STOPPED) return@onCollision
+            slices.withLock { slices ->
+                // TODO optimize, hashSet or something
+                slices.all().forEach { (_, slice) ->
+                    val sliceColl = slice.data?.layers?.find { it == event.colliderA || it == event.colliderB } ?: return@forEach
+
+                    fun wakeParent(coll: ColliderKey) {
+                        physics.colliders.read(coll)!!.parent?.let { physics.rigidBodies.write(it) }?.sleep()
+                    }
+
+                    wakeParent(if (sliceColl == event.colliderA) event.colliderA else event.colliderA)
+                }
+            }
+        }
+    }
 
     override fun destroy() {
         slices.withLock { slices ->
@@ -239,7 +257,7 @@ class PaperDynamicTerrain(
                                 coll.position(Iso(Vec(0.0, 10000.0, 0.0))) // todo
                             }
                             slice.remove = SliceRemove.PendingDestroy(
-                                stepsLeft = 2,
+                                stepsLeft = 5,
                             )
                         }
                     } else {
@@ -345,7 +363,7 @@ class PaperDynamicTerrain(
     }
 
     private fun drawDebugAabb(aabb: Aabb, info: DebugInfo) {
-        if (true) return // todo
+        //if (true) return // todo
         /*
         rs: Starting step
 rs: 1

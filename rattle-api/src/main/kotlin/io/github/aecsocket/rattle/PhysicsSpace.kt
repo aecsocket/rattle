@@ -311,4 +311,17 @@ interface PhysicsSpace : Destroyable {
             filter: QueryFilter,
         ): PointProject.Complex?
     }
+
+    val onCollision: EventDelegate<OnCollision>
+
+    data class OnCollision(
+        val state: State,
+        val colliderA: ColliderKey,
+        val colliderB: ColliderKey,
+    ) {
+        enum class State {
+            STARTED,
+            STOPPED,
+        }
+    }
 }
