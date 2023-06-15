@@ -251,14 +251,10 @@ class PaperDynamicTerrain(
                     // check that we still want to delete this slice
                     if (toRemove.contains(pos)) {
                         if (System.currentTimeMillis() >= remove.at) {
-                            // move colliders
-                            slice.data?.layers?.forEach coll@ { collKey ->
-                                val coll = physics.colliders.write(collKey) ?: return@coll
-                                coll.position(Iso(Vec(0.0, 10000.0, 0.0))) // todo
-                            }
                             slice.remove = SliceRemove.PendingDestroy(
-                                stepsLeft = 5,
+                                stepsLeft = 0,
                             )
+                            slice.swapData(null)
                         }
                     } else {
                         slice.remove = SliceRemove.None
@@ -269,7 +265,7 @@ class PaperDynamicTerrain(
                     if (remove.stepsLeft <= 0) {
                         // then delete them
                         slices.remove(pos)
-                        slice.swapData(null)
+                        //slice.swapData(null)
                         slice.remove = SliceRemove.None
                     }
                 }
