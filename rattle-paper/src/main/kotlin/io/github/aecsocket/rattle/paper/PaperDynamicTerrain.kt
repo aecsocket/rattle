@@ -161,7 +161,7 @@ class PaperDynamicTerrain(
                         physics.colliders.read(coll)!!.parent?.let { physics.rigidBodies.write(it) }?.sleep()
                     }
 
-                    wakeParent(if (sliceColl == event.colliderA) event.colliderA else event.colliderA)
+                    wakeParent(if (sliceColl == event.colliderA) event.colliderB else event.colliderA)
                 }
             }
         }
