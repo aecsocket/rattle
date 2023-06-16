@@ -64,16 +64,8 @@ class PaperDynamicTerrain(
 
     inner class Slice(val pos: IVec3, var state: SliceState) {
         var remove: SliceRemove = SliceRemove.None
-        var data: SliceData? = null
-            private set
-
-        fun swapData(value: SliceData?) {
-            data?.layers?.forEach { collKey ->
-                // hours wasted: at least 4
-                //physics.colliders.remove(collKey)?.destroy()
-            }
-            data = value
-        }
+        var collision: SliceCollision? = null
+            internal set
     }
 
     sealed interface SliceRemove {
@@ -102,36 +94,57 @@ class PaperDynamicTerrain(
         /* TODO: Kotlin 1.9 data */ object Built : SliceState
     }
 
-    data class SliceData(
+    data class SliceCollision(
         val layers: List<ColliderKey>,
     )
 
     class Slices {
-        private val map = HashMap<IVec3, Slice>()
+        data class ByCollider(
+            val pos: IVec3,
+            val layerId: Int,
+        )
+
+        private val _map = HashMap<IVec3, Slice>()
+        val map: Map<IVec3, Slice> get() = _map
+
+        private val _byCollider = HashMap<ColliderKey, ByCollider>()
+        val byCollider: Map<ColliderKey, ByCollider> get() = _byCollider
+
         private val dirty = HashSet<IVec3>()
 
         fun destroy() {
-            map.forEach { (_, slice) ->
-                slice.swapData(null)
+            _map.forEach { (pos) ->
+                swapCollision(pos, null)
             }
-            map.clear()
+            _map.clear()
             dirty.clear()
         }
 
-        fun all(): Map<IVec3, Slice> = map
+        operator fun get(pos: IVec3) = _map[pos]
 
-        operator fun get(pos: IVec3) = map[pos]
-
-        operator fun contains(pos: IVec3) = map.contains(pos)
+        operator fun contains(pos: IVec3) = _map.contains(pos)
 
         fun add(slice: Slice) {
-            if (map.contains(slice.pos))
+            if (_map.contains(slice.pos))
                 throw IllegalArgumentException("Slice already exists at ${slice.pos}")
-            map[slice.pos] = slice
+            _map[slice.pos] = slice
         }
 
         fun remove(pos: IVec3) {
-            map.remove(pos)
+            _map.remove(pos)
+        }
+
+        fun swapCollision(pos: IVec3, collision: SliceCollision?) {
+            val slice = _map[pos] ?: throw IllegalArgumentException("No slice at $pos")
+            slice.collision?.layers?.forEach { collKey ->
+                _byCollider.remove(collKey)
+                // hours wasted: at least 4
+                //physics.colliders.remove(collKey)?.destroy()
+            }
+            slice.collision = collision
+            collision?.layers?.forEachIndexed { layerId, collKey ->
+                _byCollider[collKey] = ByCollider(pos, layerId)
+            }
         }
 
         fun dirty(pos: IVec3) {
@@ -153,15 +166,14 @@ class PaperDynamicTerrain(
         physics.onCollision { event ->
             if (event.state != PhysicsSpace.OnCollision.State.STOPPED) return@onCollision
             slices.withLock { slices ->
-                // TODO optimize, hashSet or something
-                slices.all().forEach { (_, slice) ->
-                    val sliceColl = slice.data?.layers?.find { it == event.colliderA || it == event.colliderB } ?: return@forEach
+                fun sleepParent(coll: ColliderKey) {
+                    physics.colliders.read(coll)!!.parent?.let { physics.rigidBodies.write(it) }?.sleep()
+                }
 
-                    fun wakeParent(coll: ColliderKey) {
-                        physics.colliders.read(coll)!!.parent?.let { physics.rigidBodies.write(it) }?.sleep()
-                    }
-
-                    wakeParent(if (sliceColl == event.colliderA) event.colliderB else event.colliderA)
+                if (slices.byCollider[event.colliderA] != null) {
+                    sleepParent(event.colliderB)
+                } else if (slices.byCollider[event.colliderB] != null) {
+                    sleepParent(event.colliderA)
                 }
             }
         }
@@ -182,7 +194,7 @@ class PaperDynamicTerrain(
     }
 
     override fun onPhysicsStep() {
-        val toRemove = slices.withLock { it.all().keys.toMutableSet() }
+        val toRemove = slices.withLock { it.map.keys.toMutableSet() }
         val toSnapshot = HashSet<IVec3>()
 
         physics.rigidBodies.active().forEach body@ { bodyKey ->
@@ -254,7 +266,7 @@ class PaperDynamicTerrain(
                             slice.remove = SliceRemove.PendingDestroy(
                                 stepsLeft = 0,
                             )
-                            slice.swapData(null)
+                            slices.swapCollision(pos, null)
                         }
                     } else {
                         slice.remove = SliceRemove.None
@@ -281,9 +293,9 @@ class PaperDynamicTerrain(
                     // wait on the platform
                 }
                 is SliceState.Snapshot -> {
-                    val sliceData = createSliceData(slice, state)
+                    val collision = createSliceCollision(slice, state)
                     slice.state = SliceState.Built
-                    slice.swapData(sliceData)
+                    slices.swapCollision(pos, collision)
                     slices.dirty(pos)
                 }
                 is SliceState.Built -> {
@@ -293,7 +305,7 @@ class PaperDynamicTerrain(
         }
     }
 
-    private fun createSliceData(slice: Slice, state: SliceState.Snapshot): SliceData {
+    private fun createSliceCollision(slice: Slice, state: SliceState.Snapshot): SliceCollision {
         val layerShapes = Array<MutableList<Compound.Child>>(layers.size) { ArrayList() }
 
         // assuming we're processing a slice at (1, 1, 1)...
@@ -316,7 +328,7 @@ class PaperDynamicTerrain(
             layer += shapes
         }
 
-        return SliceData(
+        return SliceCollision(
             layers = layerShapes.mapIndexedNotNull { i, shapes ->
                 if (shapes.isEmpty()) return@mapIndexedNotNull null
                 val layer = layers[i]
