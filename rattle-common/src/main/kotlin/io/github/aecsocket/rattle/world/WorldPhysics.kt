@@ -71,9 +71,9 @@ abstract class WorldPhysics<W>(
         val activeRigidBodies: Int = 0,
     )
 
-    private val mLastStep = AtomicLong(0)
+    private val _lastStep = AtomicLong(0)
     val lastStep: Long
-        get() = mLastStep.get()
+        get() = _lastStep.get()
 
     var stats: Stats = Stats()
         internal set
@@ -94,7 +94,7 @@ abstract class WorldPhysics<W>(
     }
 
     fun onPhysicsStep() {
-        mLastStep.set(System.currentTimeMillis())
+        _lastStep.set(System.currentTimeMillis())
         terrain.onPhysicsStep()
         entities.onPhysicsStep()
         simpleBodies.onPhysicsStep()

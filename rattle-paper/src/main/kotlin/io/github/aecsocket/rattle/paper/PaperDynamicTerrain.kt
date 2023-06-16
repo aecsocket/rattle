@@ -3,21 +3,23 @@ package io.github.aecsocket.rattle.paper
 import io.github.aecsocket.alexandria.desc.ParticleShaping
 import io.github.aecsocket.alexandria.paper.extension.toColor
 import io.github.aecsocket.alexandria.paper.extension.toDVec
+import io.github.aecsocket.alexandria.paper.extension.toNamespaced
 import io.github.aecsocket.alexandria.sync.Locked
 import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.world.TILES_IN_SLICE
 import io.github.aecsocket.rattle.world.TerrainStrategy
+import net.kyori.adventure.key.Key
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextColor
 import org.bukkit.Chunk
+import org.bukkit.Material
 import org.bukkit.Particle
 import org.bukkit.Particle.DustOptions
+import org.bukkit.Registry
 import org.bukkit.World
 import org.bukkit.block.Block
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
-
-private val airTiles = arrayOfNulls<PaperDynamicTerrain.Tile?>(TILES_IN_SLICE)
 
 private val debugColliderBound = PaperDynamicTerrain.DebugInfo(NamedTextColor.WHITE, 0.0)
 private val debugNewSlice = PaperDynamicTerrain.DebugInfo(NamedTextColor.BLUE, 0.2)
@@ -36,7 +38,27 @@ class PaperDynamicTerrain(
         val removeIn: Double = 1.0,
         val expandVelocity: Real = 0.1,
         val expandConstant: Real = 1.0,
-    )
+        val layers: Layers = Layers(),
+    ) {
+        @ConfigSerializable
+        data class Layers(
+            val solid: Solid = Solid(),
+            val fluid: Fluid = Fluid(),
+        ) {
+            @ConfigSerializable
+            data class Solid(
+                val defaultMaterial: PhysicsMaterial = PhysicsMaterial(friction = 0.4, restitution = 0.2),
+                val materials: Map<String, PhysicsMaterial> = emptyMap(),
+                val byBlock: Map<Key, String> = emptyMap(),
+            )
+
+            @ConfigSerializable
+            data class Fluid(
+                val defaultDensity: Real = 1.0,
+                val byBlock: Map<Key, Real> = emptyMap(),
+            )
+        }
+    }
 
     data class DebugInfo(
         val color: TextColor,
@@ -106,7 +128,6 @@ class PaperDynamicTerrain(
     )
 
     inner class Slices {
-
         private val _map = HashMap<IVec3, Slice>()
         val map: Map<IVec3, Slice> get() = _map
 
@@ -160,12 +181,39 @@ class PaperDynamicTerrain(
     }
 
     private val slices = Locked(Slices())
-    private val layers: Array<Layer> = arrayOf(
-        Layer.Solid(PhysicsMaterial(friction = 0.8, restitution = 0.2)),
-        Layer.Fluid(1.0),
-    )
+    private val layers: List<Layer>
+
+    private val solidLayerDefault: Int
+    private val solidLayersByKey: Map<String, Int>
+    private val solidLayersByType: Map<Material, Int>
 
     init {
+        // set up layers
+        val layers = ArrayList<Layer>()
+        // solid layers
+        solidLayerDefault = layers.size
+        layers += Layer.Solid(settings.layers.solid.defaultMaterial)
+        val solidLayersByKey = HashMap<String, Int>()
+        val solidLayersByType = HashMap<Material, Int>()
+        settings.layers.solid.materials.forEach { (key, material) ->
+            solidLayersByKey[key] = layers.size
+            layers += Layer.Solid(material)
+        }
+
+        settings.layers.solid.byBlock.forEach { (blockTypeKey, materialKey) ->
+            val blockType = Registry.MATERIAL[blockTypeKey.toNamespaced()]
+                ?: throw IllegalArgumentException("Invalid block type $blockTypeKey")
+            val materialId = solidLayersByKey[materialKey]
+                ?: throw IllegalArgumentException("Invalid material $materialKey")
+            solidLayersByType[blockType] = materialId
+        }
+
+        this.layers = layers
+        this.solidLayersByKey = solidLayersByKey
+        this.solidLayersByType = solidLayersByType
+
+        // TODO fluids
+
         physics.onCollision { event ->
             if (event.state != PhysicsSpace.OnCollision.State.STOPPED) return@onCollision
             slices.withLock { slices ->
@@ -666,6 +714,7 @@ repeated...
     }
 
     private fun wrapBlock(block: Block): Tile? {
+        // todo basically everything to do with fluids and different block types
         if (block.isPassable) {
             return null
         }

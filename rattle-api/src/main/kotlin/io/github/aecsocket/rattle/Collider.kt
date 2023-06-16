@@ -1,5 +1,7 @@
 package io.github.aecsocket.rattle
 
+import org.spongepowered.configurate.objectmapping.ConfigSerializable
+
 /**
  * A baked, physics-ready form of a [Geometry]. You can use this object as the shape of a [Collider], however
  * cannot get the original values of the [Geometry] back.
@@ -54,6 +56,7 @@ const val DEFAULT_RESTITUTION: Real = 0.0
  * @param frictionCombine Which rule is used to combine the friction coefficients of two colliding bodies.
  * @param restitutionCombine Which rule is used to combine the restitution coefficients of two colliding bodies.
  */
+@ConfigSerializable
 data class PhysicsMaterial(
     val friction: Real = DEFAULT_FRICTION,
     val restitution: Real = DEFAULT_RESTITUTION,

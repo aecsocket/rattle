@@ -29,14 +29,14 @@ abstract class RattlePlatform<W, C>(
     val isStepping: Boolean
         get() = stepping.get()
 
-    private val mEngineTimings = TimestampedList<Long>(timingsBufferSize())
+    private val _engineTimings = TimestampedList<Long>(timingsBufferSize())
     val engineTimings: TimestampedList<Long>
-        get() = mEngineTimings
+        get() = _engineTimings
 
     private fun timingsBufferSize() = (rattle.settings.stats.timingBuffers.max() * 1000).toLong()
 
     fun load() {
-        mEngineTimings.buffer = timingsBufferSize()
+        _engineTimings.buffer = timingsBufferSize()
     }
 
     fun destroy() {
@@ -90,7 +90,7 @@ abstract class RattlePlatform<W, C>(
                 // end lock scope
             } finally {
                 val end = System.nanoTime()
-                mEngineTimings += (end - start)
+                _engineTimings += (end - start)
                 stepping.set(false)
             }
         }
