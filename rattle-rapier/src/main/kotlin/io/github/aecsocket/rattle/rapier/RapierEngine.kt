@@ -5,6 +5,7 @@ import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import rapier.Rapier
 import rapier.dynamics.RigidBodyBuilder
 import rapier.dynamics.joint.GenericJoint
+import rapier.geometry.ActiveEvents
 import rapier.geometry.ColliderBuilder
 import rapier.pipeline.PhysicsPipeline
 import rapier.shape.CompoundChild

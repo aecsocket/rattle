@@ -2,6 +2,8 @@ package io.github.aecsocket.rattle.rapier
 
 import io.github.aecsocket.rattle.*
 import rapier.data.ArenaKey
+import rapier.geometry.ActiveEvents
+import rapier.geometry.ActiveHooks
 import rapier.shape.SharedShape
 
 class RapierShape internal constructor(
@@ -49,6 +51,11 @@ sealed class RapierCollider(
             handle.getPosition(arena).toIso()
         }
 
+    override val relativePosition: Iso
+        get() = pushArena { arena ->
+            handle.getPositionWrtParent(arena)?.toIso() ?: Iso()
+        }
+
     override val mass: Real
         get() = handle.mass
 
@@ -59,11 +66,6 @@ sealed class RapierCollider(
         get() = when (handle.isSensor) {
             false -> PhysicsMode.SOLID
             true -> PhysicsMode.SENSOR
-        }
-
-    override val relativePosition: Iso
-        get() = pushArena { arena ->
-            handle.getPositionWrtParent(arena)?.toIso() ?: Iso()
         }
 
     override val parent: RigidBodyKey?
@@ -133,6 +135,13 @@ sealed class RapierCollider(
             return this
         }
 
+        override fun relativePosition(value: Iso): Write {
+            pushArena { arena ->
+                handle.setPositionWrtParent(value.toIsometry(arena))
+            }
+            return this
+        }
+
         override fun mass(value: Mass): Write {
             when (value) {
                 is Mass.Constant -> handle.mass = value.mass
@@ -150,10 +159,21 @@ sealed class RapierCollider(
             return this
         }
 
-        override fun relativePosition(value: Iso): Write {
-            pushArena { arena ->
-                handle.setPositionWrtParent(value.toIsometry(arena))
+        override fun handlesEvents(vararg values: ColliderEvent): Collider.Own {
+            var events = 0
+            var hooks = 0
+            values.forEach { value ->
+                when (value) {
+                    ColliderEvent.COLLISION -> events = events or ActiveEvents.COLLISION_EVENTS
+                    ColliderEvent.CONTACT_FORCE -> events = events or ActiveEvents.CONTACT_FORCE_EVENTS
+
+                    ColliderEvent.FILTER_CONTACT_PAIR -> hooks = hooks or ActiveHooks.FILTER_CONTACT_PAIRS
+                    ColliderEvent.FILTER_INTERSECTION_PAIR -> hooks = hooks or ActiveHooks.FILTER_INTERSECTION_PAIR
+                    ColliderEvent.SOLVER_CONTACT -> hooks = hooks or ActiveHooks.MODIFY_SOLVER_CONTACTS
+                }
             }
+            handle.activeEvents = events
+            handle.activeHooks = hooks
             return this
         }
     }

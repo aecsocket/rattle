@@ -227,6 +227,15 @@ sealed interface Mass {
     /* TODO: Kotlin 1.9 data */ object Infinite : Mass
 }
 
+enum class ColliderEvent {
+    COLLISION,
+    CONTACT_FORCE,
+
+    FILTER_CONTACT_PAIR,
+    FILTER_INTERSECTION_PAIR,
+    SOLVER_CONTACT,
+}
+
 /**
  * Defines the starting position for a [Collider].
  */
@@ -344,11 +353,13 @@ interface Collider {
 
         fun position(value: Iso): Mut
 
+        fun relativePosition(value: Iso): Mut
+
         fun mass(value: Mass): Mut
 
         fun physicsMode(value: PhysicsMode): Mut
 
-        fun relativePosition(value: Iso): Mut
+        fun handlesEvents(vararg values: ColliderEvent): Mut
     }
 
     /**
@@ -365,10 +376,12 @@ interface Collider {
 
         override fun position(value: Iso): Own
 
+        override fun relativePosition(value: Iso): Own
+
         override fun mass(value: Mass): Own
 
         override fun physicsMode(value: PhysicsMode): Own
 
-        override fun relativePosition(value: Iso): Own
+        override fun handlesEvents(vararg values: ColliderEvent): Own
     }
 }

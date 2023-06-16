@@ -66,16 +66,18 @@ class PaperDynamicTerrain(
         var remove: SliceRemove = SliceRemove.None
         var collision: SliceCollision? = null
             internal set
+
+        internal fun colliders(): List<ColliderKey> {
+            return collision?.layers ?: emptyList()
+        }
     }
 
     sealed interface SliceRemove {
         /* TODO: Kotlin 1.9 data */ object None : SliceRemove
 
-        data class PendingMove(val at: Long) : SliceRemove
+        data class PendingDestroy(val at: Long) : SliceRemove
 
-        data class PendingDestroy(
-            var stepsLeft: Int,
-        ) : SliceRemove
+        /* TODO: Kotlin 1.9 data */ object PendingRemove : SliceRemove
     }
 
     sealed interface SliceState {
@@ -98,11 +100,12 @@ class PaperDynamicTerrain(
         val layers: List<ColliderKey>,
     )
 
-    class Slices {
-        data class ByCollider(
-            val pos: IVec3,
-            val layerId: Int,
-        )
+    data class ByCollider(
+        val pos: IVec3,
+        val layerId: Int,
+    )
+
+    inner class Slices {
 
         private val _map = HashMap<IVec3, Slice>()
         val map: Map<IVec3, Slice> get() = _map
@@ -131,15 +134,15 @@ class PaperDynamicTerrain(
         }
 
         fun remove(pos: IVec3) {
+            swapCollision(pos, null)
             _map.remove(pos)
         }
 
         fun swapCollision(pos: IVec3, collision: SliceCollision?) {
             val slice = _map[pos] ?: throw IllegalArgumentException("No slice at $pos")
-            slice.collision?.layers?.forEach { collKey ->
-                _byCollider.remove(collKey)
-                // hours wasted: at least 4
-                //physics.colliders.remove(collKey)?.destroy()
+            slice.colliders().forEach { collKey ->
+                _byCollider -= collKey
+                physics.colliders.remove(collKey)?.destroy()
             }
             slice.collision = collision
             collision?.layers?.forEachIndexed { layerId, collKey ->
@@ -166,15 +169,17 @@ class PaperDynamicTerrain(
         physics.onCollision { event ->
             if (event.state != PhysicsSpace.OnCollision.State.STOPPED) return@onCollision
             slices.withLock { slices ->
-                fun sleepParent(coll: ColliderKey) {
+                // when removing slices, the impl auto-wakes touching bodies; here, we re-sleep them
+                fun process(data: ByCollider, coll: ColliderKey) {
+                    // only sleep them if this slice is about to be removed
+                    if (slices[data.pos]?.remove != SliceRemove.PendingRemove) {
+                        return
+                    }
                     physics.colliders.read(coll)!!.parent?.let { physics.rigidBodies.write(it) }?.sleep()
                 }
 
-                if (slices.byCollider[event.colliderA] != null) {
-                    sleepParent(event.colliderB)
-                } else if (slices.byCollider[event.colliderB] != null) {
-                    sleepParent(event.colliderA)
-                }
+                slices.byCollider[event.colliderA]?.let { process(it, event.colliderB) }
+                slices.byCollider[event.colliderB]?.let { process(it, event.colliderA) }
             }
         }
     }
@@ -253,33 +258,39 @@ class PaperDynamicTerrain(
             when (val remove = slice.remove) {
                 is SliceRemove.None -> {
                     if (toRemove.contains(pos)) {
-                        slice.remove = SliceRemove.PendingMove(
+                        slice.remove = SliceRemove.PendingDestroy(
                             at = System.currentTimeMillis() + (settings.removeIn * 1000).toLong(),
                         )
                     }
                 }
-                is SliceRemove.PendingMove -> {
+                // we split the removal process into 2 states:
+                // - once the timer runs out, and we *destroy* the slice, the collision is removed and destroyed
+                //   but the ColliderKey -> Slice association is retained, so...
+                // - when any rigid bodies which were colliding with the terrain collider are woken up
+                //   (because the implementation will auto-wake them), we can immediately put them to sleep again
+                //   just check if one of the colliders involved in the OnCollision is in our `byCollider` map
+                // - only *then* can we fully remove the slice from any maps
+                is SliceRemove.PendingDestroy -> {
                     slices.dirty(pos)
                     // check that we still want to delete this slice
                     if (toRemove.contains(pos)) {
                         if (System.currentTimeMillis() >= remove.at) {
-                            slice.remove = SliceRemove.PendingDestroy(
-                                stepsLeft = 0,
-                            )
-                            slices.swapCollision(pos, null)
+                            // do NOT swap the colliders here (yet), since that would clear the `byCollider` association
+                            // we need that when intercepting the OnCollision event
+                            slice.colliders().forEach { collKey ->
+                                physics.colliders.remove(collKey)?.destroy()
+                            }
+                            slice.remove = SliceRemove.PendingRemove
                         }
                     } else {
                         slice.remove = SliceRemove.None
                     }
                 }
-                is SliceRemove.PendingDestroy -> {
-                    remove.stepsLeft -= 1
-                    if (remove.stepsLeft <= 0) {
-                        // then delete them
-                        slices.remove(pos)
-                        //slice.swapData(null)
-                        slice.remove = SliceRemove.None
-                    }
+                is SliceRemove.PendingRemove -> {
+                    // now we can remove the slice, also removing the `byCollider` associations
+                    // the collider keys are invalid, but that's fine
+                    slices.remove(pos)
+                    slice.remove = SliceRemove.None
                 }
             }
 
@@ -339,6 +350,7 @@ class PaperDynamicTerrain(
                         Iso((slice.pos * 16).run { Vec(x.toReal(), y.toReal(), z.toReal()) }),
                     )
                 )
+                    .handlesEvents(ColliderEvent.COLLISION)
                 when (layer) {
                     is Layer.Solid -> {
                         coll.physicsMode(PhysicsMode.SOLID)
