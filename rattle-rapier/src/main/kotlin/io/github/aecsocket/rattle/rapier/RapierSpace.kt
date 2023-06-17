@@ -46,17 +46,22 @@ class RapierSpace internal constructor(
             bodies: RigidBodySet,
             colliders: ColliderSet,
             event: CollisionEvent,
-            contactPair: ContactPair
+            contactPair: ContactPair?,
         ) {
-            onCollision(PhysicsSpace.OnCollision(
-                state = when (event) {
-                    is CollisionEvent.Started -> PhysicsSpace.OnCollision.State.STARTED
-                    is CollisionEvent.Stopped -> PhysicsSpace.OnCollision.State.STOPPED
-                },
-                colliderA = RapierColliderKey(contactPair.collider1),
-                colliderB = RapierColliderKey(contactPair.collider2),
-                // todo manifolds
-            ))
+            onCollision(when (event) {
+                is CollisionEvent.Started -> PhysicsSpace.OnCollision(
+                    state = PhysicsSpace.OnCollision.State.STARTED,
+                    colliderA = RapierColliderKey(event.coll1),
+                    colliderB = RapierColliderKey(event.coll2),
+                    // todo manifolds
+                )
+                is CollisionEvent.Stopped -> PhysicsSpace.OnCollision(
+                    state = PhysicsSpace.OnCollision.State.STOPPED,
+                    colliderA = RapierColliderKey(event.coll1),
+                    colliderB = RapierColliderKey(event.coll2),
+                    // todo manifolds
+                )
+            })
         }
 
         override fun handleContactForceEvent(

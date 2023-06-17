@@ -3,7 +3,6 @@ package io.github.aecsocket.rattle.paper
 import io.github.aecsocket.alexandria.desc.ParticleShaping
 import io.github.aecsocket.alexandria.paper.extension.toColor
 import io.github.aecsocket.alexandria.paper.extension.toDVec
-import io.github.aecsocket.alexandria.paper.extension.toNamespaced
 import io.github.aecsocket.alexandria.sync.Locked
 import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.*
@@ -16,10 +15,113 @@ import org.bukkit.Chunk
 import org.bukkit.Material
 import org.bukkit.Particle
 import org.bukkit.Particle.DustOptions
-import org.bukkit.Registry
 import org.bukkit.World
 import org.bukkit.block.Block
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
+
+/*
+all NMS SoundType's:
+    WOOD
+    GRAVEL
+    GRASS
+    LILY_PAD
+    STONE
+    METAL
+    GLASS
+    WOOL
+    SAND
+    SNOW
+    POWDER_SNOW
+    LADDER
+    ANVIL
+    SLIME_BLOCK
+    HONEY_BLOCK
+    WET_GRASS
+    CORAL_BLOCK
+    BAMBOO
+    BAMBOO_SAPLING
+    SCAFFOLDING
+    SWEET_BERRY_BUSH
+    CROP
+    HARD_CROP
+    VINE
+    NETHER_WART
+    LANTERN
+    STEM
+    NYLIUM
+    FUNGUS
+    ROOTS
+    SHROOMLIGHT
+    WEEPING_VINES
+    TWISTING_VINES
+    SOUL_SAND
+    SOUL_SOIL
+    BASALT
+    WART_BLOCK
+    NETHERRACK
+    NETHER_BRICKS
+    NETHER_SPROUTS
+    NETHER_ORE
+    BONE_BLOCK
+    NETHERITE_BLOCK
+    ANCIENT_DEBRIS
+    LODESTONE
+    CHAIN
+    NETHER_GOLD_ORE
+    GILDED_BLACKSTONE
+    CANDLE
+    AMETHYST
+    AMETHYST_CLUSTER
+    SMALL_AMETHYST_BUD
+    MEDIUM_AMETHYST_BUD
+    LARGE_AMETHYST_BUD
+    TUFF
+    CALCITE
+    DRIPSTONE_BLOCK
+    POINTED_DRIPSTONE
+    COPPER
+    CAVE_VINES
+    SPORE_BLOSSOM
+    AZALEA
+    FLOWERING_AZALEA
+    MOSS_CARPET
+    PINK_PETALS
+    MOSS
+    BIG_DRIPLEAF
+    SMALL_DRIPLEAF
+    ROOTED_DIRT
+    HANGING_ROOTS
+    AZALEA_LEAVES
+    SCULK_SENSOR
+    SCULK_CATALYST
+    SCULK
+    SCULK_VEIN
+    SCULK_SHRIEKER
+    GLOW_LICHEN
+    DEEPSLATE
+    DEEPSLATE_BRICKS
+    DEEPSLATE_TILES
+    POLISHED_DEEPSLATE
+    FROGLIGHT
+    FROGSPAWN
+    MANGROVE_ROOTS
+    MUDDY_MANGROVE_ROOTS
+    MUD
+    MUD_BRICKS
+    PACKED_MUD
+    HANGING_SIGN
+    NETHER_WOOD_HANGING_SIGN
+    BAMBOO_WOOD_HANGING_SIGN
+    BAMBOO_WOOD
+    NETHER_WOOD
+    CHERRY_WOOD
+    CHERRY_SAPLING
+    CHERRY_LEAVES
+    CHERRY_WOOD_HANGING_SIGN
+    CHISELED_BOOKSHELF
+    SUSPICIOUS_SAND
+    DECORATED_POT
+ */
 
 private val debugColliderBound = PaperDynamicTerrain.DebugInfo(NamedTextColor.WHITE, 0.0)
 private val debugNewSlice = PaperDynamicTerrain.DebugInfo(NamedTextColor.BLUE, 0.2)
@@ -42,22 +144,14 @@ class PaperDynamicTerrain(
     ) {
         @ConfigSerializable
         data class Layers(
-            val solid: Solid = Solid(),
-            val fluid: Fluid = Fluid(),
-        ) {
-            @ConfigSerializable
-            data class Solid(
-                val defaultMaterial: PhysicsMaterial = PhysicsMaterial(friction = 0.4, restitution = 0.2),
-                val materials: Map<String, PhysicsMaterial> = emptyMap(),
-                val byBlock: Map<Key, String> = emptyMap(),
-            )
-
-            @ConfigSerializable
-            data class Fluid(
-                val defaultDensity: Real = 1.0,
-                val byBlock: Map<Key, Real> = emptyMap(),
-            )
-        }
+            val all: Map<String, Layer> = mapOf(
+                "solid" to Layer.Solid(PhysicsMaterial(friction = 0.4, restitution = 0.2)),
+                "fluid" to Layer.Fluid(density = 1.0),
+            ),
+            val defaultSolid: String = "solid",
+            val defaultFluid: String = "fluid",
+            val byBlock: Map<Key, String> = emptyMap(),
+        )
     }
 
     data class DebugInfo(
@@ -66,10 +160,12 @@ class PaperDynamicTerrain(
     )
 
     sealed interface Layer {
+        @ConfigSerializable
         data class Solid(
             val material: PhysicsMaterial,
         ) : Layer
 
+        @ConfigSerializable
         data class Fluid(
             val density: Real,
         ) : Layer {
@@ -181,39 +277,30 @@ class PaperDynamicTerrain(
     }
 
     private val slices = Locked(Slices())
-    private val layers: List<Layer>
-
-    private val solidLayerDefault: Int
-    private val solidLayersByKey: Map<String, Int>
-    private val solidLayersByType: Map<Material, Int>
+    private val layers = ArrayList<Layer>()
+    private val defaultSolidLayer: Int
+    private val defaultFluidLayer: Int
+    private val layerByKey = HashMap<String, Int>()
+    private val layerByBlock = HashMap<Material, Int>()
 
     init {
-        // set up layers
-        val layers = ArrayList<Layer>()
-        // solid layers
-        solidLayerDefault = layers.size
-        layers += Layer.Solid(settings.layers.solid.defaultMaterial)
-        val solidLayersByKey = HashMap<String, Int>()
-        val solidLayersByType = HashMap<Material, Int>()
-        settings.layers.solid.materials.forEach { (key, material) ->
-            solidLayersByKey[key] = layers.size
-            layers += Layer.Solid(material)
+        // layers
+        settings.layers.all.forEach { (key, layer) ->
+            layerByKey[key] = layers.size
+            layers += layer
         }
 
-        settings.layers.solid.byBlock.forEach { (blockTypeKey, materialKey) ->
-            val blockType = Registry.MATERIAL[blockTypeKey.toNamespaced()]
-                ?: throw IllegalArgumentException("Invalid block type $blockTypeKey")
-            val materialId = solidLayersByKey[materialKey]
-                ?: throw IllegalArgumentException("Invalid material $materialKey")
-            solidLayersByType[blockType] = materialId
+        defaultSolidLayer = layerByKey[settings.layers.defaultSolid]
+            ?: throw IllegalArgumentException("No layer key '${settings.layers.defaultSolid}' for default solid")
+        defaultFluidLayer = layerByKey[settings.layers.defaultFluid]
+            ?: throw IllegalArgumentException("No layer key '${settings.layers.defaultFluid}' for default fluid")
+
+        settings.layers.byBlock.forEach { (blockKey, layerKey) ->
+            if (!layerByKey.contains(layerKey))
+                throw IllegalArgumentException("No layer key '$layerKey' for block $blockKey")
         }
 
-        this.layers = layers
-        this.solidLayersByKey = solidLayersByKey
-        this.solidLayersByType = solidLayersByType
-
-        // TODO fluids
-
+        // collision handlers
         physics.onCollision { event ->
             if (event.state != PhysicsSpace.OnCollision.State.STOPPED) return@onCollision
             slices.withLock { slices ->
@@ -283,18 +370,29 @@ class PaperDynamicTerrain(
         }
     }
 
-    fun onUpdate(pos: IVec3) {
+    fun onUpdate(slicePos: IVec3) {
+        // wake any bodies which intersect this slice
+        // note that this will not generate the slice collision *right now*; it will be scheduled on the next update
+        val min = (slicePos * 16).run { Vec(x.toDouble(), y.toDouble(), z.toDouble()) }
+        physics.query.intersectBounds(Aabb(min, min + 16.0)) { collKey ->
+            physics.colliders.read(collKey)?.let { coll ->
+                val parent = coll.parent?.let { physics.rigidBodies.write(it) } ?: return@let
+                parent.wakeUp()
+            }
+            QueryResult.CONTINUE
+        }
+
+        // if a slice already exists for this position, schedule an update for its collision shape
         slices.withLock { slices ->
-            val slice = slices[pos] ?: return@withLock
-            drawDebugAabb(sliceBounds(pos), debugUpdateSlice)
-            // reschedule a snapshot if we need to
+            val slice = slices[slicePos] ?: return@withLock
+            drawDebugAabb(sliceBounds(slicePos), debugUpdateSlice)
             when (slice.state) {
                 is SliceState.PendingScheduleSnapshot -> {}
                 is SliceState.PendingSnapshot -> {}
                 else -> {
                     slice.state = SliceState.PendingScheduleSnapshot
-                    slices.dirty(pos)
-                    scheduleSnapshot(pos)
+                    slices.dirty(slicePos)
+                    scheduleSnapshot(slicePos)
                 }
             }
         }
@@ -714,23 +812,39 @@ repeated...
     }
 
     private fun wrapBlock(block: Block): Tile? {
-        // todo basically everything to do with fluids and different block types
-        if (block.isPassable) {
-            return null
+        fun layerId(default: Int) = layerByBlock.computeIfAbsent(block.type) {
+            settings.layers.byBlock[block.type.key]?.let { layerKey ->
+                layerByKey[layerKey]
+            } ?: default
         }
 
-        val shapes = block.collisionShape.boundingBoxes
-            .map { box ->
-                Compound.Child(
-                    shape = boxShape(box.max.subtract(box.min).toDVec() / 2.0),
-                    delta = Iso(box.center.toDVec() - 0.5),
+        when {
+            block.isLiquid -> {
+                val shape = Compound.Child(
+                    shape = boxShape(Vec(0.5)),
+                )
+                return Tile(
+                    layerId = layerId(defaultFluidLayer),
+                    shapes = listOf(shape),
                 )
             }
-
-        return Tile(
-            layerId = 0, // todo
-            shapes = shapes,
-        )
+            block.isPassable -> {
+                return null
+            }
+            else -> {
+                val shapes = block.collisionShape.boundingBoxes
+                    .map { box ->
+                        Compound.Child(
+                            shape = boxShape(box.max.subtract(box.min).toDVec() / 2.0),
+                            delta = Iso(box.center.toDVec() - 0.5),
+                        )
+                    }
+                return Tile(
+                    layerId = layerId(defaultSolidLayer),
+                    shapes = shapes,
+                )
+            }
+        }
     }
 
     private fun boxShape(halfExtent: Vec): Shape {

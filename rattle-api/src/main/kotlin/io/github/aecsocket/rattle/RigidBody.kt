@@ -245,7 +245,7 @@ interface RigidBody {
          * @param strong If true, this body will be guaranteed to stay awake for at least a few physics steps.
          *               Otherwise, it might immediately go back to sleep if it still isn't moving enough.
          */
-        fun wakeUp(strong: Boolean)
+        fun wakeUp(strong: Boolean = true)
     }
 
     /**
