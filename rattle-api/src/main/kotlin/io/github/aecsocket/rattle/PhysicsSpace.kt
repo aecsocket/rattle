@@ -1,5 +1,6 @@
 package io.github.aecsocket.rattle
 
+import io.github.aecsocket.alexandria.EventDispatch
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import org.spongepowered.configurate.objectmapping.meta.Required
 
@@ -129,6 +130,16 @@ sealed interface PointProject {
         override val point: Vec,
         val feature: ShapeFeature,
     ) : PointProject
+}
+
+data class ContactPair(
+    val colliderA: ColliderKey,
+    val colliderB: ColliderKey,
+    val manifolds: List<Manifold>,
+)
+
+interface Manifold {
+
 }
 
 /**
@@ -312,16 +323,23 @@ interface PhysicsSpace : Destroyable {
         ): PointProject.Complex?
     }
 
-    val onCollision: EventDelegate<OnCollision>
+    val onCollision: EventDispatch<OnCollision>
+
+    val onContactForce: EventDispatch<OnContactForce>
 
     data class OnCollision(
         val state: State,
-        val colliderA: ColliderKey,
-        val colliderB: ColliderKey,
+        val pair: ContactPair,
     ) {
         enum class State {
             STARTED,
             STOPPED,
         }
     }
+
+    data class OnContactForce(
+        val dt: Real,
+        val totalMagnitude: Real,
+        val pair: ContactPair,
+    )
 }

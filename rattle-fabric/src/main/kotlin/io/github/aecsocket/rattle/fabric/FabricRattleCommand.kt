@@ -6,7 +6,8 @@ import cloud.commandframework.fabric.argument.server.Vec3dArgument
 import cloud.commandframework.fabric.data.Coordinates
 import io.github.aecsocket.alexandria.fabric.commandManager
 import io.github.aecsocket.alexandria.fabric.extension.toDVec
-import io.github.aecsocket.rattle.*
+import io.github.aecsocket.rattle.impl.Location
+import io.github.aecsocket.rattle.impl.RattleCommand
 import net.minecraft.commands.CommandSourceStack
 import net.minecraft.core.registries.Registries
 import net.minecraft.resources.ResourceKey

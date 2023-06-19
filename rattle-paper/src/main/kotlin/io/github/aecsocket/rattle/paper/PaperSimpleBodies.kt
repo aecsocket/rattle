@@ -6,11 +6,11 @@ import io.github.aecsocket.alexandria.paper.DisplayRenders
 import io.github.aecsocket.alexandria.paper.PaperItemType
 import io.github.aecsocket.alexandria.paper.create
 import io.github.aecsocket.alexandria.paper.extension.location
-import io.github.aecsocket.klam.DVec3
 import io.github.aecsocket.klam.FAffine3
 import io.github.aecsocket.klam.FQuat
 import io.github.aecsocket.klam.FVec3
 import io.github.aecsocket.rattle.*
+import io.github.aecsocket.rattle.world.SimpleBodies
 import org.bukkit.Material
 import org.bukkit.World
 

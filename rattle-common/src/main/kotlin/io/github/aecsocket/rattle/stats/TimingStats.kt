@@ -1,7 +1,7 @@
 package io.github.aecsocket.rattle.stats
 
 import io.github.aecsocket.glossa.component
-import io.github.aecsocket.rattle.RattleMessages
+import io.github.aecsocket.rattle.impl.RattleMessages
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import kotlin.math.max

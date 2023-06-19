@@ -1,7 +1,6 @@
 package io.github.aecsocket.rattle.paper
 
 import io.github.aecsocket.rattle.Real
-import io.github.aecsocket.rattle.impl.RattleHook
 import io.github.aecsocket.rattle.impl.RattlePlatform
 import org.bukkit.Bukkit
 import org.bukkit.World

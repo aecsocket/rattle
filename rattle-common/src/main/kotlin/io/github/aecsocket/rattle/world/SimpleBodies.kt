@@ -1,4 +1,4 @@
-package io.github.aecsocket.rattle
+package io.github.aecsocket.rattle.world
 
 import io.github.aecsocket.alexandria.ArenaKey
 import io.github.aecsocket.alexandria.GenArena
@@ -6,6 +6,7 @@ import io.github.aecsocket.alexandria.ItemRenderDesc
 import io.github.aecsocket.alexandria.desc.ItemDesc
 import io.github.aecsocket.alexandria.sync.Locked
 import io.github.aecsocket.klam.FVec3
+import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.impl.RattlePlatform
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import org.spongepowered.configurate.objectmapping.meta.Required

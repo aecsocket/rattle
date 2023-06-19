@@ -1,6 +1,8 @@
 package io.github.aecsocket.rattle.rapier
 
+import io.github.aecsocket.alexandria.EventDispatch
 import io.github.aecsocket.rattle.*
+import io.github.aecsocket.rattle.ContactPair
 import io.github.aecsocket.rattle.QueryFilter
 import io.github.aecsocket.rattle.ShapeCast
 import rapier.Native
@@ -39,18 +41,23 @@ class RapierSpace internal constructor(
     val ccdSolver = CCDSolver.create()
     val queryPipeline = QueryPipeline.create()
 
-    override val onCollision = EventDelegate<PhysicsSpace.OnCollision>()
+    override val onCollision = EventDispatch<PhysicsSpace.OnCollision>()
+    override val onContactForce = EventDispatch<PhysicsSpace.OnContactForce>()
 
     val events = EventHandler.of(arena, object : EventHandler.Fn {
         override fun handleCollisionEvent(
             bodies: RigidBodySet,
             colliders: ColliderSet,
             event: CollisionEvent,
-            contactPair: ContactPair?,
+            contactPair: rapier.pipeline.ContactPair?,
         ) {
-            onCollision(when (event) {
+            onCollision.dispatch(when (event) {
                 is CollisionEvent.Started -> PhysicsSpace.OnCollision(
                     state = PhysicsSpace.OnCollision.State.STARTED,
+                    pair = ContactPair(
+                        colliderA = RapierColliderKey(event.coll1),
+                        colliderB = RapierColliderKey(event.coll2),
+                    )
                     colliderA = RapierColliderKey(event.coll1),
                     colliderB = RapierColliderKey(event.coll2),
                     // todo manifolds
@@ -71,6 +78,13 @@ class RapierSpace internal constructor(
             contactPair: ContactPair,
             totalForceMagnitude: Double
         ) {
+            onContactForce.dispatch(PhysicsSpace.OnContactForce(
+                dt = dt,
+                totalMagnitude = totalForceMagnitude,
+                colliderA = RapierColliderKey(contactPair.collider1),
+                colliderB = RapierColliderKey(contactPair.collider2),
+                // todo manifolds
+            ))
             // todo
         }
     })

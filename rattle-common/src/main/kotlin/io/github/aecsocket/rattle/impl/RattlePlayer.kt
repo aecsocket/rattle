@@ -5,6 +5,9 @@ import io.github.aecsocket.klam.clamp
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.stats.formatTiming
 import io.github.aecsocket.rattle.stats.timingStatsOf
+import io.github.aecsocket.rattle.world.SimpleBodyDesc
+import io.github.aecsocket.rattle.world.SimpleGeometry
+import io.github.aecsocket.rattle.world.Visibility
 import net.kyori.adventure.audience.Audience
 import net.kyori.adventure.audience.ForwardingAudience
 import net.kyori.adventure.bossbar.BossBar

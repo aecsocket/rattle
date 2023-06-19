@@ -6,6 +6,7 @@ import io.github.aecsocket.glossa.MessageProxy
 import io.github.aecsocket.glossa.messageProxy
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.rapier.RapierEngine
+import io.github.aecsocket.rattle.world.SimpleBodies
 import io.github.oshai.kotlinlogging.KLogger
 import net.kyori.adventure.text.format.TextColor
 import org.spongepowered.configurate.objectmapping.ConfigSerializable

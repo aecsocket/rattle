@@ -9,6 +9,7 @@ import io.github.aecsocket.klam.FAffine3
 import io.github.aecsocket.klam.FQuat
 import io.github.aecsocket.klam.FVec3
 import io.github.aecsocket.rattle.*
+import io.github.aecsocket.rattle.world.SimpleBodies
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.item.Items
 

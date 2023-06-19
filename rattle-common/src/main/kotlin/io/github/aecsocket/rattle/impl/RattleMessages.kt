@@ -1,4 +1,4 @@
-package io.github.aecsocket.rattle
+package io.github.aecsocket.rattle.impl
 
 import io.github.aecsocket.glossa.Message
 import net.kyori.adventure.text.Component

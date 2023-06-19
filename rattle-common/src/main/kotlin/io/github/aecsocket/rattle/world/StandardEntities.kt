@@ -1,6 +1,7 @@
 package io.github.aecsocket.rattle.world
 
 import io.github.aecsocket.rattle.*
+import io.github.aecsocket.rattle.impl.Entity
 
 abstract class StandardEntities(
     // SAFETY: we only access the physics while the containing WorldPhysics is locked

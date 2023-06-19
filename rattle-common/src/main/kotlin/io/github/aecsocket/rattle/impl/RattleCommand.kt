@@ -1,4 +1,4 @@
-package io.github.aecsocket.rattle
+package io.github.aecsocket.rattle.impl
 
 import cloud.commandframework.CommandManager
 import cloud.commandframework.arguments.CommandArgument
@@ -11,11 +11,12 @@ import io.github.aecsocket.alexandria.extension.hasFlag
 import io.github.aecsocket.alexandria.hook.AlexandriaCommand
 import io.github.aecsocket.glossa.MessageProxy
 import io.github.aecsocket.klam.nextDVec3
-import io.github.aecsocket.rattle.impl.RattleHook
-import io.github.aecsocket.rattle.impl.RattlePlatform
-import io.github.aecsocket.rattle.impl.RattlePlayer
+import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.stats.formatTiming
 import io.github.aecsocket.rattle.stats.timingStatsOf
+import io.github.aecsocket.rattle.world.SimpleBodyDesc
+import io.github.aecsocket.rattle.world.SimpleGeometry
+import io.github.aecsocket.rattle.world.Visibility
 import net.kyori.adventure.audience.Audience
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
