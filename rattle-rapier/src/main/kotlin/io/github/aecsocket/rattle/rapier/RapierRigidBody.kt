@@ -13,25 +13,19 @@ sealed class RapierRigidBody(
     override var space: RapierSpace?,
 ) : RapierNative(), RapierPhysicsNative, RigidBody {
     override val type: RigidBodyType
-        get() = handle.bodyType.convert()
+        get() = handle.bodyType.toRattle()
 
     override val colliders: Collection<RapierColliderKey>
         get() = handle.colliders.map { RapierColliderKey(it) }
 
     override val position: Iso
-        get() = pushArena { arena ->
-            handle.getPosition(arena).toIso()
-        }
+        get() = handle.position.toIso()
 
     override val linearVelocity: Vec
-        get() = pushArena { arena ->
-            handle.getLinearVelocity(arena).toVec()
-        }
+        get() = handle.linearVelocity.toVec()
 
     override val angularVelocity: Vec
-        get() = pushArena { arena ->
-            handle.getAngularVelocity(arena).toVec()
-        }
+        get() = handle.angularVelocity.toVec()
 
     override val isCcdEnabled: Boolean
         get() = handle.isCcdEnabled
@@ -52,14 +46,10 @@ sealed class RapierRigidBody(
         get() = handle.isSleeping
 
     override val appliedForce: Vec
-        get() = pushArena { arena ->
-            handle.getUserForce(arena).toVec()
-        }
+        get() = handle.userForce.toVec()
 
     override val appliedTorque: Vec
-        get() = pushArena { arena ->
-            handle.getUserTorque(arena).toVec()
-        }
+        get() = handle.userTorque.toVec()
 
     override fun kineticEnergy(): Real {
         return handle.kineticEnergy
@@ -89,28 +79,22 @@ sealed class RapierRigidBody(
         }
 
         override fun type(value: RigidBodyType): Write {
-            handle.setBodyType(value.convert(), false)
+            handle.setBodyType(value.toRapier(), false)
             return this
         }
 
         override fun position(value: Iso): Write {
-            pushArena { arena ->
-                handle.setPosition(value.toIsometry(arena), false)
-            }
+            handle.setPosition(value.toIsometry(), false)
             return this
         }
 
         override fun linearVelocity(value: Vec): Write {
-            pushArena { arena ->
-                handle.setLinearVelocity(value.toVector(arena), false)
-            }
+            handle.setLinearVelocity(value.toVector(), false)
             return this
         }
 
         override fun angularVelocity(value: Vec): Write {
-            pushArena { arena ->
-                handle.setAngularVelocity(value.toAngVector(arena), false)
-            }
+            handle.setAngularVelocity(value.toAngVector(), false)
             return this
         }
 
@@ -158,45 +142,31 @@ sealed class RapierRigidBody(
         }
 
         override fun applyForce(force: Vec) {
-            pushArena { arena ->
-                handle.addForce(force.toVector(arena), false)
-            }
+            handle.addForce(force.toVector(), false)
         }
 
         override fun applyForceAt(force: Vec, at: Vec) {
-            pushArena { arena ->
-                handle.addForceAtPoint(force.toVector(arena), at.toVector(arena), false)
-            }
+            handle.addForceAtPoint(force.toVector(), at.toVector(), false)
         }
 
         override fun applyImpulse(impulse: Vec) {
-            pushArena { arena ->
-                handle.applyImpulse(impulse.toVector(arena), false)
-            }
+            handle.applyImpulse(impulse.toVector(), false)
         }
 
         override fun applyImpulseAt(impulse: Vec, at: Vec) {
-            pushArena { arena ->
-                handle.applyImpulseAtPoint(impulse.toVector(arena), at.toVector(arena), false)
-            }
+            handle.applyImpulseAtPoint(impulse.toVector(), at.toVector(), false)
         }
 
         override fun applyTorque(torque: Vec) {
-            pushArena { arena ->
-                handle.addTorque(torque.toAngVector(arena), false)
-            }
+            handle.addTorque(torque.toAngVector(), false)
         }
 
         override fun applyTorqueImpulse(torqueImpulse: Vec) {
-            pushArena { arena ->
-                handle.applyTorqueImpulse(torqueImpulse.toAngVector(arena), false)
-            }
+            handle.applyTorqueImpulse(torqueImpulse.toAngVector(), false)
         }
 
         override fun moveTo(to: Iso) {
-            pushArena { arena ->
-                handle.setNextKinematicPosition(to.toIsometry(arena))
-            }
+            handle.setNextKinematicPosition(to.toIsometry())
         }
     }
 }

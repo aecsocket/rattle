@@ -32,29 +32,21 @@ sealed class RapierCollider(
         get() = PhysicsMaterial(
             friction = handle.friction,
             restitution = handle.restitution,
-            frictionCombine = handle.frictionCombineRule.convert(),
-            restitutionCombine = handle.restitutionCombineRule.convert(),
+            frictionCombine = handle.frictionCombineRule.toRattle(),
+            restitutionCombine = handle.restitutionCombineRule.toRattle(),
         )
 
     override val collisionGroup: InteractionGroup
-        get() = pushArena { arena ->
-            handle.getCollisionGroups(arena).convert()
-        }
+        get() = handle.collisionGroups.toRattle()
 
     override val solverGroup: InteractionGroup
-        get() = pushArena { arena ->
-            handle.getSolverGroups(arena).convert()
-        }
+        get() = handle.solverGroups.toRattle()
 
     override val position: Iso
-        get() = pushArena { arena ->
-            handle.getPosition(arena).toIso()
-        }
+        get() = handle.position.toIso()
 
     override val relativePosition: Iso
-        get() = pushArena { arena ->
-            handle.getPositionWrtParent(arena)?.toIso() ?: Iso()
-        }
+        get() = handle.positionWrtParent?.toIso() ?: Iso()
 
     override val mass: Real
         get() = handle.mass
@@ -72,9 +64,7 @@ sealed class RapierCollider(
         get() = handle.parent?.let { RapierRigidBodyKey(it) }
 
     override fun bounds(): Aabb {
-        return pushArena { arena ->
-            handle.computeAabb(arena).toAabb()
-        }
+        return handle.computeAabb().toAabb()
     }
 
     class Read internal constructor(
@@ -109,36 +99,28 @@ sealed class RapierCollider(
         override fun material(value: PhysicsMaterial): Write {
             handle.friction = value.friction
             handle.restitution = value.restitution
-            handle.frictionCombineRule = value.frictionCombine.convert()
-            handle.restitutionCombineRule = value.restitutionCombine.convert()
+            handle.frictionCombineRule = value.frictionCombine.toRapier()
+            handle.restitutionCombineRule = value.restitutionCombine.toRapier()
             return this
         }
 
         override fun collisionGroup(value: InteractionGroup): Write {
-            pushArena { arena ->
-                handle.setCollisionGroups(value.convert(arena))
-            }
+            handle.collisionGroups = value.toRapier()
             return this
         }
 
         override fun solverGroup(value: InteractionGroup): Write {
-            pushArena { arena ->
-                handle.setSolverGroups(value.convert(arena))
-            }
+            handle.solverGroups = value.toRapier()
             return this
         }
 
         override fun position(value: Iso): Write {
-            pushArena { arena ->
-                handle.setPosition(value.toIsometry(arena))
-            }
+            handle.position = value.toIsometry()
             return this
         }
 
         override fun relativePosition(value: Iso): Write {
-            pushArena { arena ->
-                handle.setPositionWrtParent(value.toIsometry(arena))
-            }
+            handle.setPositionWrtParent(value.toIsometry())
             return this
         }
 

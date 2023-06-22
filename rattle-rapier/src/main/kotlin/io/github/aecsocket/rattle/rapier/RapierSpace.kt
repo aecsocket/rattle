@@ -23,7 +23,7 @@ interface RapierPhysicsNative {
 
 class RapierSpace internal constructor(
     val engine: RapierEngine,
-    settings: PhysicsSpace.Settings,
+    override var settings: PhysicsSpace.Settings,
 ) : RapierNative(), PhysicsSpace {
     override val nativeType get() = "RapierSpace"
 
@@ -51,22 +51,23 @@ class RapierSpace internal constructor(
             event: CollisionEvent,
             contactPair: rapier.pipeline.ContactPair?,
         ) {
+            /*
+                /// * `contact_pair` - The current state of contacts between the two colliders. This is set ot `None`
+                ///                    if at least one of the collider is a sensor (in which case no contact information
+                ///                    is ever computed).
+             */
             onCollision.dispatch(when (event) {
                 is CollisionEvent.Started -> PhysicsSpace.OnCollision(
                     state = PhysicsSpace.OnCollision.State.STARTED,
-                    pair = ContactPair(
-                        colliderA = RapierColliderKey(event.coll1),
-                        colliderB = RapierColliderKey(event.coll2),
-                    )
                     colliderA = RapierColliderKey(event.coll1),
                     colliderB = RapierColliderKey(event.coll2),
-                    // todo manifolds
+                    manifolds = emptyList(), // todo
                 )
                 is CollisionEvent.Stopped -> PhysicsSpace.OnCollision(
                     state = PhysicsSpace.OnCollision.State.STOPPED,
                     colliderA = RapierColliderKey(event.coll1),
                     colliderB = RapierColliderKey(event.coll2),
-                    // todo manifolds
+                    manifolds = emptyList(), // todo
                 )
             })
         }
@@ -75,7 +76,7 @@ class RapierSpace internal constructor(
             dt: Double,
             bodies: RigidBodySet,
             colliders: ColliderSet,
-            contactPair: ContactPair,
+            contactPair: rapier.pipeline.ContactPair,
             totalForceMagnitude: Double
         ) {
             onContactForce.dispatch(PhysicsSpace.OnContactForce(
@@ -83,9 +84,8 @@ class RapierSpace internal constructor(
                 totalMagnitude = totalForceMagnitude,
                 colliderA = RapierColliderKey(contactPair.collider1),
                 colliderB = RapierColliderKey(contactPair.collider2),
-                // todo manifolds
+                manifolds = emptyList(), // TODO
             ))
-            // todo
         }
     })
 
@@ -105,16 +105,8 @@ class RapierSpace internal constructor(
         }
     })
 
-    val gravity = settings.gravity.toVector(arena)
-
     override val handle: Native
         get() = pipeline
-
-    override var settings = settings
-        set(value) {
-            field = value
-            gravity.copyFrom(settings.gravity)
-        }
 
     fun createIntegrationParametersDesc() = IntegrationParametersDesc.create(arena).apply {
         erp = engine.settings.integration.erp
@@ -306,12 +298,10 @@ class RapierSpace internal constructor(
             bounds: Aabb,
             fn: (ColliderKey) -> QueryResult,
         ) {
-            pushArena { arena ->
-                queryPipeline.collidersWithAabbIntersectingAabb(
-                    bounds.toRapier(arena),
-                ) { collHandle ->
-                    fn(RapierColliderKey(collHandle)).shouldContinue
-                }
+            queryPipeline.collidersWithAabbIntersectingAabb(
+                bounds.toRapier(),
+            ) { collHandle ->
+                fn(RapierColliderKey(collHandle)).shouldContinue
             }
         }
 
@@ -320,15 +310,13 @@ class RapierSpace internal constructor(
             filter: QueryFilter,
             fn: (ColliderKey) -> QueryResult,
         ) {
-            pushArena { arena ->
-                queryPipeline.intersectionsWithPoint(
-                    rigidBodySet,
-                    colliderSet,
-                    point.toVector(arena),
-                    filter.convert(arena, this@RapierSpace),
-                ) { res ->
-                    fn(RapierColliderKey(res)).shouldContinue
-                }
+            queryPipeline.intersectionsWithPoint(
+                rigidBodySet,
+                colliderSet,
+                point.toVector(),
+                filter.toRapier(arena, this@RapierSpace),
+            ) { res ->
+                fn(RapierColliderKey(res)).shouldContinue
             }
         }
 
@@ -350,16 +338,14 @@ class RapierSpace internal constructor(
             filter: QueryFilter
         ): ColliderKey? {
             shape as RapierShape
-            return pushArena { arena ->
-                queryPipeline.intersectionWithShape(
-                    arena,
-                    rigidBodySet,
-                    colliderSet,
-                    shapePos.toIsometry(arena),
-                    shape.handle,
-                    filter.convert(arena, this@RapierSpace),
-                )?.let { RapierColliderKey(it) }
-            }
+            return queryPipeline.intersectionWithShape(
+                arena,
+                rigidBodySet,
+                colliderSet,
+                shapePos.toIsometry(),
+                shape.handle,
+                filter.toRapier(arena, this@RapierSpace),
+            )?.let { RapierColliderKey(it) }
         }
 
         override fun intersectShape(
@@ -369,16 +355,14 @@ class RapierSpace internal constructor(
             fn: (ColliderKey) -> QueryResult,
         ) {
             shape as RapierShape
-            pushArena { arena ->
-                queryPipeline.intersectionsWithShape(
-                    rigidBodySet,
-                    colliderSet,
-                    shapePos.toIsometry(arena),
-                    shape.handle,
-                    filter.convert(arena, this@RapierSpace),
-                ) { res ->
-                    fn(RapierColliderKey(res)).shouldContinue
-                }
+            return queryPipeline.intersectionsWithShape(
+                rigidBodySet,
+                colliderSet,
+                shapePos.toIsometry(),
+                shape.handle,
+                filter.toRapier(arena, this@RapierSpace),
+            ) { res ->
+                fn(RapierColliderKey(res)).shouldContinue
             }
         }
 
@@ -388,17 +372,14 @@ class RapierSpace internal constructor(
             settings: RayCastSettings,
             filter: QueryFilter
         ): RayCast.Simple? {
-            return pushArena { arena ->
-                queryPipeline.castRay(
-                    arena,
-                    rigidBodySet,
-                    colliderSet,
-                    ray.toRapier(arena),
-                    maxDistance,
-                    settings.isSolid,
-                    filter.convert(arena, this@RapierSpace),
-                )?.convert()
-            }
+            return queryPipeline.castRay(
+                rigidBodySet,
+                colliderSet,
+                ray.toRapier(),
+                maxDistance,
+                settings.isSolid,
+                filter.toRapier(arena, this@RapierSpace),
+            )?.toRattle()
         }
 
         override fun rayCastComplex(
@@ -407,17 +388,14 @@ class RapierSpace internal constructor(
             settings: RayCastSettings,
             filter: QueryFilter,
         ): RayCast.Complex? {
-            return pushArena { arena ->
-                queryPipeline.castRayAndGetNormal(
-                    arena,
-                    rigidBodySet,
-                    colliderSet,
-                    ray.toRapier(arena),
-                    maxDistance,
-                    settings.isSolid,
-                    filter.convert(arena, this@RapierSpace),
-                )?.convert()
-            }
+            return queryPipeline.castRayAndGetNormal(
+                rigidBodySet,
+                colliderSet,
+                ray.toRapier(),
+                maxDistance,
+                settings.isSolid,
+                filter.toRapier(arena, this@RapierSpace),
+            )?.toRattle()
         }
 
         override fun rayCastComplex(
@@ -427,17 +405,15 @@ class RapierSpace internal constructor(
             filter: QueryFilter,
             fn: (RayCast.Complex) -> QueryResult
         ) {
-            pushArena { arena ->
-                queryPipeline.intersectionWithRay(
-                    rigidBodySet,
-                    colliderSet,
-                    ray.toRapier(arena),
-                    maxDistance,
-                    settings.isSolid,
-                    filter.convert(arena, this@RapierSpace),
-                ) { res ->
-                    fn(res.convert()).shouldContinue
-                }
+            queryPipeline.intersectionWithRay(
+                rigidBodySet,
+                colliderSet,
+                ray.toRapier(),
+                maxDistance,
+                settings.isSolid,
+                filter.toRapier(arena, this@RapierSpace),
+            ) { res ->
+                fn(res.toRattle()).shouldContinue
             }
         }
 
@@ -450,19 +426,16 @@ class RapierSpace internal constructor(
             filter: QueryFilter,
         ): ShapeCast? {
             shape as RapierShape
-            return pushArena { arena ->
-                queryPipeline.castShape(
-                    arena,
-                    rigidBodySet,
-                    colliderSet,
-                    shapePos.toIsometry(arena),
-                    shapeVel.toVector(arena),
-                    shape.handle,
-                    maxDistance,
-                    settings.stopAtPenetration,
-                    filter.convert(arena, this@RapierSpace),
-                )?.convert()
-            }
+            return queryPipeline.castShape(
+                rigidBodySet,
+                colliderSet,
+                shapePos.toIsometry(),
+                shapeVel.toVector(),
+                shape.handle,
+                maxDistance,
+                settings.stopAtPenetration,
+                filter.toRapier(arena, this@RapierSpace),
+            )?.toRattle()
         }
 
         override fun shapeCastNonLinear(
@@ -477,25 +450,22 @@ class RapierSpace internal constructor(
             filter: QueryFilter,
         ): ShapeCast? {
             shape as RapierShape
-            return pushArena { arena ->
-                val motion = NonlinearRigidMotion.of(arena).also {
-                    it.start = shapePos.toIsometry(arena)
-                    it.localCenter = shapeLocalCenter.toVector(arena)
-                    it.linVel = shapeLinVel.toVector(arena)
-                    it.angVel = shapeAngVel.toAngVector(arena)
-                }
-                queryPipeline.nonlinearCastShape(
-                    arena,
-                    rigidBodySet,
-                    colliderSet,
-                    motion,
-                    shape.handle,
-                    timeStart,
-                    timeEnd,
-                    settings.stopAtPenetration,
-                    filter.convert(arena, this@RapierSpace)
-                )?.convert()
-            }
+            val motion = NonlinearRigidMotion(
+                shapePos.toIsometry(),
+                shapeLocalCenter.toVector(),
+                shapeLinVel.toVector(),
+                shapeAngVel.toAngVector()
+            )
+            return queryPipeline.nonlinearCastShape(
+                rigidBodySet,
+                colliderSet,
+                motion,
+                shape.handle,
+                timeStart,
+                timeEnd,
+                settings.stopAtPenetration,
+                filter.toRapier(arena, this@RapierSpace)
+            )?.toRattle()
         }
 
         override fun projectPointSimple(
@@ -503,16 +473,13 @@ class RapierSpace internal constructor(
             settings: PointProjectSettings,
             filter: QueryFilter,
         ): PointProject.Simple? {
-            return pushArena { arena ->
-                queryPipeline.projectPoint(
-                    arena,
-                    rigidBodySet,
-                    colliderSet,
-                    point.toVector(arena),
-                    settings.isSolid,
-                    filter.convert(arena, this@RapierSpace)
-                )?.convert()
-            }
+            return queryPipeline.projectPoint(
+                rigidBodySet,
+                colliderSet,
+                point.toVector(),
+                settings.isSolid,
+                filter.toRapier(arena, this@RapierSpace)
+            )?.toRattle()
         }
 
         override fun projectPointComplex(
@@ -520,16 +487,13 @@ class RapierSpace internal constructor(
             settings: PointProjectSettings,
             filter: QueryFilter,
         ): PointProject.Complex? {
-            return pushArena { arena ->
-                queryPipeline.projectPointAndGetFeature(
-                    arena,
-                    rigidBodySet,
-                    colliderSet,
-                    point.toVector(arena),
-                    // settings.isSolid, // TODO Rapier screwed this one up. Not us.
-                    filter.convert(arena, this@RapierSpace),
-                )?.convert()
-            }
+            return queryPipeline.projectPointAndGetFeature(
+                rigidBodySet,
+                colliderSet,
+                point.toVector(),
+                // settings.isSolid, // TODO Rapier screwed this one up. Not us.
+                filter.toRapier(arena, this@RapierSpace),
+            )?.toRattle()
         }
     }
 }

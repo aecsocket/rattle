@@ -328,13 +328,13 @@ abstract class Abcd(
         val layerChildren = Array<MutableList<Compound.Child>>(layers.size) { ArrayList() }
         snapshot.blocks.forEachIndexed { i, block ->
             block ?: return@forEachIndexed
-            val (lx, ly, lz) = posInChunk(i)
+            val localPos = posInChunk(i)
 
             val children = block.compoundChildren.map { child ->
                 Compound.Child(
                     child.shape,
                     child.delta.copy(
-                        translation = child.delta.translation + Vec(lx.toDouble(), ly.toDouble(), lz.toDouble()) + 0.5,
+                        translation = child.delta.translation + localPos.toDouble() + 0.5,
                     ),
                 )
             }

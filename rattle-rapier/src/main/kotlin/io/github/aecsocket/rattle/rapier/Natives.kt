@@ -18,7 +18,6 @@ import rapier.pipeline.SimpleRayResult
 import rapier.pipeline.TOI
 import rapier.pipeline.TOIStatus
 import java.lang.foreign.Addressable
-import java.lang.foreign.SegmentAllocator
 
 // TODO Java 20: just use Arena directly
 typealias Arena = java.lang.foreign.MemorySession
@@ -59,97 +58,88 @@ abstract class RapierRefCounted : RapierNative(), RefCounted {
     override fun hashCode() = handle.refData().hashCode()
 }
 
-fun <R> pushArena(block: (arena: Arena) -> R): R =
-    Arena.openConfined().use(block)
-
 fun <T : Droppable, R> T.use(block: (T) -> R): R {
     val res = block(this)
     drop()
     return res
 }
 
-fun Vec.toVector(alloc: SegmentAllocator) = Vector.of(alloc, x, y, z)
+fun Vec.toVector() = Vector(x, y, z)
+fun Vec.toAngVector() = AngVector(x, y, z)
 fun Vector.toVec() = Vec(x, y, z)
-fun Vector.copyFrom(v: Vec) {
-    x = v.x
-    y = v.y
-    z = v.z
-}
-
-fun Vec.toAngVector(alloc: SegmentAllocator) = AngVector.of(alloc, x, y, z)
 fun AngVector.toVec() = Vec(x, y, z)
 
-fun Quat.toRotation(alloc: SegmentAllocator) = Rotation.of(alloc, x, y, z, w)
+fun Quat.toRotation() = Rotation(x, y, z, w)
 fun Rotation.toQuat() = Quat(x, y, z, w)
 
-fun Iso.toIsometry(alloc: SegmentAllocator) = Isometry.of(alloc, rotation.toRotation(alloc), translation.toVector(alloc))
+fun Iso.toIsometry() = Isometry(rotation.toRotation(), translation.toVector())
 fun Isometry.toIso() = Iso(translation.toVec(), rotation.toQuat())
 
-fun Aabb.toRapier(alloc: SegmentAllocator) = RAabb.of(alloc, min.toVector(alloc), max.toVector(alloc))
+fun Aabb.toRapier() = RAabb(min.toVector(), max.toVector())
 fun RAabb.toAabb() = Aabb(min.toVec(), max.toVec())
 
-fun Ray.toRapier(alloc: SegmentAllocator) = RRay.of(alloc, origin.toVector(alloc), direction.toVector(alloc))
+fun Ray.toRapier() = RRay(origin.toVector(), direction.toVector())
 fun RRay.toRay() = Ray(origin.toVec(), dir.toVec())
 
-fun VhacdSettings.toParams(alloc: SegmentAllocator) = VHACDParameters.create(alloc).also {
-    it.concavity = concavity
-    it.alpha = alpha
-    it.beta = beta
-    it.resolution = resolution
-    it.planeDownsampling = planeDownsampling
-    it.convexHullDownsampling = convexHullDownsampling
-    it.fillMode = when (val fillMode = fillMode) {
+fun VhacdSettings.toParams() = VHACDParameters(
+    concavity,
+    alpha,
+    beta,
+    resolution,
+    planeDownsampling,
+    convexHullDownsampling,
+    when (val fillMode = fillMode) {
         is VhacdSettings.FillMode.SurfaceOnly -> VHACDParameters.FillMode.SurfaceOnly.INSTANCE
         is VhacdSettings.FillMode.FloodFill -> VHACDParameters.FillMode.FloodFill(fillMode.detectCavities)
-    }
-    it.convexHullApproximation = convexHullApproximation
-    it.maxConvexHulls = maxConvexHulls
-}
+    },
+    convexHullApproximation,
+    maxConvexHulls,
+)
 
-fun InteractionGroup.convert(alloc: SegmentAllocator) = rapier.geometry.InteractionGroups.of(alloc, memberships.raw, filter.raw)
+fun InteractionGroup.toRapier() = rapier.geometry.InteractionGroups(memberships.raw, filter.raw)
 
-fun rapier.geometry.InteractionGroups.convert() = InteractionGroup(
+fun rapier.geometry.InteractionGroups.toRattle() = InteractionGroup(
     memberships = InteractionField.fromRaw(memberships),
     filter = InteractionField.fromRaw(filter),
 )
 
-fun RigidBodyType.convert() = when (this) {
+fun RigidBodyType.toRapier() = when (this) {
     RigidBodyType.FIXED     -> rapier.dynamics.RigidBodyType.FIXED
     RigidBodyType.DYNAMIC   -> rapier.dynamics.RigidBodyType.DYNAMIC
     RigidBodyType.KINEMATIC -> rapier.dynamics.RigidBodyType.KINEMATIC_POSITION_BASED
 }
 
-fun rapier.dynamics.RigidBodyType.convert() = when (this) {
+fun rapier.dynamics.RigidBodyType.toRattle() = when (this) {
     rapier.dynamics.RigidBodyType.FIXED                    -> RigidBodyType.FIXED
     rapier.dynamics.RigidBodyType.DYNAMIC                  -> RigidBodyType.DYNAMIC
     rapier.dynamics.RigidBodyType.KINEMATIC_POSITION_BASED -> RigidBodyType.KINEMATIC
     rapier.dynamics.RigidBodyType.KINEMATIC_VELOCITY_BASED -> RigidBodyType.KINEMATIC
 }
 
-fun CoeffCombineRule.convert() = when (this) {
+fun CoeffCombineRule.toRapier() = when (this) {
     CoeffCombineRule.AVERAGE  -> CoefficientCombineRule.AVERAGE
     CoeffCombineRule.MIN      -> CoefficientCombineRule.MIN
     CoeffCombineRule.MULTIPLY -> CoefficientCombineRule.MULTIPLY
     CoeffCombineRule.MAX      -> CoefficientCombineRule.MAX
 }
-fun CoefficientCombineRule.convert() = when (this) {
+fun CoefficientCombineRule.toRattle() = when (this) {
     CoefficientCombineRule.AVERAGE  -> CoeffCombineRule.AVERAGE
     CoefficientCombineRule.MIN      -> CoeffCombineRule.MIN
     CoefficientCombineRule.MULTIPLY -> CoeffCombineRule.MULTIPLY
     CoefficientCombineRule.MAX      -> CoeffCombineRule.MAX
 }
 
-fun JointAxis.Motor.Model.convert() = when (this) {
+fun JointAxis.Motor.Model.toRapier() = when (this) {
     JointAxis.Motor.Model.ACCELERATION_BASED -> MotorModel.ACCELERATION_BASED
     JointAxis.Motor.Model.FORCE_BASED        -> MotorModel.FORCE_BASED
 }
 
-fun MotorModel.convert() = when (this) {
+fun MotorModel.toRattle() = when (this) {
     MotorModel.ACCELERATION_BASED -> JointAxis.Motor.Model.ACCELERATION_BASED
     MotorModel.FORCE_BASED        -> JointAxis.Motor.Model.FORCE_BASED
 }
 
-fun QueryFilter.convert(arena: Arena, space: RapierSpace): rapier.pipeline.QueryFilter {
+fun QueryFilter.toRapier(arena: Arena, space: RapierSpace): rapier.pipeline.QueryFilter {
     val filter = rapier.pipeline.QueryFilter.of(
         arena,
         predicate?.let { predicate ->
@@ -162,7 +152,7 @@ fun QueryFilter.convert(arena: Arena, space: RapierSpace): rapier.pipeline.Query
         }
     )
     filter.flags = flags.raw
-    filter.groups = group.convert(arena)
+    filter.groups = group.toRapier()
     excludeCollider?.let { exclude ->
         exclude as RapierColliderKey
         filter.excludeCollider = exclude.id
@@ -174,14 +164,14 @@ fun QueryFilter.convert(arena: Arena, space: RapierSpace): rapier.pipeline.Query
     return filter
 }
 
-fun FeatureId.convert() = when (this) {
+fun FeatureId.toRattle() = when (this) {
     is FeatureId.Vertex -> ShapeFeature.Vertex(id)
     is FeatureId.Edge -> ShapeFeature.Edge(id)
     is FeatureId.Face -> ShapeFeature.Face(id)
     is FeatureId.Unknown -> throw IllegalStateException("Did not expect an Unknown FeatureId")
 }
 
-fun TOI.convert(): Intersect = when (val status = status) {
+fun TOI.toRattle(): Intersect = when (val status = status) {
     TOIStatus.PENETRATING -> Intersect.Penetrating
     else -> Intersect.Separated(
         state = when (status) {
@@ -198,35 +188,35 @@ fun TOI.convert(): Intersect = when (val status = status) {
     )
 }
 
-fun SimpleRayResult.convert() = RayCast.Simple(
+fun SimpleRayResult.toRattle() = RayCast.Simple(
     collider = RapierColliderKey(collider),
     hitTime = toi,
 )
 
-fun ComplexRayResult.convert() = RayCast.Complex(
+fun ComplexRayResult.toRattle() = RayCast.Complex(
     collider = RapierColliderKey(collider),
     hitTime = toi,
     normal = normal.toVec(),
-    feature = feature.convert(),
+    feature = feature.toRattle(),
 )
 
-fun rapier.pipeline.ShapeCast.convert(): ShapeCast {
+fun rapier.pipeline.ShapeCast.toRattle(): ShapeCast {
     val toi = toi
     return ShapeCast(
         collider = RapierColliderKey(collider),
-        intersect = toi.convert(),
+        intersect = toi.toRattle(),
     )
 }
 
-fun SimplePointProject.convert() = PointProject.Simple(
+fun SimplePointProject.toRattle() = PointProject.Simple(
     collider = RapierColliderKey(collider),
     wasInside = isInside,
     point = point.toVec(),
 )
 
-fun ComplexPointProject.convert() = PointProject.Complex(
+fun ComplexPointProject.toRattle() = PointProject.Complex(
     collider = RapierColliderKey(collider),
     wasInside = isInside,
     point = point.toVec(),
-    feature = feature.convert(),
+    feature = feature.toRattle(),
 )

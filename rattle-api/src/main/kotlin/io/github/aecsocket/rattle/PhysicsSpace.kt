@@ -329,7 +329,9 @@ interface PhysicsSpace : Destroyable {
 
     data class OnCollision(
         val state: State,
-        val pair: ContactPair,
+        val colliderA: ColliderKey,
+        val colliderB: ColliderKey,
+        val manifolds: List<Manifold>,
     ) {
         enum class State {
             STARTED,
@@ -340,6 +342,8 @@ interface PhysicsSpace : Destroyable {
     data class OnContactForce(
         val dt: Real,
         val totalMagnitude: Real,
-        val pair: ContactPair,
+        val colliderA: ColliderKey,
+        val colliderB: ColliderKey,
+        val manifolds: List<Manifold>,
     )
 }
