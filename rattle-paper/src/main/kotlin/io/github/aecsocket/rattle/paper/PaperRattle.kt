@@ -17,8 +17,11 @@ import io.github.aecsocket.rattle.impl.RattleMessages
 import io.github.aecsocket.rattle.impl.rattleManifest
 import io.github.aecsocket.rattle.world.NoOpEntityStrategy
 import io.github.oshai.kotlinlogging.KLogger
+import io.papermc.paper.event.player.PlayerTrackEntityEvent
+import io.papermc.paper.event.player.PlayerUntrackEntityEvent
 import org.bukkit.World
 import org.bukkit.block.Block
+import org.bukkit.entity.Entity
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
@@ -123,6 +126,24 @@ class PaperRattle : AlexandriaPlugin<RattleHook.Settings>(
                 if (event.action.isLeftClick) {
                     players[event.player]?.onClick()
                 }
+            }
+
+            private fun simpleBodies(entity: Entity, fn: PaperSimpleBodies.() -> Unit) {
+                runTask {
+                    physicsOrNull(entity.world)?.withLock { physics ->
+                        (physics.simpleBodies as? PaperSimpleBodies)?.let(fn)
+                    }
+                }
+            }
+
+            @EventHandler
+            fun on(event: PlayerTrackEntityEvent) {
+                simpleBodies(event.entity) { onTrack(event.player, event.entity) }
+            }
+
+            @EventHandler
+            fun on(event: PlayerUntrackEntityEvent) {
+                simpleBodies(event.entity) { onUntrack(event.player, event.entity) }
             }
 
             private fun terrainUpdate(block: Block) {

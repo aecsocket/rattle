@@ -410,7 +410,7 @@ abstract class RattleCommand<C : Audience, W>(
         ctx.runTask {
             lock.withLock { physics ->
                 val count = physics.simpleBodies.count
-                physics.simpleBodies.destroyAll()
+                physics.simpleBodies.removeAll()
                 messages.command.body.destroy.all(
                     world = server.key(world).asString(),
                     count = count,

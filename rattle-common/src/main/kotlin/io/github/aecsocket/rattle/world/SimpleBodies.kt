@@ -2,9 +2,9 @@ package io.github.aecsocket.rattle.world
 
 import io.github.aecsocket.alexandria.ArenaKey
 import io.github.aecsocket.alexandria.GenArena
-import io.github.aecsocket.alexandria.RenderInterpolation
+import io.github.aecsocket.alexandria.ItemRender
 import io.github.aecsocket.alexandria.desc.ItemDesc
-import io.github.aecsocket.alexandria.sync.Locked
+import io.github.aecsocket.klam.FAffine3
 import io.github.aecsocket.klam.FVec3
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.impl.RattlePlatform
@@ -42,8 +42,6 @@ data class SimpleBodyDesc(
     val angularDamping: Real = DEFAULT_ANGULAR_DAMPING,
 )
 
-interface SimpleBodyKey
-
 abstract class SimpleBodies<W>(
     val world: W,
     private val platform: RattlePlatform<W, *>,
@@ -54,73 +52,88 @@ abstract class SimpleBodies<W>(
 ) : Destroyable {
     @ConfigSerializable
     data class Settings(
-        val renderInterpolation: RenderInterpolation = RenderInterpolation(
-            duration = 2,
-        ),
-        val box: Geometry? = null,
-        val sphere: Geometry? = null,
+        val renderInterpolationDuration: Int = 2,
+        val box: ForGeometry? = null,
+        val sphere: ForGeometry? = null,
     ) {
         @ConfigSerializable
-        data class Geometry(
+        data class ForGeometry(
             @Required val item: ItemDesc,
             val scale: FVec3 = FVec3.One,
         )
     }
 
+    interface BakedItem
+
     inner class Instance(
         val collider: ColliderKey,
         val body: RigidBodyKey,
+        val scale: FVec3,
+        val item: BakedItem,
+        position: Iso,
     ) {
-        var nextPosition: Iso? = null
         val destroyed = DestroyFlag()
+        var render: ItemRender? = null
+        var nextPosition: Iso = position
 
         internal fun destroy() {
             destroyed()
             physics.colliders.remove(collider)?.destroy()
             physics.rigidBodies.remove(body)?.destroy()
+            render?.despawn()
+        }
+
+        fun onTrack(render: ItemRender) {
+            render
+                .transform(FAffine3(
+                    rotation = nextPosition.rotation.toFloat(),
+                    scale = scale,
+                ))
+                .interpolationDuration(settings.renderInterpolationDuration)
+                .item(item)
+        }
+
+        fun onUntrack(render: ItemRender) {
+            render.despawn()
         }
     }
 
-    @JvmInline
-    private value class Key(val key: ArenaKey) : SimpleBodyKey
+    protected abstract fun ItemRender.item(item: BakedItem)
+
+    protected abstract fun ItemDesc.create(): BakedItem
 
     private val destroyed = DestroyFlag()
-    private val instances = Locked(GenArena<Instance>())
+    private val instances = GenArena<Instance>()
+    private val colliderToInstance = HashMap<ColliderKey, ArenaKey>()
 
     val count: Int
-        get() = instances.withLock { it.size }
-
-    fun onPhysicsStep() {
-        instances.withLock { instances ->
-            instances.forEach { (_, instance) ->
-                physics.rigidBodies.read(instance.body)?.let { body ->
-                    if (!body.isSleeping) {
-                        instance.nextPosition = body.position
-                    }
-                }
-            }
-        }
-    }
+        get() = instances.size
 
     override fun destroy() {
         destroyed()
-        destroyAll()
+        removeAll()
     }
 
-    protected abstract fun createVisual(
-        position: Iso,
-        geomSettings: Settings.Geometry?,
-        geomScale: Vec,
-        instance: Instance,
-        instanceKey: ArenaKey,
-    )
+    operator fun get(key: ArenaKey) = instances[key]
 
-    fun create(position: Iso, desc: SimpleBodyDesc): SimpleBodyKey {
+    fun byCollider(collKey: ColliderKey): Instance? {
+        val arenaKey = colliderToInstance[collKey] ?: return null
+        return instances[arenaKey] ?: run {
+            colliderToInstance.remove(collKey)
+            null
+        }
+    }
+
+    protected abstract fun defaultGeomSettings(): Settings.ForGeometry
+
+    protected abstract fun createRender(position: Vec, instKey: ArenaKey): ItemRender
+
+    fun create(position: Iso, desc: SimpleBodyDesc): ArenaKey {
         val engine = platform.rattle.engine
 
         // SAFETY: we don't increment the ref count, so `collider` will fully own this shape
         val shape = engine.createShape(desc.geom.handle)
-        val collider = engine.createCollider(shape, StartPosition.Relative(Iso()))
+        val collider = engine.createCollider(shape, StartPosition.Relative())
             .material(desc.material)
             .mass(desc.mass)
             .let { physics.colliders.add(it) }
@@ -134,41 +147,45 @@ abstract class SimpleBodies<W>(
             .let { physics.rigidBodies.add(it) }
         physics.colliders.attach(collider, body)
 
-        val instance = Instance(
-            collider = collider,
-            body = body,
-        )
-        val key = instances.withLock { it.insert(instance) }
-
-        val (geomSettings, geomScale) = when (val geom = desc.geom) {
+        val (rawGeomSettings, rawGeomScale) = when (val geom = desc.geom) {
             is SimpleGeometry.Sphere -> settings.sphere to Vec(geom.handle.radius * 2.0)
             is SimpleGeometry.Box -> settings.box to geom.handle.halfExtent * 2.0
         }
-        when (desc.visibility) {
-            Visibility.VISIBLE -> createVisual(position, geomSettings, geomScale, instance, key)
-            Visibility.INVISIBLE -> {}
+        val geomSettings = rawGeomSettings ?: defaultGeomSettings()
+        val geomScale = rawGeomScale.toFloat() * geomSettings.scale
+
+        val inst = Instance(
+            collider = collider,
+            body = body,
+            scale = geomScale,
+            item = geomSettings.item.create(),
+            position = position,
+        )
+        val instKey = instances.insert(inst)
+        inst.render = when (desc.visibility) {
+            Visibility.VISIBLE -> createRender(position.translation, instKey)
+            Visibility.INVISIBLE -> null
         }
-
-        return Key(key)
+        return instKey
     }
 
-    fun destroy(key: ArenaKey) {
-        instances.withLock { it.remove(key) }?.destroy()
+    fun remove(key: ArenaKey) {
+        instances.remove(key)?.destroy()
     }
 
-    fun destroy(key: SimpleBodyKey) {
-        key as Key
-        platform.rattle.runTask {
-            destroy(key.key)
+    open fun removeAll() {
+        instances.forEach { (_, instance) ->
+            instance.destroy()
         }
+        instances.clear()
     }
 
-    open fun destroyAll() {
-        instances.withLock { instances ->
-            instances.forEach { (_, instance) ->
-                instance.destroy()
+    fun onPhysicsStep() {
+        instances.forEach { (_, instance) ->
+            val body = physics.rigidBodies.read(instance.body) ?: return@forEach
+            if (!body.isSleeping) {
+                instance.nextPosition = body.position
             }
-            instances.clear()
         }
     }
 }
