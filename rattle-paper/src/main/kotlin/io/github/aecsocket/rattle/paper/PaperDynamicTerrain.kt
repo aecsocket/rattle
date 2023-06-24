@@ -4,11 +4,13 @@ import io.github.aecsocket.alexandria.ItemRender
 import io.github.aecsocket.alexandria.Shaping
 import io.github.aecsocket.alexandria.desc.ItemDesc
 import io.github.aecsocket.alexandria.desc.ItemType
+import io.github.aecsocket.alexandria.paper.ChunkTracking
 import io.github.aecsocket.alexandria.paper.ItemDisplayRender
+import io.github.aecsocket.alexandria.paper.create
 import io.github.aecsocket.alexandria.paper.extension.nextEntityId
-import io.github.aecsocket.alexandria.paper.extension.position
 import io.github.aecsocket.alexandria.paper.extension.sendPacket
 import io.github.aecsocket.alexandria.paper.extension.toDVec
+import io.github.aecsocket.alexandria.paper.packetReceiver
 import io.github.aecsocket.alexandria.serializer.HierarchySerializer
 import io.github.aecsocket.alexandria.serializer.subType
 import io.github.aecsocket.alexandria.sync.Locked
@@ -181,27 +183,26 @@ abstract class DynamicTerrain<W>(
         val shapes: List<Compound.Child>,
     )
 
-    protected abstract fun createItemRender(pos: IVec3): ItemRender
-
     data class RenderData(
         val position: DVec3,
         val transform: FAffine3,
         val render: ItemRender,
     )
 
-    inner class Slice(val pos: IVec3, var state: SliceState) {
+    abstract inner class Slice(val pos: IVec3) {
+        var state: SliceState = SliceState.PendingScheduleSnapshot
         var remove: SliceRemove = SliceRemove.None
         var collision: SliceCollision? = null
             internal set
-
         val debugRenders = Shaping.box(DVec3(8.0))
             .map { (from, to) ->
                 RenderData(
-                    position = (pos * 16 + 8).toDouble(),
-                    transform = Shaping.lineTransform((to - from).toFloat(), 0.1f),
-                    render = createItemRender(pos)
+                    position = (pos * 16 + 8).toDouble() + from,
+                    transform = Shaping.lineTransform((to - from).toFloat(), 0.05f),
+                    render = createRender(pos),
                 )
             }
+
         var debugColor: TextColor = NamedTextColor.DARK_GRAY
             set(value) {
                 field = value
@@ -212,35 +213,19 @@ abstract class DynamicTerrain<W>(
             return collision?.layers ?: emptyList()
         }
 
-        /*
+        protected abstract fun ItemRender.item()
 
-
-        fun onTrack(render: ItemRender) {
+        fun onTrack(render: ItemRender, data: RenderData) {
             render
-                .spawn(nextPosition.translation)
-                .transform(FAffine3(
-                    rotation = nextPosition.rotation.toFloat(),
-                    scale = scale,
-                ))
-                .interpolationDuration(settings.renderInterpolationDuration)
-                .item(item)
-        }
-
-        fun onUntrack(render: ItemRender) {
-            render.despawn()
-        }
-         */
-
-        fun onTrack(data: RenderData) {
-            data.render
                 .spawn(data.position)
                 .transform(data.transform)
                 .glowing(true)
                 .glowColor(debugColor)
+                .item()
         }
 
-        fun onUntrack(data: RenderData) {
-            data.render.despawn()
+        fun onUntrack(render: ItemRender) {
+            render.despawn()
         }
     }
 
@@ -307,7 +292,7 @@ abstract class DynamicTerrain<W>(
         fun remove(pos: IVec3) {
             swapCollision(pos, null)
             val slice = _map.remove(pos) ?: return
-            slice.
+            slice.debugRenders.forEach { slice.onUntrack(it.render) }
         }
 
         fun swapCollision(pos: IVec3, collision: SliceCollision?) {
@@ -380,6 +365,12 @@ abstract class DynamicTerrain<W>(
         }
     }
 
+    protected abstract fun createRender(pos: IVec3): ItemRender
+
+    protected abstract fun createSlice(pos: IVec3): Slice
+
+    protected abstract fun scheduleSnapshot(pos: IVec3)
+
     override fun enable() {
 
     }
@@ -407,7 +398,9 @@ abstract class DynamicTerrain<W>(
         slices.withLock { slices ->
             toSnapshot.forEach { pos ->
                 if (!slices.contains(pos)) {
-                    slices.add(Slice(pos, SliceState.PendingScheduleSnapshot))
+                    val slice = createSlice(pos)
+                    slice.debugRenders.forEach { slice.onTrack(it.render, it) }
+                    slices.add(slice)
                     slices.dirty(pos)
                 }
             }
@@ -553,8 +546,6 @@ abstract class DynamicTerrain<W>(
         )
     }
 
-    protected abstract fun scheduleSnapshot(pos: IVec3)
-
     fun onSliceUpdate(pos: IVec3) {
         // wake any bodies which intersect this slice
         // note that this will not generate the slice collision *right now*; it will be scheduled on the next update
@@ -582,11 +573,6 @@ abstract class DynamicTerrain<W>(
             }
         }
     }
-}
-
-private fun sliceBounds(pos: IVec3): DAabb3 {
-    val min = DVec3(pos.x.toDouble(), pos.y.toDouble(), pos.z.toDouble()) * 16.0
-    return DAabb3(min, min + 16.0)
 }
 
 fun posInChunk(i: Int) = IVec3(
@@ -650,30 +636,22 @@ class PaperDynamicTerrain(
     physics: PhysicsSpace,
     settings: Settings = Settings(),
 ) : DynamicTerrain<World>(world, rattle.platform, physics, settings) {
-    private val yIndices = (world.minHeight / 16) until (world.maxHeight / 16)
-    private val playerTracking = HashMap<IVec2, MutableSet<Player>>()
-
-    override fun createItemRender(pos: IVec3) = ItemDisplayRender(nextEntityId()) { packet ->
-        playerTracking[pos.xz]?.forEach { it.sendPacket(packet) }
-    }
-
-    fun onTrackChunk(player: Player, chunk: Chunk) {
-        playerTracking.computeIfAbsent(chunk.position()) { HashSet() } += player
-        rattle.runTask {
-            slices.withLock { slices ->
-                yIndices.forEach { sy ->
-                    val slice = slices[IVec3(chunk.x, sy, chunk.z)] ?: return@forEach
-                    slice.onTrack()
-                }
-            }
+    inner class PaperSlice(
+        pos: IVec3,
+    ) : DynamicTerrain<World>.Slice(pos) {
+        override fun ItemRender.item() {
+            (this as ItemDisplayRender).item(debugRenderItem)
         }
     }
 
-    fun onUntrackChunk(player: Player, chunk: Chunk) {
-        val forChunk = playerTracking[chunk.position()] ?: return
-        forChunk -= player
-        if (forChunk.isEmpty()) {
-            playerTracking.remove(chunk.position())
+    private val debugRenderItem = settings.debugRenderItem.create()
+    private val yIndices = (world.minHeight / 16) until (world.maxHeight / 16)
+
+    override fun createSlice(pos: IVec3) = PaperSlice(pos)
+
+    override fun createRender(pos: IVec3) = ItemDisplayRender(nextEntityId()) { packet ->
+        ChunkTracking.trackedPlayers(world, pos.xz).forEach {
+            it.sendPacket(packet)
         }
     }
 
@@ -756,5 +734,33 @@ class PaperDynamicTerrain(
     private fun boxShape(halfExtent: DVec3): Shape {
         // todo cache this?
         return rattle.engine.createShape(Box(halfExtent))
+    }
+
+    private fun runForSlicesIn(chunk: Chunk, fn: (Slice) -> Unit) {
+        rattle.runTask {
+            slices.withLock { slices ->
+                yIndices.forEach { sy ->
+                    val slice = slices[IVec3(chunk.x, sy, chunk.z)] ?: return@forEach
+                    fn(slice)
+
+                }
+            }
+        }
+    }
+
+    fun onTrackChunk(player: Player, chunk: Chunk) {
+        runForSlicesIn(chunk) { slice ->
+            slice.debugRenders.forEach {
+                slice.onTrack((it.render as ItemDisplayRender).withReceiver(player.packetReceiver()), it)
+            }
+        }
+    }
+
+    fun onUntrackChunk(player: Player, chunk: Chunk) {
+        runForSlicesIn(chunk) { slice ->
+            slice.debugRenders.forEach {
+                slice.onUntrack((it.render as ItemDisplayRender).withReceiver(player.packetReceiver()))
+            }
+        }
     }
 }

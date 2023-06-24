@@ -2,7 +2,6 @@ package io.github.aecsocket.rattle.paper
 
 import io.github.aecsocket.alexandria.ArenaKey
 import io.github.aecsocket.alexandria.ItemRender
-import io.github.aecsocket.alexandria.desc.ItemDesc
 import io.github.aecsocket.alexandria.paper.*
 import io.github.aecsocket.alexandria.paper.extension.nextEntityId
 import io.github.aecsocket.alexandria.paper.extension.sendPacket
@@ -24,16 +23,28 @@ class PaperSimpleBodies(
     physics: PhysicsSpace,
     settings: Settings = Settings(),
 ) : SimpleBodies<World>(world, rattle.platform, physics, settings) {
+    inner class PaperInstance(
+        collider: ColliderKey,
+        body: RigidBodyKey,
+        scale: FVec3,
+        position: DIso3,
+        val item: ItemStack,
+    ) : SimpleBodies<World>.Instance(collider, body, scale, position) {
+        override fun ItemRender.item() {
+            (this as ItemDisplayRender).item(item)
+        }
+    }
+
     private val trackerToInstance = HashMap<UUID, ArenaKey>()
     private val toRemove = Locked(HashSet<ArenaKey>())
 
-    data class PaperItem(val handle: ItemStack) : BakedItem
-
-    override fun ItemRender.item(item: BakedItem) {
-        (this as ItemDisplayRender).item((item as PaperItem).handle)
-    }
-
-    override fun ItemDesc.create() = PaperItem(create(count = 1))
+    override fun createInstance(
+        collider: ColliderKey,
+        body: RigidBodyKey,
+        scale: FVec3,
+        position: DIso3,
+        geomSettings: Settings.ForGeometry
+    ) = PaperInstance(collider, body, scale, position, geomSettings.item.create())
 
     override fun createRender(position: DVec3, instKey: ArenaKey): ItemRender {
         // we start with no receivers, and update this set every tick

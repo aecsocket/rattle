@@ -31,6 +31,7 @@ import org.bukkit.event.block.BlockBreakEvent
 import org.bukkit.event.block.BlockPlaceEvent
 import org.bukkit.event.player.PlayerInteractEvent
 import org.bukkit.event.player.PlayerQuitEvent
+import org.bukkit.event.world.ChunkUnloadEvent
 import org.bukkit.event.world.WorldUnloadEvent
 import org.spongepowered.configurate.ConfigurationNode
 import org.spongepowered.configurate.ConfigurationOptions
@@ -105,7 +106,7 @@ class PaperRattle : AlexandriaPlugin<RattleHook.Settings>(
         rattle.init()
     }
 
-    override fun onEnable() {
+    override fun onPostEnable() {
         PaperRattleCommand(this)
         scheduling.onServer().runRepeating {
             players.forEach { (_, player) ->
@@ -208,7 +209,7 @@ class PaperRattle : AlexandriaPlugin<RattleHook.Settings>(
             val settings = settings.worlds.forWorld(world) ?: RattleHook.Settings.World()
             val physics = engine.createSpace(settings.physics)
             physics.lock = lock
-            val terrain = PaperDynamicTerrain(this, physics, world)
+            val terrain = PaperDynamicTerrain(this, world, physics) // todo settings
             val entities = NoOpEntityStrategy // TODO
             val simpleBodies = PaperSimpleBodies(this, world, physics, this.settings.simpleBodies)
             Locked(PaperWorldPhysics(this, world, physics, terrain, entities, simpleBodies), lock)

@@ -63,13 +63,10 @@ abstract class SimpleBodies<W>(
         )
     }
 
-    interface BakedItem
-
-    inner class Instance(
+    abstract inner class Instance(
         val collider: ColliderKey,
         val body: RigidBodyKey,
         val scale: FVec3,
-        val item: BakedItem,
         position: DIso3,
     ) {
         val destroyed = DestroyFlag()
@@ -83,6 +80,8 @@ abstract class SimpleBodies<W>(
             render?.despawn()
         }
 
+        protected abstract fun ItemRender.item()
+
         fun onTrack(render: ItemRender) {
             render
                 .spawn(nextPosition.translation)
@@ -91,17 +90,13 @@ abstract class SimpleBodies<W>(
                     scale = scale,
                 ))
                 .interpolationDuration(settings.renderInterpolationDuration)
-                .item(item)
+                .item()
         }
 
         fun onUntrack(render: ItemRender) {
             render.despawn()
         }
     }
-
-    protected abstract fun ItemRender.item(item: BakedItem)
-
-    protected abstract fun ItemDesc.create(): BakedItem
 
     private val destroyed = DestroyFlag()
     private val instances = GenArena<Instance>()
@@ -124,6 +119,14 @@ abstract class SimpleBodies<W>(
             null
         }
     }
+
+    protected abstract fun createInstance(
+        collider: ColliderKey,
+        body: RigidBodyKey,
+        scale: FVec3,
+        position: DIso3,
+        geomSettings: Settings.ForGeometry,
+    ): Instance
 
     protected abstract fun createRender(position: DVec3, instKey: ArenaKey): ItemRender
 
@@ -152,12 +155,12 @@ abstract class SimpleBodies<W>(
         }
         val geomScale = rawGeomScale.toFloat() * geomSettings.scale
 
-        val inst = Instance(
+        val inst = createInstance(
             collider = collider,
             body = body,
             scale = geomScale,
-            item = geomSettings.item.create(),
             position = position,
+            geomSettings = geomSettings,
         )
         val instKey = instances.insert(inst)
         inst.render = when (desc.visibility) {
