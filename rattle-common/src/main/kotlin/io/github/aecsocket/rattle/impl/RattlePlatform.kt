@@ -84,7 +84,9 @@ abstract class RattlePlatform<W, C>(
 
                 worlds.forEach { it.onPhysicsStep() }
 
+                println("START step")
                 rattle.engine.stepSpaces(dt, worlds.map { it.physics })
+                println("STOP step")
 
                 locks.forEach { it.unlock() }
                 // end lock scope

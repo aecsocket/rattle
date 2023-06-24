@@ -293,6 +293,7 @@ abstract class RattleCommand<C : Audience, W>(
             restitution = restitution,
         )
         val visibility = if (virtual) Visibility.INVISIBLE else Visibility.VISIBLE
+        val desc = createDesc(material, mass, visibility)
 
         ctx.runTask {
             server.physicsOrCreate(location.world).withLock { physics ->
@@ -301,7 +302,7 @@ abstract class RattleCommand<C : Audience, W>(
 
                     physics.simpleBodies.create(
                         position = Iso(location.position + offset),
-                        desc = createDesc(material, mass, visibility),
+                        desc = desc,
                     )
                 }
             }

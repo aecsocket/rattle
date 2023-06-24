@@ -85,6 +85,7 @@ abstract class SimpleBodies<W>(
 
         fun onTrack(render: ItemRender) {
             render
+                .spawn(nextPosition.translation)
                 .transform(FAffine3(
                     rotation = nextPosition.rotation.toFloat(),
                     scale = scale,
@@ -180,7 +181,7 @@ abstract class SimpleBodies<W>(
         instances.clear()
     }
 
-    fun onPhysicsStep() {
+    open fun onPhysicsStep() {
         instances.forEach { (_, instance) ->
             val body = physics.rigidBodies.read(instance.body) ?: return@forEach
             if (!body.isSleeping) {

@@ -4,17 +4,16 @@ import io.github.aecsocket.alexandria.ArenaKey
 import io.github.aecsocket.alexandria.ItemRender
 import io.github.aecsocket.alexandria.desc.ItemDesc
 import io.github.aecsocket.alexandria.paper.*
-import io.github.aecsocket.alexandria.paper.extension.location
 import io.github.aecsocket.alexandria.paper.extension.nextEntityId
 import io.github.aecsocket.alexandria.paper.extension.spawn
+import io.github.aecsocket.alexandria.sync.Locked
 import io.github.aecsocket.klam.FAffine3
-import io.github.aecsocket.klam.FQuat
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.world.SimpleBodies
 import org.bukkit.Material
 import org.bukkit.World
 import org.bukkit.entity.Entity
-import org.bukkit.entity.Marker
+import org.bukkit.entity.ItemDisplay
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
 import java.util.UUID
@@ -26,6 +25,7 @@ class PaperSimpleBodies(
     settings: Settings = Settings(),
 ) : SimpleBodies<World>(world, rattle.platform, physics, settings) {
     private val trackerToInstance = HashMap<UUID, ArenaKey>()
+    private val toRemove = Locked(HashSet<ArenaKey>())
 
     data class PaperItem(val handle: ItemStack) : BakedItem
 
@@ -40,57 +40,55 @@ class PaperSimpleBodies(
     )
 
     override fun createRender(position: Vec, instKey: ArenaKey): ItemRender {
-        val tracker = world.spawn<Marker>(position) { tracker ->
-            trackerToInstance[tracker.uniqueId] = instKey
+        // create a render with no receiver first
+        // // then assign it a receiver after we make the entity
+        val render = ItemDisplayRender(nextEntityId()) {}
+        rattle.scheduling.onChunk(world, position).runLater {
+            // since the client doesn't track Markers, we have to use something else
+            val tracker = world.spawn<ItemDisplay>(position) { tracker ->
+                trackerToInstance[tracker.uniqueId] = instKey
+                render.receiver = tracker.playerReceivers()
+            }
+            val trackerId = tracker.uniqueId
+
+            rattle.scheduling.onEntity(tracker, onRetire = {
+                // we have no clue on what thread this runnable will be run, so we can't delete it immediately
+                trackerToInstance.remove(trackerId)?.let {
+                    toRemove.withLock { toRemove ->
+                        toRemove += it
+                    }
+                }
+            }).runRepeating {
+                val inst = get(instKey) ?: run {
+                    tracker.remove()
+                    return@runRepeating
+                }
+                if (inst.destroyed.get()) {
+                    tracker.remove()
+                    return@runRepeating
+                }
+
+                render
+                    // this is required to make the interpolation work properly
+                    // because this game SUCKS
+                    .interpolationDelay(0)
+                    .position(inst.nextPosition.translation)
+                    .transform(FAffine3(
+                        rotation = inst.nextPosition.rotation.toFloat(),
+                        scale = inst.scale,
+                    ))
+            }
         }
+        return render
+    }
 
-        rattle.scheduling.onEntity(tracker).runRepeating { task ->
-            // UGHHHH REMOVAL CODE SUCKS
-            // BAD BAD BAD
-            fun removeTracker() {
-                tracker.remove()
-                trackerToInstance.remove(tracker.uniqueId)
-            }
-
-            if (!tracker.isValid) {
-                task.cancel()
-                removeTracker()
-                return@runRepeating
-            }
-
-            val inst = get(instKey) ?: run {
-                task.cancel()
-                removeTracker()
-                return@runRepeating
-            }
-            if (inst.destroyed.get()) {
-                task.cancel()
-            }
-
-
-            if (instance.destroyed.get() || !tracker.isValid) {
-                task.cancel()
-                remove(instanceKey)
-                render.remove()
-                return@runRepeating
-            }
-
-            // logically it's gotta have a render. like come on, who would be stupid enough to run `createRender`
-            // and then *remove* the render?
-            // but just to be safe, we'll return instead of NPE'ing
-            val render = inst.render ?: return@runRepeating
-            render
-                // this is required to make the interpolation work properly
-                // because this game SUCKS
-                .interpolationDelay(0)
-                .position(inst.nextPosition.translation)
-                .transform(FAffine3(
-                    rotation = inst.nextPosition.rotation.toFloat(),
-                    scale = inst.scale,
-                ))
-        }
-
-        return ItemDisplayRender(nextEntityId(), tracker.playerReceivers())
+    override fun onPhysicsStep() {
+        // remove the previously-scheduled-for-removal instances
+        // under protection of lock on both this SimpleBodies and the PhysicsSpace
+        // copy and swap the set to avoid concurrency issues
+        toRemove.withLock { toRemove -> toRemove.toSet().also { toRemove.clear() } }
+            .forEach { remove(it) }
+        super.onPhysicsStep()
     }
 
     fun onTrack(player: Player, entity: Entity) {
@@ -109,10 +107,5 @@ class PaperSimpleBodies(
         }
         val render = inst.render as? ItemDisplayRender ?: return
         inst.onUntrack(render.withReceiver(player.packetReceiver()))
-    }
-
-    fun onEntityRemove(entity: Entity) {
-        val instKey = trackerToInstance.remove(entity.uniqueId) ?: return
-        remove(instKey)
     }
 }

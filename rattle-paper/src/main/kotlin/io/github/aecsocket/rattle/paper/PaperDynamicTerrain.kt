@@ -1,7 +1,5 @@
 package io.github.aecsocket.rattle.paper
 
-import io.github.aecsocket.alexandria.desc.ParticleShaping
-import io.github.aecsocket.alexandria.paper.extension.toColor
 import io.github.aecsocket.alexandria.paper.extension.toDVec
 import io.github.aecsocket.alexandria.sync.Locked
 import io.github.aecsocket.klam.*
@@ -9,12 +7,11 @@ import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.world.TILES_IN_SLICE
 import io.github.aecsocket.rattle.world.TerrainStrategy
 import net.kyori.adventure.key.Key
+
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextColor
 import org.bukkit.Chunk
 import org.bukkit.Material
-import org.bukkit.Particle
-import org.bukkit.Particle.DustOptions
 import org.bukkit.World
 import org.bukkit.block.Block
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
@@ -758,22 +755,22 @@ repeated...
 
          */
 
-        ParticleShaping().aabb(aabb).forEach { (x, y, z) ->
-            world.players.forEach { player ->
-                player.spawnParticle(
-                    Particle.REDSTONE,
-                    x, y + info.offset, z,
-                    0,
-                    1.0, 1.0, 1.0,
-                    10000.0, DustOptions(info.color.toColor(), 1.0f),
-                )
-            }
-        }
+//        ParticleShaping().aabb(aabb).forEach { (x, y, z) ->
+//            world.players.forEach { player ->
+//                player.spawnParticle(
+//                    Particle.REDSTONE,
+//                    x, y + info.offset, z,
+//                    0,
+//                    1.0, 1.0, 1.0,
+//                    10000.0, DustOptions(info.color.toColor(), 1.0f),
+//                )
+//            }
+//        }
     }
 
     private fun scheduleSnapshot(pos: IVec3) {
         val chunk = world.getChunkAt(pos.x, pos.z)
-        rattle.scheduling.onChunk(chunk).launch {
+        rattle.scheduling.onChunk(chunk).runLater {
             val snapshot = createSnapshot(chunk, pos)
             slices.withLock { slices ->
                 val slice = slices[pos] ?: return@withLock
