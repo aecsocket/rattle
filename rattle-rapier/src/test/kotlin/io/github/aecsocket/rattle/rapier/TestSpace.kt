@@ -42,7 +42,7 @@ class TestSpace {
     }
 
     @Test
-    fun testSpaceLock() {
+    fun testLock() {
         val engine = RapierEngine()
         val physics = engine.createSpace()
         val lock = ReentrantLock()
@@ -50,6 +50,17 @@ class TestSpace {
 
         assertThrows<IllegalStateException> {
             physics.colliders.count
+        }
+
+        lock.lock()
+        val shape = engine.createShape(Sphere(0.5))
+        val collKey = engine.createCollider(shape, StartPosition.Absolute(DIso3()))
+            .let { physics.colliders.add(it) }
+        val coll = physics.colliders.read(collKey)!!
+        lock.unlock()
+
+        assertThrows<IllegalStateException> {
+            coll.position
         }
     }
 

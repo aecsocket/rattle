@@ -10,6 +10,7 @@ import rapier.geometry.ColliderBuilder
 import rapier.pipeline.PhysicsPipeline
 import rapier.shape.CompoundChild
 import rapier.shape.SharedShape
+import java.util.concurrent.locks.ReentrantLock
 
 class RapierEngine internal constructor(var settings: Settings = Settings()) : PhysicsEngine {
     @ConfigSerializable
@@ -198,4 +199,10 @@ class RapierEngine internal constructor(var settings: Settings = Settings()) : P
 
         override fun build() = RapierEngine(settings)
     }
+}
+
+internal fun checkLock(objType: String, lock: ReentrantLock?) {
+    if (lock == null) return
+    if (!lock.isHeldByCurrentThread)
+        throw IllegalStateException("${Thread.currentThread().name}: Attempting to read/write $objType while not locked by this thread")
 }

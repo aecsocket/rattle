@@ -5,6 +5,7 @@ import io.github.aecsocket.alexandria.ItemRender
 import io.github.aecsocket.alexandria.desc.ItemDesc
 import io.github.aecsocket.alexandria.paper.*
 import io.github.aecsocket.alexandria.paper.extension.nextEntityId
+import io.github.aecsocket.alexandria.paper.extension.sendPacket
 import io.github.aecsocket.alexandria.paper.extension.spawn
 import io.github.aecsocket.alexandria.sync.Locked
 import io.github.aecsocket.klam.*
@@ -40,14 +41,15 @@ class PaperSimpleBodies(
     )
 
     override fun createRender(position: DVec3, instKey: ArenaKey): ItemRender {
-        // create a render with no receiver first
-        // // then assign it a receiver after we make the entity
-        val render = ItemDisplayRender(nextEntityId()) {}
+        // we start with no receivers, and update this set every tick
+        // instead of using `entity.trackedPlayers` directly, because once that entity is invalid,
+        // that returns an empty set; we want to get the last tracked players instead
+        var lastReceivers: Set<Player> = emptySet()
+        val render = ItemDisplayRender(nextEntityId()) { packet -> lastReceivers.forEach { it.sendPacket(packet) }}
         rattle.scheduling.onChunk(world, position).runLater {
             // since the client doesn't track Markers, we have to use something else
             val tracker = world.spawn<ItemDisplay>(position) { tracker ->
                 trackerToInstance[tracker.uniqueId] = instKey
-                render.receiver = tracker.playerReceivers()
             }
             val trackerId = tracker.uniqueId
 
@@ -68,6 +70,7 @@ class PaperSimpleBodies(
                     return@runRepeating
                 }
 
+                lastReceivers = tracker.trackedPlayers
                 render
                     // this is required to make the interpolation work properly
                     // because this game SUCKS

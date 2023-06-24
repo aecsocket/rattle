@@ -127,11 +127,7 @@ class RapierSpace internal constructor(
         maxCcdSubsteps = engine.settings.integration.maxCcdSubsteps
     }
 
-    private fun checkLock() {
-        val lock = lock ?: return
-        if (!lock.isHeldByCurrentThread)
-            throw IllegalStateException("${Thread.currentThread().name}: Attempting to read/write physics space while not locked by this thread")
-    }
+    private fun checkLock() = checkLock("space", lock)
 
     override fun destroy() {
         checkLock()

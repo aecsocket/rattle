@@ -26,45 +26,78 @@ sealed class RapierCollider(
     override val handle: rapier.geometry.Collider,
     override var space: RapierSpace?,
 ) : RapierNative(), RapierPhysicsNative, Collider {
+    protected fun checkLock() = checkLock("collider", space?.lock)
+
     override val shape: Shape
-        get() = RapierShape(handle.shape)
+        get() {
+            checkLock()
+            return RapierShape(handle.shape)
+        }
 
     override val material: PhysicsMaterial
-        get() = PhysicsMaterial(
-            friction = handle.friction,
-            restitution = handle.restitution,
-            frictionCombine = handle.frictionCombineRule.toRattle(),
-            restitutionCombine = handle.restitutionCombineRule.toRattle(),
-        )
+        get() {
+            checkLock()
+            return PhysicsMaterial(
+                friction = handle.friction,
+                restitution = handle.restitution,
+                frictionCombine = handle.frictionCombineRule.toRattle(),
+                restitutionCombine = handle.restitutionCombineRule.toRattle(),
+            )
+        }
 
     override val collisionGroup: InteractionGroup
-        get() = handle.collisionGroups.toRattle()
+        get() {
+            checkLock()
+            return handle.collisionGroups.toRattle()
+        }
 
     override val solverGroup: InteractionGroup
-        get() = handle.solverGroups.toRattle()
+        get() {
+            checkLock()
+            return handle.solverGroups.toRattle()
+        }
 
     override val position: DIso3
-        get() = handle.position.toIso()
+        get() {
+            checkLock()
+            return handle.position.toIso()
+        }
 
     override val relativePosition: DIso3
-        get() = handle.positionWrtParent?.toIso() ?: DIso3()
+        get() {
+            checkLock()
+            return handle.positionWrtParent?.toIso() ?: DIso3()
+        }
 
     override val mass: Double
-        get() = handle.mass
+        get() {
+            checkLock()
+            return handle.mass
+        }
 
     override val density: Double
-        get() = handle.density
+        get() {
+            checkLock()
+            return handle.density
+        }
 
     override val physicsMode: PhysicsMode
-        get() = when (handle.isSensor) {
-            false -> PhysicsMode.SOLID
-            true -> PhysicsMode.SENSOR
+        get() {
+            checkLock()
+            return when (handle.isSensor) {
+                false -> PhysicsMode.SOLID
+                true -> PhysicsMode.SENSOR
+            }
         }
 
     override val parent: RigidBodyKey?
-        get() = handle.parent?.let { RapierRigidBodyKey(it) }
+        get() {
+            checkLock()
+            return handle.parent?.let { RapierRigidBodyKey(it) }
+        }
 
     override fun bounds(): DAabb3 {
+        checkLock()
         return handle.computeAabb().toAabb()
     }
 
@@ -84,6 +117,7 @@ sealed class RapierCollider(
         private val destroyed = DestroyFlag()
 
         override fun destroy() {
+            checkLock()
             destroyed()
             space?.let { space ->
                 throw IllegalStateException("Attempting to remove $this while still attached to $space")
@@ -92,12 +126,14 @@ sealed class RapierCollider(
         }
 
         override fun shape(value: Shape): Write {
+            checkLock()
             value as RapierShape
             handle.shape = value.handle
             return this
         }
 
         override fun material(value: PhysicsMaterial): Write {
+            checkLock()
             handle.friction = value.friction
             handle.restitution = value.restitution
             handle.frictionCombineRule = value.frictionCombine.toRapier()
@@ -106,26 +142,31 @@ sealed class RapierCollider(
         }
 
         override fun collisionGroup(value: InteractionGroup): Write {
+            checkLock()
             handle.collisionGroups = value.toRapier()
             return this
         }
 
         override fun solverGroup(value: InteractionGroup): Write {
+            checkLock()
             handle.solverGroups = value.toRapier()
             return this
         }
 
         override fun position(value: DIso3): Write {
+            checkLock()
             handle.position = value.toIsometry()
             return this
         }
 
         override fun relativePosition(value: DIso3): Write {
+            checkLock()
             handle.setPositionWrtParent(value.toIsometry())
             return this
         }
 
         override fun mass(value: Mass): Write {
+            checkLock()
             when (value) {
                 is Mass.Constant -> handle.mass = value.mass
                 is Mass.Density -> handle.density = value.density
@@ -135,6 +176,7 @@ sealed class RapierCollider(
         }
 
         override fun physicsMode(value: PhysicsMode): Write {
+            checkLock()
             handle.isSensor = when (value) {
                 PhysicsMode.SOLID -> false
                 PhysicsMode.SENSOR -> true
@@ -143,6 +185,7 @@ sealed class RapierCollider(
         }
 
         override fun handlesEvents(vararg values: ColliderEvent): Collider.Own {
+            checkLock()
             var events = 0
             var hooks = 0
             values.forEach { value ->
