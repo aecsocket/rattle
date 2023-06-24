@@ -1,7 +1,6 @@
 package io.github.aecsocket.rattle.impl
 
 import io.github.aecsocket.alexandria.sync.Sync
-import io.github.aecsocket.rattle.Real
 import io.github.aecsocket.rattle.stats.TimestampedList
 import io.github.aecsocket.rattle.world.*
 import net.kyori.adventure.key.Key
@@ -13,7 +12,7 @@ abstract class RattlePlatform<W, C>(
 ) {
     abstract val worlds: Iterable<W>
 
-    protected abstract fun callBeforeStep(dt: Real)
+    protected abstract fun callBeforeStep(dt: Double)
 
     abstract fun asPlayer(sender: C): RattlePlayer<W, *>?
 
@@ -84,9 +83,7 @@ abstract class RattlePlatform<W, C>(
 
                 worlds.forEach { it.onPhysicsStep() }
 
-                println("START step")
                 rattle.engine.stepSpaces(dt, worlds.map { it.physics })
-                println("STOP step")
 
                 locks.forEach { it.unlock() }
                 // end lock scope

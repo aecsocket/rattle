@@ -28,7 +28,7 @@ abstract class RattleHook {
     @ConfigSerializable
     data class Settings(
         override val defaultLocale: Locale = AlexandriaHook.FallbackLocale,
-        val timeStepMultiplier: Real = 1.0,
+        val timeStepMultiplier: Double = 1.0,
         val worlds: Map<String, World> = emptyMap(),
         val simpleBodies: SimpleBodies.Settings = SimpleBodies.Settings(),
         val stats: Stats = Stats(),

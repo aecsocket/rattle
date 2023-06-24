@@ -1,9 +1,6 @@
 package io.github.aecsocket.rattle.world
 
-import io.github.aecsocket.klam.DVec3
-import io.github.aecsocket.klam.expand
-import io.github.aecsocket.klam.max
-import io.github.aecsocket.klam.min
+import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.*
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 
@@ -13,12 +10,12 @@ abstract class Dt(
 ) : TerrainStrategy {
     @ConfigSerializable
     data class Settings(
-        val expandVelocity: Real = 0.1,
-        val expandConstant: Real = 4.0,
+        val expandVelocity: Double = 0.1,
+        val expandConstant: Double = 4.0,
     )
 
     override fun onPhysicsStep() {
-        fun processColl(linVel: Vec, coll: Collider) {
+        fun processColl(linVel: DVec3, coll: Collider) {
             val bounds = expandBounds(linVel, coll)
 
         }
@@ -35,14 +32,14 @@ abstract class Dt(
 
     // the mostly safe stuff
 
-    private fun expandBounds(linVel: Vec, coll: Collider): Aabb {
+    private fun expandBounds(linVel: DVec3, coll: Collider): DAabb3 {
         val from = coll.position.translation
         val to = from + linVel * settings.expandVelocity
         val collBound = coll.bounds()
 
         return expand(
             expand(
-                Aabb(
+                DAabb3(
                     min(from, to),
                     max(from, to),
                 ), // a box spanning the current coll pos, up to a bit in front of it (determined by velocity)

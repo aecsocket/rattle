@@ -1,7 +1,6 @@
 package io.github.aecsocket.rattle.impl
 
-import io.github.aecsocket.klam.DVec3
-import io.github.aecsocket.rattle.Iso
+import io.github.aecsocket.klam.*
 
 data class Location<W>(
     val world: W,
@@ -9,5 +8,5 @@ data class Location<W>(
 )
 
 interface Entity {
-    val position: Iso
+    val position: DIso3
 }

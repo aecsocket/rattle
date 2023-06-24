@@ -1,5 +1,6 @@
 package io.github.aecsocket.rattle.world
 
+import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.impl.Entity
 
@@ -10,7 +11,7 @@ abstract class StandardEntities(
     data class EntityState(
         val body: RigidBodyKey,
     ) {
-        var nextPosition: Iso? = null
+        var nextPosition: DIso3? = null
     }
 
     private val entities = HashMap<Entity, EntityState>()

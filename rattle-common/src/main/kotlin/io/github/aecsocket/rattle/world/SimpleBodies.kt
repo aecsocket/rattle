@@ -4,8 +4,7 @@ import io.github.aecsocket.alexandria.ArenaKey
 import io.github.aecsocket.alexandria.GenArena
 import io.github.aecsocket.alexandria.ItemRender
 import io.github.aecsocket.alexandria.desc.ItemDesc
-import io.github.aecsocket.klam.FAffine3
-import io.github.aecsocket.klam.FVec3
+import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.impl.RattlePlatform
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
@@ -35,11 +34,11 @@ data class SimpleBodyDesc(
     val mass: Mass = Mass.Density(1.0),
     val visibility: Visibility = Visibility.VISIBLE,
     val isCcdEnabled: Boolean = false,
-    val linearVelocity: Vec = Vec.Zero,
-    val angularVelocity: Vec = Vec.Zero,
-    val gravityScale: Real = 1.0,
-    val linearDamping: Real = DEFAULT_LINEAR_DAMPING,
-    val angularDamping: Real = DEFAULT_ANGULAR_DAMPING,
+    val linearVelocity: DVec3 = DVec3.Zero,
+    val angularVelocity: DVec3 = DVec3.Zero,
+    val gravityScale: Double = 1.0,
+    val linearDamping: Double = DEFAULT_LINEAR_DAMPING,
+    val angularDamping: Double = DEFAULT_ANGULAR_DAMPING,
 )
 
 abstract class SimpleBodies<W>(
@@ -70,11 +69,11 @@ abstract class SimpleBodies<W>(
         val body: RigidBodyKey,
         val scale: FVec3,
         val item: BakedItem,
-        position: Iso,
+        position: DIso3,
     ) {
         val destroyed = DestroyFlag()
         var render: ItemRender? = null
-        var nextPosition: Iso = position
+        var nextPosition: DIso3 = position
 
         internal fun destroy() {
             destroyed()
@@ -127,9 +126,9 @@ abstract class SimpleBodies<W>(
 
     protected abstract fun defaultGeomSettings(): Settings.ForGeometry
 
-    protected abstract fun createRender(position: Vec, instKey: ArenaKey): ItemRender
+    protected abstract fun createRender(position: DVec3, instKey: ArenaKey): ItemRender
 
-    fun create(position: Iso, desc: SimpleBodyDesc): ArenaKey {
+    fun create(position: DIso3, desc: SimpleBodyDesc): ArenaKey {
         val engine = platform.rattle.engine
 
         // SAFETY: we don't increment the ref count, so `collider` will fully own this shape
@@ -149,7 +148,7 @@ abstract class SimpleBodies<W>(
         physics.colliders.attach(collider, body)
 
         val (rawGeomSettings, rawGeomScale) = when (val geom = desc.geom) {
-            is SimpleGeometry.Sphere -> settings.sphere to Vec(geom.handle.radius * 2.0)
+            is SimpleGeometry.Sphere -> settings.sphere to DVec3(geom.handle.radius * 2.0)
             is SimpleGeometry.Box -> settings.box to geom.handle.halfExtent * 2.0
         }
         val geomSettings = rawGeomSettings ?: defaultGeomSettings()

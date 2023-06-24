@@ -78,8 +78,8 @@ abstract class Abcd(
     ) {
         @ConfigSerializable
         data class Expansion(
-            val velocityFactor: Real = 0.1,
-            val constant: Real = 4.0,
+            val velocityFactor: Double = 0.1,
+            val constant: Double = 4.0,
         )
     }
 
@@ -102,7 +102,7 @@ abstract class Abcd(
     sealed interface Layer {
         data class Solid(val material: PhysicsMaterial) : Layer
 
-        data class Fluid(val density: Real) : Layer
+        data class Fluid(val density: Double) : Layer
     }
 
     data class Block(
@@ -241,7 +241,7 @@ abstract class Abcd(
             val toRemove = sections.withLock { it.map.keys.toMutableSet() }
 
             // find chunk sections which bodies are intersecting
-            fun forCollider(linVel: Vec, coll: Collider) {
+            fun forCollider(linVel: DVec3, coll: Collider) {
                 val bounds = computeBounds(linVel, coll)
                 val sectionPos = enclosedPoints(bounds / 16.0).toSet()
 
@@ -307,14 +307,14 @@ abstract class Abcd(
         }
     }
 
-    private fun computeBounds(linVel: Vec, coll: Collider): Aabb {
+    private fun computeBounds(linVel: DVec3, coll: Collider): DAabb3 {
         val from = coll.position.translation
         val to = from + linVel * settings.expansion.velocityFactor
         val collBound = coll.bounds()
 
         return expand(
             expand(
-                Aabb(
+                DAabb3(
                     min(from, to),
                     max(from, to),
                 ), // a box spanning the current coll pos, up to a bit in front of it (determined by velocity)
@@ -345,8 +345,8 @@ abstract class Abcd(
             if (children.isEmpty()) return@mapIndexedNotNull null
             val layer = layers[layerId]
             // SAFETY: this collider owns this compound shape
-            rattle.engine.createCollider(rattle.engine.createShape(Compound(children)), StartPosition.Absolute(Iso()))
-                .position(Iso(Vec(pos.x.toDouble(), pos.y.toDouble(), pos.z.toDouble())))
+            rattle.engine.createCollider(rattle.engine.createShape(Compound(children)), StartPosition.Absolute(DIso3()))
+                .position(DIso3(DVec3(pos.x.toDouble(), pos.y.toDouble(), pos.z.toDouble())))
                 .also {
                     when (layer) {
                         is Layer.Solid -> it

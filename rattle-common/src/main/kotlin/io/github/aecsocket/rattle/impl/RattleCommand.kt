@@ -10,7 +10,7 @@ import io.github.aecsocket.alexandria.extension.flag
 import io.github.aecsocket.alexandria.extension.hasFlag
 import io.github.aecsocket.alexandria.hook.AlexandriaCommand
 import io.github.aecsocket.glossa.MessageProxy
-import io.github.aecsocket.klam.nextDVec3
+import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.stats.formatTiming
 import io.github.aecsocket.rattle.stats.timingStatsOf
@@ -281,8 +281,8 @@ abstract class RattleCommand<C : Audience, W>(
         val location = ctx.getLocation(LOCATION)
         val count = ctx.flag(COUNT) ?: 1
         val spread = ctx.flag(SPREAD) ?: 0.0
-        val mass = ctx.flag<Real>(DENSITY)?.let { Mass.Density(it) }
-            ?: ctx.flag<Real>(MASS)?.let { Mass.Constant(it) }
+        val mass = ctx.flag<Double>(DENSITY)?.let { Mass.Density(it) }
+            ?: ctx.flag<Double>(MASS)?.let { Mass.Constant(it) }
             ?: Mass.Density(1.0)
         val friction = ctx.flag(FRICTION) ?: DEFAULT_FRICTION
         val restitution = ctx.flag(RESTITUTION) ?: DEFAULT_RESTITUTION
@@ -301,7 +301,7 @@ abstract class RattleCommand<C : Audience, W>(
                     val offset = (Random.nextDVec3() * 2.0 - 1.0) * spread
 
                     physics.simpleBodies.create(
-                        position = Iso(location.position + offset),
+                        position = DIso3(location.position + offset),
                         desc = desc,
                     )
                 }
@@ -359,7 +359,7 @@ abstract class RattleCommand<C : Audience, W>(
     }
 
     private fun boxGeom(ctx: CommandContext<C>): SimpleGeometry {
-        return SimpleGeometry.Box(Box(Vec(ctx.get<Real>(HALF_EXTENT))))
+        return SimpleGeometry.Box(Box(DVec3(ctx.get<Double>(HALF_EXTENT))))
     }
 
     private fun bodyCreateFixedSphere(ctx: CommandContext<C>) {

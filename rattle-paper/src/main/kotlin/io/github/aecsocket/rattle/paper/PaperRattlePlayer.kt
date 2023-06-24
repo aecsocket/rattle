@@ -2,8 +2,8 @@ package io.github.aecsocket.rattle.paper
 
 import io.github.aecsocket.alexandria.paper.extension.direction
 import io.github.aecsocket.alexandria.paper.extension.position
+import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.impl.RattleMessages
-import io.github.aecsocket.rattle.Vec
 import io.github.aecsocket.rattle.impl.RattlePlayer
 import net.kyori.adventure.bossbar.BossBar
 import org.bukkit.World
@@ -26,11 +26,11 @@ class PaperRattlePlayer(
         this.hideBossBar(bar)
     }
 
-    override fun eyePosition(): Vec {
+    override fun eyePosition(): DVec3 {
         return player.eyeLocation.position()
     }
 
-    override fun eyeDirection(): Vec {
+    override fun eyeDirection(): DVec3 {
         return player.eyeLocation.direction()
     }
 }

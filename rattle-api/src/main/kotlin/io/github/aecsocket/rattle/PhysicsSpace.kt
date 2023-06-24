@@ -1,8 +1,11 @@
 package io.github.aecsocket.rattle
 
 import io.github.aecsocket.alexandria.EventDispatch
+import io.github.aecsocket.klam.*
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import org.spongepowered.configurate.objectmapping.meta.Required
+import java.util.concurrent.locks.Lock
+import java.util.concurrent.locks.ReentrantLock
 
 /**
  * A linear axis in 3D space.
@@ -77,11 +80,11 @@ sealed interface Intersect {
 
     data class Separated(
         val state: State,
-        val time: Real,
-        val localPointA: Vec,
-        val localPointB: Vec,
-        val normalA: Vec,
-        val normalB: Vec,
+        val time: Double,
+        val localPointA: DVec3,
+        val localPointB: DVec3,
+        val normalA: DVec3,
+        val normalB: DVec3,
     ) : Intersect
 
     enum class State {
@@ -93,17 +96,17 @@ sealed interface Intersect {
 
 sealed interface RayCast {
     val collider: ColliderKey
-    val hitTime: Real
+    val hitTime: Double
 
     data class Simple(
         override val collider: ColliderKey,
-        override val hitTime: Real,
+        override val hitTime: Double,
     ) : RayCast
 
     data class Complex(
         override val collider: ColliderKey,
-        override val hitTime: Real,
-        val normal: Vec,
+        override val hitTime: Double,
+        val normal: DVec3,
         val feature: ShapeFeature,
     ) : RayCast
 }
@@ -115,19 +118,19 @@ data class ShapeCast(
 
 sealed interface PointProject {
     val collider: ColliderKey
-    val point: Vec
+    val point: DVec3
     val wasInside: Boolean
 
     data class Simple(
         override val collider: ColliderKey,
         override val wasInside: Boolean,
-        override val point: Vec,
+        override val point: DVec3,
     ) : PointProject
 
     data class Complex(
         override val collider: ColliderKey,
         override val wasInside: Boolean,
-        override val point: Vec,
+        override val point: DVec3,
         val feature: ShapeFeature,
     ) : PointProject
 }
@@ -154,7 +157,7 @@ interface PhysicsSpace : Destroyable {
      */
     @ConfigSerializable
     data class Settings(
-        val gravity: Vec = Vec(0.0, -9.81, 0.0),
+        val gravity: DVec3 = DVec3(0.0, -9.81, 0.0),
     )
 
     /**
@@ -163,6 +166,8 @@ interface PhysicsSpace : Destroyable {
      * implementation.
      */
     var settings: Settings
+
+    var lock: ReentrantLock?
 
     /**
      * Provides access to the [Collider] instances in this space.
@@ -239,51 +244,51 @@ interface PhysicsSpace : Destroyable {
     val query: Query
     interface Query {
         fun intersectBounds(
-            bounds: Aabb,
+            bounds: DAabb3,
             fn: (ColliderKey) -> QueryResult,
         )
 
         fun intersectPoint(
-            point: Vec,
+            point: DVec3,
             filter: QueryFilter,
             fn: (ColliderKey) -> QueryResult,
         )
 
         fun intersectPoint(
-            point: Vec,
+            point: DVec3,
             filter: QueryFilter,
         ): ColliderKey?
 
         fun intersectShape(
             shape: Shape,
-            shapePos: Iso,
+            shapePos: DIso3,
             filter: QueryFilter
         ): ColliderKey?
 
         fun intersectShape(
             shape: Shape,
-            shapePos: Iso,
+            shapePos: DIso3,
             filter: QueryFilter,
             fn: (ColliderKey) -> QueryResult,
         )
 
         fun rayCast(
-            ray: Ray,
-            maxDistance: Real,
+            ray: DRay3,
+            maxDistance: Double,
             settings: RayCastSettings,
             filter: QueryFilter,
         ): RayCast.Simple?
 
         fun rayCastComplex(
-            ray: Ray,
-            maxDistance: Real,
+            ray: DRay3,
+            maxDistance: Double,
             settings: RayCastSettings,
             filter: QueryFilter,
         ): RayCast.Complex?
 
         fun rayCastComplex(
-            ray: Ray,
-            maxDistance: Real,
+            ray: DRay3,
+            maxDistance: Double,
             settings: RayCastSettings,
             filter: QueryFilter,
             fn: (RayCast.Complex) -> QueryResult,
@@ -291,33 +296,33 @@ interface PhysicsSpace : Destroyable {
 
         fun shapeCast(
             shape: Shape,
-            shapePos: Iso,
-            shapeVel: Vec,
-            maxDistance: Real,
+            shapePos: DIso3,
+            shapeVel: DVec3,
+            maxDistance: Double,
             settings: ShapeCastSettings,
             filter: QueryFilter,
         ): ShapeCast?
 
         fun shapeCastNonLinear(
             shape: Shape,
-            shapePos: Iso,
-            shapeLocalCenter: Vec,
-            shapeLinVel: Vec,
-            shapeAngVel: Vec,
-            timeStart: Real,
-            timeEnd: Real,
+            shapePos: DIso3,
+            shapeLocalCenter: DVec3,
+            shapeLinVel: DVec3,
+            shapeAngVel: DVec3,
+            timeStart: Double,
+            timeEnd: Double,
             settings: ShapeCastSettings,
             filter: QueryFilter,
         ): ShapeCast?
 
         fun projectPointSimple(
-            point: Vec,
+            point: DVec3,
             settings: PointProjectSettings,
             filter: QueryFilter,
         ): PointProject.Simple?
 
         fun projectPointComplex(
-            point: Vec,
+            point: DVec3,
             settings: PointProjectSettings,
             filter: QueryFilter,
         ): PointProject.Complex?
@@ -340,8 +345,8 @@ interface PhysicsSpace : Destroyable {
     }
 
     data class OnContactForce(
-        val dt: Real,
-        val totalMagnitude: Real,
+        val dt: Double,
+        val totalMagnitude: Double,
         val colliderA: ColliderKey,
         val colliderB: ColliderKey,
         val manifolds: List<Manifold>,

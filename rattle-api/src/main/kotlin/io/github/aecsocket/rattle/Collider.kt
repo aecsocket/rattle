@@ -1,5 +1,6 @@
 package io.github.aecsocket.rattle
 
+import io.github.aecsocket.klam.*
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 
 /**
@@ -37,12 +38,12 @@ enum class CoeffCombineRule {
 /**
  * The default friction of a [PhysicsMaterial].
  */
-const val DEFAULT_FRICTION: Real = 0.5
+const val DEFAULT_FRICTION: Double = 0.5
 
 /**
  * The default restitution of a [PhysicsMaterial].
  */
-const val DEFAULT_RESTITUTION: Real = 0.0
+const val DEFAULT_RESTITUTION: Double = 0.0
 
 /**
  * A set of physical properties that can be applied to a [Collider].
@@ -58,8 +59,8 @@ const val DEFAULT_RESTITUTION: Real = 0.0
  */
 @ConfigSerializable
 data class PhysicsMaterial(
-    val friction: Real = DEFAULT_FRICTION,
-    val restitution: Real = DEFAULT_RESTITUTION,
+    val friction: Double = DEFAULT_FRICTION,
+    val restitution: Double = DEFAULT_RESTITUTION,
     val frictionCombine: CoeffCombineRule = CoeffCombineRule.AVERAGE,
     val restitutionCombine: CoeffCombineRule = CoeffCombineRule.AVERAGE,
 ) {
@@ -205,7 +206,7 @@ sealed interface Mass {
      * - Inertia tensor is calculated
      * @param density The density of the shape. Must be greater than 0.
      */
-    data class Density(val density: Real) : Mass {
+    data class Density(val density: Double) : Mass {
         init {
             require(density > 0.0) { "requires density > 0.0" }
         }
@@ -218,7 +219,7 @@ sealed interface Mass {
      * - Inertia tensor is calculated
      * @param mass The mass of the shape. Must be greater than 0.
      */
-    data class Constant(val mass: Real) : Mass {
+    data class Constant(val mass: Double) : Mass {
         init {
             require(mass > 0.0) { "requires mass > 0.0" }
         }
@@ -246,12 +247,12 @@ sealed interface StartPosition {
     /**
      * The position is set as absolute coordinates in the world.
      */
-    data class Absolute(val pos: Iso) : StartPosition
+    data class Absolute(val pos: DIso3) : StartPosition
 
     /**
      * The position is set as a relative offset from a parent body.
      */
-    data class Relative(val pos: Iso = Iso()) : StartPosition
+    data class Relative(val pos: DIso3 = DIso3()) : StartPosition
 }
 
 /**
@@ -309,17 +310,17 @@ interface Collider {
     /**
      * The **absolute** position of the collider in the physics space, i.e. not relative to its parent body.
      */
-    val position: Iso
+    val position: DIso3
 
     /**
      * The mass of the collider, in kg.
      */
-    val mass: Real
+    val mass: Double
 
     /**
      * The density of the collider, in kg/m^3.
      */
-    val density: Real
+    val density: Double
 
     /**
      * The physics mode.
@@ -330,7 +331,7 @@ interface Collider {
      * The position of the collider **relative to its parent body**. Even if the collider has no parent, this will
      * keep the last set relative position.
      */
-    val relativePosition: Iso
+    val relativePosition: DIso3
 
     /**
      * The handle of which body this collider will follow (see [Collider]).
@@ -340,7 +341,7 @@ interface Collider {
     /**
      * The world-space bounding box of this collider, determined by its shape and position.
      */
-    fun bounds(): Aabb
+    fun bounds(): DAabb3
 
     /**
      * Mutable interface for a [Collider].
@@ -354,9 +355,9 @@ interface Collider {
 
         fun solverGroup(value: InteractionGroup): Mut
 
-        fun position(value: Iso): Mut
+        fun position(value: DIso3): Mut
 
-        fun relativePosition(value: Iso): Mut
+        fun relativePosition(value: DIso3): Mut
 
         fun mass(value: Mass): Mut
 
@@ -377,9 +378,9 @@ interface Collider {
 
         override fun solverGroup(value: InteractionGroup): Own
 
-        override fun position(value: Iso): Own
+        override fun position(value: DIso3): Own
 
-        override fun relativePosition(value: Iso): Own
+        override fun relativePosition(value: DIso3): Own
 
         override fun mass(value: Mass): Own
 

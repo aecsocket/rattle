@@ -2,23 +2,12 @@ package io.github.aecsocket.rattle
 
 import io.github.aecsocket.klam.*
 
-typealias Real = Double
-typealias Vec = DVec3
-typealias Quat = DQuat
-typealias Mat = DMat3
-typealias Iso = DIso3
-typealias Affine = DAffine3
-typealias Aabb = DAabb3
-typealias Ray = DRay3
-
-val DVec3.Companion.Left     get() = Vec( 1.0,  0.0,  0.0)
-val DVec3.Companion.Right    get() = Vec(-1.0,  0.0,  0.0)
-val DVec3.Companion.Up       get() = Vec( 0.0,  1.0,  0.0)
-val DVec3.Companion.Down     get() = Vec( 0.0, -1.0,  0.0)
-val DVec3.Companion.Forward  get() = Vec( 0.0,  0.0,  1.0)
-val DVec3.Companion.Backward get() = Vec( 0.0,  0.0, -1.0)
-
-fun Number.toReal() = toDouble()
+val DVec3.Companion.Left     get() = DVec3( 1.0,  0.0,  0.0)
+val DVec3.Companion.Right    get() = DVec3(-1.0,  0.0,  0.0)
+val DVec3.Companion.Up       get() = DVec3( 0.0,  1.0,  0.0)
+val DVec3.Companion.Down     get() = DVec3( 0.0, -1.0,  0.0)
+val DVec3.Companion.Forward  get() = DVec3( 0.0,  0.0,  1.0)
+val DVec3.Companion.Backward get() = DVec3( 0.0,  0.0, -1.0)
 
 /**
  * An object which is tied to a resource that must be manually destroyed after use.
@@ -85,7 +74,7 @@ interface PhysicsEngine : Destroyable {
      * @param type The dynamics type of this body.
      * @param position The absolute position of this body in the world.
      */
-    fun createBody(type: RigidBodyType, position: Iso): RigidBody.Own
+    fun createBody(type: RigidBodyType, position: DIso3): RigidBody.Own
 
     /**
      * Creates a [Joint] with default parameters, which is not attached to any [RigidBody] or [PhysicsSpace].
@@ -116,7 +105,7 @@ interface PhysicsEngine : Destroyable {
      * @param dt The time step to simulate, in seconds.
      * @param spaces The spaces to step.
      */
-    fun stepSpaces(dt: Real, spaces: Collection<PhysicsSpace>)
+    fun stepSpaces(dt: Double, spaces: Collection<PhysicsSpace>)
 
     /**
      * Utility class for building a [PhysicsEngine], allowing defining properties required for the engine.

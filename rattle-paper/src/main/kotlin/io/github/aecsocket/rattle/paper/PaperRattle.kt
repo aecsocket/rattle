@@ -35,6 +35,7 @@ import org.spongepowered.configurate.ConfigurationOptions
 import org.spongepowered.configurate.kotlin.dataClassFieldDiscoverer
 import org.spongepowered.configurate.kotlin.extensions.get
 import org.spongepowered.configurate.objectmapping.ObjectMapper
+import java.util.concurrent.locks.ReentrantLock
 
 lateinit var Rattle: PaperRattle
     private set
@@ -187,12 +188,14 @@ class PaperRattle : AlexandriaPlugin<RattleHook.Settings>(
 
     fun physicsOrCreate(world: World): Sync<PaperWorldPhysics> =
         mWorlds.computeIfAbsent(world) {
+            val lock = ReentrantLock()
             val settings = settings.worlds.forWorld(world) ?: RattleHook.Settings.World()
             val physics = engine.createSpace(settings.physics)
+            physics.lock = lock
             val terrain = PaperDynamicTerrain(this, physics, world)
             val entities = NoOpEntityStrategy // TODO
             val simpleBodies = PaperSimpleBodies(this, world, physics, this.settings.simpleBodies)
-            Locked(PaperWorldPhysics(this, world, physics, terrain, entities, simpleBodies))
+            Locked(PaperWorldPhysics(this, world, physics, terrain, entities, simpleBodies), lock)
         }
 
     fun playerData(player: Player) = players.computeIfAbsent(player) {

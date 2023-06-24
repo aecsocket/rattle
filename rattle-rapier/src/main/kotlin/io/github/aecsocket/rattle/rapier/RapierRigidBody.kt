@@ -1,5 +1,6 @@
 package io.github.aecsocket.rattle.rapier
 
+import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.*
 import rapier.data.ArenaKey
 
@@ -18,13 +19,13 @@ sealed class RapierRigidBody(
     override val colliders: Collection<RapierColliderKey>
         get() = handle.colliders.map { RapierColliderKey(it) }
 
-    override val position: Iso
+    override val position: DIso3
         get() = handle.position.toIso()
 
-    override val linearVelocity: Vec
+    override val linearVelocity: DVec3
         get() = handle.linearVelocity.toVec()
 
-    override val angularVelocity: Vec
+    override val angularVelocity: DVec3
         get() = handle.angularVelocity.toVec()
 
     override val isCcdEnabled: Boolean
@@ -33,25 +34,25 @@ sealed class RapierRigidBody(
     override val isCcdActive: Boolean
         get() = handle.isCcdActive
 
-    override val gravityScale: Real
+    override val gravityScale: Double
         get() = handle.gravityScale
 
-    override val linearDamping: Real
+    override val linearDamping: Double
         get() = handle.linearDamping
 
-    override val angularDamping: Real
+    override val angularDamping: Double
         get() = handle.angularDamping
 
     override val isSleeping: Boolean
         get() = handle.isSleeping
 
-    override val appliedForce: Vec
+    override val appliedForce: DVec3
         get() = handle.userForce.toVec()
 
-    override val appliedTorque: Vec
+    override val appliedTorque: DVec3
         get() = handle.userTorque.toVec()
 
-    override fun kineticEnergy(): Real {
+    override fun kineticEnergy(): Double {
         return handle.kineticEnergy
     }
 
@@ -83,17 +84,17 @@ sealed class RapierRigidBody(
             return this
         }
 
-        override fun position(value: Iso): Write {
+        override fun position(value: DIso3): Write {
             handle.setPosition(value.toIsometry(), false)
             return this
         }
 
-        override fun linearVelocity(value: Vec): Write {
+        override fun linearVelocity(value: DVec3): Write {
             handle.setLinearVelocity(value.toVector(), false)
             return this
         }
 
-        override fun angularVelocity(value: Vec): Write {
+        override fun angularVelocity(value: DVec3): Write {
             handle.setAngularVelocity(value.toAngVector(), false)
             return this
         }
@@ -103,17 +104,17 @@ sealed class RapierRigidBody(
             return this
         }
 
-        override fun gravityScale(value: Real): Write {
+        override fun gravityScale(value: Double): Write {
             handle.setGravityScale(value, false)
             return this
         }
 
-        override fun linearDamping(value: Real): Write {
+        override fun linearDamping(value: Double): Write {
             handle.linearDamping = value
             return this
         }
 
-        override fun angularDamping(value: Real): Write {
+        override fun angularDamping(value: Double): Write {
             handle.angularDamping = value
             return this
         }
@@ -141,31 +142,31 @@ sealed class RapierRigidBody(
             handle.wakeUp(strong)
         }
 
-        override fun applyForce(force: Vec) {
+        override fun applyForce(force: DVec3) {
             handle.addForce(force.toVector(), false)
         }
 
-        override fun applyForceAt(force: Vec, at: Vec) {
+        override fun applyForceAt(force: DVec3, at: DVec3) {
             handle.addForceAtPoint(force.toVector(), at.toVector(), false)
         }
 
-        override fun applyImpulse(impulse: Vec) {
+        override fun applyImpulse(impulse: DVec3) {
             handle.applyImpulse(impulse.toVector(), false)
         }
 
-        override fun applyImpulseAt(impulse: Vec, at: Vec) {
+        override fun applyImpulseAt(impulse: DVec3, at: DVec3) {
             handle.applyImpulseAtPoint(impulse.toVector(), at.toVector(), false)
         }
 
-        override fun applyTorque(torque: Vec) {
+        override fun applyTorque(torque: DVec3) {
             handle.addTorque(torque.toAngVector(), false)
         }
 
-        override fun applyTorqueImpulse(torqueImpulse: Vec) {
+        override fun applyTorqueImpulse(torqueImpulse: DVec3) {
             handle.applyTorqueImpulse(torqueImpulse.toAngVector(), false)
         }
 
-        override fun moveTo(to: Iso) {
+        override fun moveTo(to: DIso3) {
             handle.setNextKinematicPosition(to.toIsometry())
         }
     }

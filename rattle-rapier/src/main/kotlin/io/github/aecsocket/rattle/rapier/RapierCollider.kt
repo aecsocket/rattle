@@ -1,5 +1,6 @@
 package io.github.aecsocket.rattle.rapier
 
+import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.*
 import rapier.data.ArenaKey
 import rapier.geometry.ActiveEvents
@@ -42,16 +43,16 @@ sealed class RapierCollider(
     override val solverGroup: InteractionGroup
         get() = handle.solverGroups.toRattle()
 
-    override val position: Iso
+    override val position: DIso3
         get() = handle.position.toIso()
 
-    override val relativePosition: Iso
-        get() = handle.positionWrtParent?.toIso() ?: Iso()
+    override val relativePosition: DIso3
+        get() = handle.positionWrtParent?.toIso() ?: DIso3()
 
-    override val mass: Real
+    override val mass: Double
         get() = handle.mass
 
-    override val density: Real
+    override val density: Double
         get() = handle.density
 
     override val physicsMode: PhysicsMode
@@ -63,7 +64,7 @@ sealed class RapierCollider(
     override val parent: RigidBodyKey?
         get() = handle.parent?.let { RapierRigidBodyKey(it) }
 
-    override fun bounds(): Aabb {
+    override fun bounds(): DAabb3 {
         return handle.computeAabb().toAabb()
     }
 
@@ -114,12 +115,12 @@ sealed class RapierCollider(
             return this
         }
 
-        override fun position(value: Iso): Write {
+        override fun position(value: DIso3): Write {
             handle.position = value.toIsometry()
             return this
         }
 
-        override fun relativePosition(value: Iso): Write {
+        override fun relativePosition(value: DIso3): Write {
             handle.setPositionWrtParent(value.toIsometry())
             return this
         }

@@ -135,8 +135,8 @@ class PaperDynamicTerrain(
     @ConfigSerializable
     data class Settings(
         val removeIn: Double = 1.0,
-        val expandVelocity: Real = 0.1,
-        val expandConstant: Real = 1.0,
+        val expandVelocity: Double = 0.1,
+        val expandConstant: Double = 1.0,
         val layers: Layers = Layers(),
     ) {
         @ConfigSerializable
@@ -153,7 +153,7 @@ class PaperDynamicTerrain(
 
     data class DebugInfo(
         val color: TextColor,
-        val offset: Real,
+        val offset: Double,
     )
 
     sealed interface Layer {
@@ -164,7 +164,7 @@ class PaperDynamicTerrain(
 
         @ConfigSerializable
         data class Fluid(
-            val density: Real,
+            val density: Double,
         ) : Layer {
             init {
                 require(density > 0.0) { "requires density > 0.0" }
@@ -370,8 +370,8 @@ class PaperDynamicTerrain(
     fun onUpdate(slicePos: IVec3) {
         // wake any bodies which intersect this slice
         // note that this will not generate the slice collision *right now*; it will be scheduled on the next update
-        val min = (slicePos * 16).run { Vec(x.toDouble(), y.toDouble(), z.toDouble()) }
-        physics.query.intersectBounds(Aabb(min, min + 16.0)) { collKey ->
+        val min = (slicePos * 16).run { DVec3(x.toDouble(), y.toDouble(), z.toDouble()) }
+        physics.query.intersectBounds(DAabb3(min, min + 16.0)) { collKey ->
             physics.colliders.read(collKey)?.let { coll ->
                 val parent = coll.parent?.let { physics.rigidBodies.write(it) } ?: return@let
                 parent.wakeUp()
@@ -470,13 +470,13 @@ class PaperDynamicTerrain(
 
         state.tiles.forEachIndexed { i, tile ->
             tile ?: return@forEachIndexed
-            val localPos = posInChunk(i).run { Vec(x.toReal(), y.toReal(), z.toReal()) } + 0.5
+            val localPos = posInChunk(i).run { DVec3(x.toDouble(), y.toDouble(), z.toDouble()) } + 0.5
             val layer = layerShapes[tile.layerId]
 
             val shapes = tile.shapes.map { child ->
                 Compound.Child(
                     shape = child.shape,
-                    delta = child.delta * Iso(localPos),
+                    delta = child.delta * DIso3(localPos),
                 )
             }
             layer += shapes
@@ -490,7 +490,7 @@ class PaperDynamicTerrain(
                 val coll = rattle.engine.createCollider(
                     shape = rattle.engine.createShape(Compound(shapes)),
                     position = StartPosition.Absolute(
-                        Iso((slice.pos * 16).run { Vec(x.toReal(), y.toReal(), z.toReal()) }),
+                        DIso3((slice.pos * 16).run { DVec3(x.toDouble(), y.toDouble(), z.toDouble()) }),
                     )
                 )
                     .handlesEvents(ColliderEvent.COLLISION)
@@ -508,14 +508,14 @@ class PaperDynamicTerrain(
         )
     }
 
-    private fun expandBounds(linVel: Vec, coll: Collider): Aabb {
+    private fun expandBounds(linVel: DVec3, coll: Collider): DAabb3 {
         val from = coll.position.translation
         val to = from + linVel * settings.expandVelocity
         val collBound = coll.bounds()
 
         return expand(
             expand(
-                Aabb(
+                DAabb3(
                     min(from, to),
                     max(from, to),
                 ), // a box spanning the current coll pos, up to a bit in front of it (determined by velocity)
@@ -525,7 +525,7 @@ class PaperDynamicTerrain(
         )
     }
 
-    private fun drawDebugAabb(aabb: Aabb, info: DebugInfo) {
+    private fun drawDebugAabb(aabb: DAabb3, info: DebugInfo) {
         //if (true) return // todo
         /*
         rs: Starting step
@@ -818,7 +818,7 @@ repeated...
         when {
             block.isLiquid -> {
                 val shape = Compound.Child(
-                    shape = boxShape(Vec(0.5)),
+                    shape = boxShape(DVec3(0.5)),
                 )
                 return Tile(
                     layerId = layerId(defaultFluidLayer),
@@ -833,7 +833,7 @@ repeated...
                     .map { box ->
                         Compound.Child(
                             shape = boxShape(box.max.subtract(box.min).toDVec() / 2.0),
-                            delta = Iso(box.center.toDVec() - 0.5),
+                            delta = DIso3(box.center.toDVec() - 0.5),
                         )
                     }
                 return Tile(
@@ -844,15 +844,15 @@ repeated...
         }
     }
 
-    private fun boxShape(halfExtent: Vec): Shape {
+    private fun boxShape(halfExtent: DVec3): Shape {
         // todo cache this?
         return rattle.engine.createShape(Box(halfExtent))
     }
 }
 
-private fun sliceBounds(pos: IVec3): Aabb {
+private fun sliceBounds(pos: IVec3): DAabb3 {
     val min = DVec3(pos.x.toDouble(), pos.y.toDouble(), pos.z.toDouble()) * 16.0
-    return Aabb(min, min + 16.0)
+    return DAabb3(min, min + 16.0)
 }
 
 fun posInChunk(i: Int) = IVec3(

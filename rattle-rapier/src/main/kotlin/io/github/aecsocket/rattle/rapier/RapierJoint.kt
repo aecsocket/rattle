@@ -1,5 +1,6 @@
 package io.github.aecsocket.rattle.rapier
 
+import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.*
 import rapier.data.ArenaKey
 import rapier.dynamics.joint.GenericJoint
@@ -107,22 +108,22 @@ sealed class RapierJoint(
     override val handle: GenericJoint,
     override var space: RapierSpace?,
 ) : RapierNative(), RapierPhysicsNative, Joint {
-    override val localFrameA: Iso
+    override val localFrameA: DIso3
         get() = handle.localFrame1.toIso()
 
-    override val localFrameB: Iso
+    override val localFrameB: DIso3
         get() = handle.localFrame2.toIso()
 
-    override val localAxisA: Vec
+    override val localAxisA: DVec3
         get() = handle.localAxis1.toVec()
 
-    override val localAxisB: Vec
+    override val localAxisB: DVec3
         get() = handle.localAxis2.toVec()
 
-    override val localAnchorA: Vec
+    override val localAnchorA: DVec3
         get() = handle.localAnchor1.toVec()
 
-    override val localAnchorB: Vec
+    override val localAnchorB: DVec3
         get() = handle.localAnchor2.toVec()
 
     override val contactsEnabled: Boolean
@@ -161,32 +162,32 @@ sealed class RapierJoint(
         override val angY = wrapAxis(rapier.dynamics.joint.JointAxis.ANG_Y)
         override val angZ = wrapAxis(rapier.dynamics.joint.JointAxis.ANG_Z)
 
-        override fun localFrameA(value: Iso): Write {
+        override fun localFrameA(value: DIso3): Write {
             handle.localFrame1 = value.toIsometry()
             return this
         }
 
-        override fun localFrameB(value: Iso): Write {
+        override fun localFrameB(value: DIso3): Write {
             handle.localFrame2 = value.toIsometry()
             return this
         }
 
-        override fun localAxisA(value: Vec): Write {
+        override fun localAxisA(value: DVec3): Write {
             handle.localAxis1 = value.toVector()
             return this
         }
 
-        override fun localAxisB(value: Vec): Write {
+        override fun localAxisB(value: DVec3): Write {
             handle.localAxis2 = value.toVector()
             return this
         }
 
-        override fun localAnchorA(value: Vec): Write {
+        override fun localAnchorA(value: DVec3): Write {
             handle.localAnchor1 = value.toVector()
             return this
         }
 
-        override fun localAnchorB(value: Vec): Write {
+        override fun localAnchorB(value: DVec3): Write {
             handle.localAnchor2 = value.toVector()
             return this
         }
@@ -218,11 +219,11 @@ sealed class RapierImpulseJoint(
     override val bodyB: RigidBodyKey
         get() = RapierRigidBodyKey(handle.body2)
 
-    override val translationImpulses: Vec
-        get() = handle.impulses.run { Vec(x, y, z) }
+    override val translationImpulses: DVec3
+        get() = handle.impulses.run { DVec3(x, y, z) }
 
-    override val rotationImpulses: Vec
-        get() = handle.impulses.run { Vec(w, a, b) }
+    override val rotationImpulses: DVec3
+        get() = handle.impulses.run { DVec3(w, a, b) }
 
     class Read internal constructor(
         handle: rapier.dynamics.joint.impulse.ImpulseJoint,

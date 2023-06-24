@@ -1,5 +1,6 @@
 package io.github.aecsocket.rattle.rapier
 
+import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.*
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import rapier.Rapier
@@ -17,14 +18,14 @@ class RapierEngine internal constructor(var settings: Settings = Settings()) : P
     ) {
         @ConfigSerializable
         data class Integration(
-            val minCcdDtMultiplier: Real = 0.01,
-            val erp: Real = 0.8,
-            val dampingRatio: Real = 0.25,
-            val jointErp: Real = 1.0,
-            val jointDampingRatio: Real = 1.0,
-            val allowedLinearError: Real = 0.001,
-            val maxPenetrationCorrection: Real = Real.MAX_VALUE,
-            val predictionDistance: Real = 0.002,
+            val minCcdDtMultiplier: Double = 0.01,
+            val erp: Double = 0.8,
+            val dampingRatio: Double = 0.25,
+            val jointErp: Double = 1.0,
+            val jointDampingRatio: Double = 1.0,
+            val allowedLinearError: Double = 0.001,
+            val maxPenetrationCorrection: Double = Double.MAX_VALUE,
+            val predictionDistance: Double = 0.002,
             val maxVelocityIterations: Long = 4,
             val maxVelocityFrictionIterations: Long = 8,
             val maxStabilizationIterations: Long = 1,
@@ -59,18 +60,18 @@ class RapierEngine internal constructor(var settings: Settings = Settings()) : P
             }
             is Capsule -> when (geom.axis) {
                 LinAxis.X -> SharedShape.capsule(
-                    Vec(-geom.halfHeight, 0.0, 0.0).toVector(),
-                    Vec( geom.halfHeight, 0.0, 0.0).toVector(),
+                    DVec3(-geom.halfHeight, 0.0, 0.0).toVector(),
+                    DVec3( geom.halfHeight, 0.0, 0.0).toVector(),
                     geom.radius,
                 )
                 LinAxis.Y -> SharedShape.capsule(
-                    Vec(0.0, -geom.halfHeight, 0.0).toVector(),
-                    Vec(0.0,  geom.halfHeight, 0.0).toVector(),
+                    DVec3(0.0, -geom.halfHeight, 0.0).toVector(),
+                    DVec3(0.0,  geom.halfHeight, 0.0).toVector(),
                     geom.radius,
                 )
                 LinAxis.Z -> SharedShape.capsule(
-                    Vec(0.0, 0.0, -geom.halfHeight).toVector(),
-                    Vec(0.0, 0.0,  geom.halfHeight).toVector(),
+                    DVec3(0.0, 0.0, -geom.halfHeight).toVector(),
+                    DVec3(0.0, 0.0,  geom.halfHeight).toVector(),
                     geom.radius,
                 )
             }
@@ -137,7 +138,7 @@ class RapierEngine internal constructor(var settings: Settings = Settings()) : P
         return RapierCollider.Write(coll, space = null)
     }
 
-    override fun createBody(type: RigidBodyType, position: Iso): RigidBody.Own {
+    override fun createBody(type: RigidBodyType, position: DIso3): RigidBody.Own {
         val body = RigidBodyBuilder.of(type.toRapier())
             .position(position.toIsometry())
             .use { it.build() }
@@ -155,7 +156,7 @@ class RapierEngine internal constructor(var settings: Settings = Settings()) : P
         return RapierSpace(this, settings)
     }
 
-    override fun stepSpaces(dt: Real, spaces: Collection<PhysicsSpace>) {
+    override fun stepSpaces(dt: Double, spaces: Collection<PhysicsSpace>) {
         @Suppress("UNCHECKED_CAST")
         spaces as Collection<RapierSpace>
         val integrationParameters = spaces.map { space ->

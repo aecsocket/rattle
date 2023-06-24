@@ -1,9 +1,9 @@
 package io.github.aecsocket.rattle
 
-import io.github.aecsocket.klam.IVec3
+import io.github.aecsocket.klam.*
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 
-const val DEFAULT_MARGIN: Real = 0.05
+const val DEFAULT_MARGIN: Double = 0.05
 
 /**
  * A raw, serializable form of a physical volume that can be constructed by a user. You can **not** use this object as
@@ -19,11 +19,13 @@ sealed interface Geometry
  * A geometry which is guaranteed to be always convex. This is the type you should prefer working with, as they
  * are the cheapest and simplest to work with.
  *
+ * # Margin
+ *
  * Geometries may have a "margin", "convex radius" or "border radius", which is an extra scalar value which adds a bit
  * of extra volume to the outside of the shape, making the shape rounded. This is used to improve performance during
  * collision detection, since this margin means less work has to be done during narrow-phase collision resolution
  * (finding contact normals and penetration depth).
- * - If you're unsure, you should leave this as the default.
+ * - If you're unsure, you should leave this as the default for the specific geometry type you're working with.
  * - If you want to disable this, set it to `0.0`.
  */
 sealed interface ConvexGeometry : Geometry
@@ -34,7 +36,7 @@ sealed interface ConvexGeometry : Geometry
  */
 @ConfigSerializable
 data class Sphere(
-    val radius: Real,
+    val radius: Double,
 ) : ConvexGeometry {
     init {
         require(radius > 0.0) { "requires radius > 0.0" }
@@ -49,8 +51,8 @@ data class Sphere(
  */
 @ConfigSerializable
 data class Box(
-    val halfExtent: Vec,
-    val margin: Real = DEFAULT_MARGIN,
+    val halfExtent: DVec3,
+    val margin: Double = 0.0,
 ) : ConvexGeometry {
     init {
         require(halfExtent.x > 0.0) { "requires halfExtent.x > 0.0" }
@@ -63,15 +65,15 @@ data class Box(
  * A "swept sphere" shape centered around zero defined by an axis, half-height and radius.
  * @param axis The axis in which the half-height stretches.
  * @param halfHeight The half-height of the capsule, up to the start of the hemisphere "caps" of the capsule.
- *                   If this were 0 (which is invalid), the shape would be a sphere defined by [radius].
+ *                   If this were 0 (which is invalid), the shape would be a sphere defined by `radius`.
  *                   Must be greater than 0.
  * @param radius The radius of the hemisphere caps of the capsule. Must be greater than 0.
  */
 @ConfigSerializable
 data class Capsule(
     val axis: LinAxis,
-    val halfHeight: Real,
-    val radius: Real,
+    val halfHeight: Double,
+    val radius: Double,
 ) : ConvexGeometry {
     init {
         require(halfHeight > 0.0) { "requires halfHeight > 0.0" }
@@ -89,9 +91,9 @@ data class Capsule(
  */
 @ConfigSerializable
 data class Cylinder(
-    val halfHeight: Real,
-    val radius: Real,
-    val margin: Real = DEFAULT_MARGIN,
+    val halfHeight: Double,
+    val radius: Double,
+    val margin: Double = DEFAULT_MARGIN,
 ) : ConvexGeometry {
     init {
         require(halfHeight > 0.0) { "requires halfHeight > 0.0" }
@@ -110,9 +112,9 @@ data class Cylinder(
  */
 @ConfigSerializable
 data class Cone(
-    val halfHeight: Real,
-    val radius: Real,
-    val margin: Real = DEFAULT_MARGIN,
+    val halfHeight: Double,
+    val radius: Double,
+    val margin: Double = DEFAULT_MARGIN,
 ) : ConvexGeometry {
     init {
         require(halfHeight > 0.0) { "requires halfHeight > 0.0" }
@@ -130,13 +132,13 @@ data class Cone(
  * @param margin The convex margin of the shape. See [ConvexGeometry].
  */
 data class ConvexHull(
-    val points: List<Vec>,
-    val margin: Real = DEFAULT_MARGIN,
+    val points: List<DVec3>,
+    val margin: Double = DEFAULT_MARGIN,
 ) : ConvexGeometry
 
 /**
  * A shape **assumed** to be already convex, defined by an array of vertices and array of triangle face indices.
- * If the shape is not convex, collision detection will not be accurate. Build a [Shape] out of this is faster than
+ * If the shape is not convex, collision detection will not be accurate. Building a [Shape] out of this is faster than
  * making one out of a [ConvexHull], but is not as safe.
  *
  * If you are taking input from a file or other unverified source, consider using a [ConvexHull] instead.
@@ -145,9 +147,9 @@ data class ConvexHull(
  * @param margin The convex margin of the shape. See [ConvexGeometry].
  */
 data class ConvexMesh(
-    val vertices: List<Vec>,
+    val vertices: List<DVec3>,
     val indices: List<IVec3>,
-    val margin: Real = DEFAULT_MARGIN,
+    val margin: Double = DEFAULT_MARGIN,
 ) : ConvexGeometry
 
 /**
@@ -160,18 +162,18 @@ data class ConvexMesh(
  * @param margin The convex margin of the shape. See [ConvexGeometry].
  */
 data class ConvexDecomposition(
-    val vertices: List<Vec>,
+    val vertices: List<DVec3>,
     val indices: List<IVec3>,
     val vhacd: VhacdSettings = VhacdSettings(),
-    val margin: Real = DEFAULT_MARGIN,
+    val margin: Double = DEFAULT_MARGIN,
 ) : ConvexGeometry
 
 /**
  * Options for the VHACD convex decomposition process. See [VHACD](https://github.com/Unity-Technologies/VHACD#parameters)
  * for details.
- * @param concavity Maximum concavity [0.0, 1.0]
- * @param alpha Bias towards clipping along symmetry planes [0.0, 1.0]
- * @param beta Bias towards clipping along revolution planes [0.0, 1.0]
+ * @param concavity Maximum concavity (0.0 to 1.0)
+ * @param alpha Bias towards clipping along symmetry planes (0.0 to 1.0)
+ * @param beta Bias towards clipping along revolution planes (0.0 to 1.0)
  * @param resolution Resolution used during voxelization (minimum 0)
  * @param planeDownsampling Granularity of the search for the best clipping plane (minimum 0)
  * @param convexHullDownsampling Precision of convex-hull generation during the clipping plane selection stage (minimum 0)
@@ -182,9 +184,9 @@ data class ConvexDecomposition(
  */
 @ConfigSerializable
 data class VhacdSettings(
-    val concavity: Real = 0.01,
-    val alpha: Real = 0.05,
-    val beta: Real = 0.05,
+    val concavity: Double = 0.01,
+    val alpha: Double = 0.05,
+    val beta: Double = 0.05,
     val resolution: Int = 64,
     val planeDownsampling: Int = 4,
     val convexHullDownsampling: Int = 4,
@@ -221,7 +223,7 @@ data class VhacdSettings(
         /**
          * Use a flood-fill technique to consider full the voxels intersecting the surface of the shape being
          * voxelized, as well as all the voxels bounded of them.
-         * @param detectCavities Detects holes inside of a solid contour.
+         * @param detectCavities Detects holes inside a solid contour.
          */
         data class FloodFill(
             val detectCavities: Boolean = false,
@@ -248,6 +250,6 @@ data class Compound(
      */
     data class Child(
         val shape: Shape,
-        val delta: Iso = Iso(),
+        val delta: DIso3 = DIso3(),
     )
 }

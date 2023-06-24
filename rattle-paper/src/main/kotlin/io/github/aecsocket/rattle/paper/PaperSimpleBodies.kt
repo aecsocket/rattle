@@ -7,7 +7,7 @@ import io.github.aecsocket.alexandria.paper.*
 import io.github.aecsocket.alexandria.paper.extension.nextEntityId
 import io.github.aecsocket.alexandria.paper.extension.spawn
 import io.github.aecsocket.alexandria.sync.Locked
-import io.github.aecsocket.klam.FAffine3
+import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.world.SimpleBodies
 import org.bukkit.Material
@@ -39,7 +39,7 @@ class PaperSimpleBodies(
         item = ItemDesc(PaperItemType(Material.STONE)),
     )
 
-    override fun createRender(position: Vec, instKey: ArenaKey): ItemRender {
+    override fun createRender(position: DVec3, instKey: ArenaKey): ItemRender {
         // create a render with no receiver first
         // // then assign it a receiver after we make the entity
         val render = ItemDisplayRender(nextEntityId()) {}

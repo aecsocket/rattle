@@ -1,6 +1,11 @@
 package io.github.aecsocket.rattle.rapier
 
+import io.github.aecsocket.alexandria.sync.Locked
+import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.*
+import org.junit.jupiter.api.assertThrows
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.locks.ReentrantLock
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -34,5 +39,66 @@ class TestSpace {
         assertEquals(1, shape.refCount)
         shape.release()
         physics.destroy()
+    }
+
+    @Test
+    fun testSpaceLock() {
+        val engine = RapierEngine()
+        val physics = engine.createSpace()
+        val lock = ReentrantLock()
+        physics.lock = lock
+
+        assertThrows<IllegalStateException> {
+            physics.colliders.count
+        }
+    }
+
+    @Test
+    fun testAddRemove() {
+        val engine = RapierEngine()
+        val lock = ReentrantLock(true)
+        val physics = Locked(engine.createSpace(), lock)
+        physics.withLock { it.lock = lock }
+
+        val running = AtomicBoolean(true)
+        val stepping = Thread {
+            val dt = 1.0 / 60.0
+            while (running.get()) {
+                physics.withLock { physics ->
+                    engine.stepSpaces(dt, listOf(physics))
+                }
+                Thread.sleep((dt * 1000).toLong())
+            }
+        }.apply { start() }
+
+        val mutating = Thread {
+            val shape = engine.createShape(Sphere(0.5))
+
+            repeat(10_000) { i ->
+                val keys = (0 until 50).map {
+                    physics.withLock { physics ->
+                        val collKey = engine.createCollider(shape.acquire(), StartPosition.Relative())
+                            .let { physics.colliders.add(it) }
+                        val bodyKey = engine.createBody(RigidBodyType.DYNAMIC, DIso3())
+                            .let { physics.rigidBodies.add(it) }
+                        physics.colliders.attach(collKey, bodyKey)
+                        collKey to bodyKey
+                    }
+                }
+
+
+                keys.forEach { (collKey, bodyKey) ->
+                    physics.withLock { physics ->
+                        physics.colliders.remove(collKey)?.destroy()
+                        physics.rigidBodies.remove(bodyKey)?.destroy()
+                    }
+                }
+            }
+
+            running.set(false)
+        }.apply { start() }
+
+        stepping.join()
+        mutating.join()
     }
 }

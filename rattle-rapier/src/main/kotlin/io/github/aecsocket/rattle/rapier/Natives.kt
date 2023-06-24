@@ -1,5 +1,6 @@
 package io.github.aecsocket.rattle.rapier
 
+import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.*
 import rapier.Droppable
 import rapier.Native
@@ -64,22 +65,22 @@ fun <T : Droppable, R> T.use(block: (T) -> R): R {
     return res
 }
 
-fun Vec.toVector() = Vector(x, y, z)
-fun Vec.toAngVector() = AngVector(x, y, z)
-fun Vector.toVec() = Vec(x, y, z)
-fun AngVector.toVec() = Vec(x, y, z)
+fun DVec3.toVector() = Vector(x, y, z)
+fun DVec3.toAngVector() = AngVector(x, y, z)
+fun Vector.toVec() = DVec3(x, y, z)
+fun AngVector.toVec() = DVec3(x, y, z)
 
-fun Quat.toRotation() = Rotation(x, y, z, w)
-fun Rotation.toQuat() = Quat(x, y, z, w)
+fun DQuat.toRotation() = Rotation(x, y, z, w)
+fun Rotation.toQuat() = DQuat(x, y, z, w)
 
-fun Iso.toIsometry() = Isometry(rotation.toRotation(), translation.toVector())
-fun Isometry.toIso() = Iso(translation.toVec(), rotation.toQuat())
+fun DIso3.toIsometry() = Isometry(rotation.toRotation(), translation.toVector())
+fun Isometry.toIso() = DIso3(translation.toVec(), rotation.toQuat())
 
-fun Aabb.toRapier() = RAabb(min.toVector(), max.toVector())
-fun RAabb.toAabb() = Aabb(min.toVec(), max.toVec())
+fun DAabb3.toRapier() = RAabb(min.toVector(), max.toVector())
+fun RAabb.toAabb() = DAabb3(min.toVec(), max.toVec())
 
-fun Ray.toRapier() = RRay(origin.toVector(), direction.toVector())
-fun RRay.toRay() = Ray(origin.toVec(), dir.toVec())
+fun DRay3.toRapier() = RRay(origin.toVector(), direction.toVector())
+fun RRay.toRay() = DRay3(origin.toVec(), dir.toVec())
 
 fun VhacdSettings.toParams() = VHACDParameters(
     concavity,

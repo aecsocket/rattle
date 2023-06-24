@@ -1,6 +1,5 @@
 package io.github.aecsocket.rattle.paper
 
-import io.github.aecsocket.rattle.Real
 import io.github.aecsocket.rattle.impl.RattlePlatform
 import org.bukkit.Bukkit
 import org.bukkit.World
@@ -13,7 +12,7 @@ class PaperRattlePlatform(
     override val worlds: Iterable<World>
         get() = Bukkit.getWorlds()
 
-    override fun callBeforeStep(dt: Real) {
+    override fun callBeforeStep(dt: Double) {
         RattleEvents.BeforePhysicsStep(dt).callEvent()
     }
 

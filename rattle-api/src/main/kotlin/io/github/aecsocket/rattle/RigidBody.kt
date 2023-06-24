@@ -1,14 +1,16 @@
 package io.github.aecsocket.rattle
 
+import io.github.aecsocket.klam.*
+
 /**
  * The default multiplier to slow a [RigidBody]'s linear velocity down by on every physics step.
  */
-const val DEFAULT_LINEAR_DAMPING: Real = 0.05
+const val DEFAULT_LINEAR_DAMPING: Double = 0.05
 
 /**
  * The default multiplier to slow a [RigidBody]'s angular velocity down by on every physics step.
  */
-const val DEFAULT_ANGULAR_DAMPING: Real = 0.05
+const val DEFAULT_ANGULAR_DAMPING: Double = 0.05
 
 /**
  * How the dynamics of a body are simulated. See [RigidBody] for details.
@@ -44,7 +46,7 @@ interface RigidBodyKey
  * A body may have one of several [RigidBodyType]s, which can change after construction:
  * - [RigidBodyType.FIXED] - the body is not moved (position or velocity) by the physics engine
  * - [RigidBodyType.DYNAMIC] - the body's position and velocity is managed by the physics engine, so it can be pushed
- *   by other colliders.
+ *   by other colliders. The user can also specify forces to apply manually via [Mut.applyForce] and related methods.
  * - [RigidBodyType.KINEMATIC] - the body's position and velocity is managed by the physics engine, but the user
  *   manually sets a desired target position via [Mut.moveTo], and the engine calculates the required
  *   velocity to move it there.
@@ -80,16 +82,6 @@ interface RigidBodyKey
  * - [angularDamping] - the multiplier for the angular velocity (default [DEFAULT_ANGULAR_DAMPING]).
  */
 interface RigidBody {
-    /*
-            linearVelocity: Vec = Vec.Zero,
-        angularVelocity: Vec = Vec.Zero,
-        isCcdEnabled: Boolean = false,
-        gravityScale: Real = 1.0,
-        linearDamping: Real = DEFAULT_LINEAR_DAMPING,
-        angularDamping: Real = DEFAULT_ANGULAR_DAMPING,
-        sleeping: Sleeping = Sleeping.Enabled(false),
-     */
-
     /**
      * The body type (see [RigidBody]).
      */
@@ -104,18 +96,18 @@ interface RigidBody {
     /**
      * The absolute position of this body in the world.
      */
-    val position: Iso
+    val position: DIso3
 
     /**
      * How fast and in what direction the body is moving linearly, in meters/second.
      */
-    val linearVelocity: Vec
+    val linearVelocity: DVec3
 
     /**
      * How fast and in what direction the body is moving around its angular axes, in radians/second.
      * This is represented as an axis-angle vector, where the magnitude is the angle.
      */
-    val angularVelocity: Vec
+    val angularVelocity: DVec3
 
     /**
      * If this body has CCD enabled (see [RigidBody]).
@@ -130,17 +122,17 @@ interface RigidBody {
     /**
      * The factor by which gravity is applied to this body. Default of 1.
      */
-    val gravityScale: Real
+    val gravityScale: Double
 
     /**
      * The linear damping factor (see [RigidBody]).
      */
-    val linearDamping: Real
+    val linearDamping: Double
 
     /**
      * The angular damping factor (see [RigidBody]).
      */
-    val angularDamping: Real
+    val angularDamping: Double
 
     /**
      * If this body is currently sleeping (see [RigidBody]).
@@ -150,17 +142,17 @@ interface RigidBody {
     /**
      * How much force has been applied by the user in this simulation step.
      */
-    val appliedForce: Vec
+    val appliedForce: DVec3
 
     /**
      * How much torque has been applied by the user in this simulation step.
      */
-    val appliedTorque: Vec
+    val appliedTorque: DVec3
 
     /**
      * Calculates the kinetic energy of this body.
      */
-    fun kineticEnergy(): Real
+    fun kineticEnergy(): Double
 
     /**
      * Mutable interface for a [RigidBody].
@@ -177,55 +169,55 @@ interface RigidBody {
          * moves, but have it still consider collisions in between, consider using a [RigidBodyType.KINEMATIC] and
          * [moveTo].
          */
-        fun position(value: Iso): Mut
+        fun position(value: DIso3): Mut
 
-        fun linearVelocity(value: Vec): Mut
+        fun linearVelocity(value: DVec3): Mut
 
-        fun angularVelocity(value: Vec): Mut
+        fun angularVelocity(value: DVec3): Mut
 
         fun isCcdEnabled(value: Boolean): Mut
 
-        fun gravityScale(value: Real): Mut
+        fun gravityScale(value: Double): Mut
 
-        fun linearDamping(value: Real): Mut
+        fun linearDamping(value: Double): Mut
 
-        fun angularDamping(value: Real): Mut
+        fun angularDamping(value: Double): Mut
 
         fun canSleep(value: Boolean): Mut
 
         /**
          * For [RigidBodyType.DYNAMIC]: applies a (linear) force in Newtons at the center of the body.
          */
-        fun applyForce(force: Vec)
+        fun applyForce(force: DVec3)
 
         /**
          * For [RigidBodyType.DYNAMIC]: applies a (linear) force in Newtons at a specific position on the body,
          * taking into account rotation.
          */
-        fun applyForceAt(force: Vec, at: Vec)
+        fun applyForceAt(force: DVec3, at: DVec3)
 
         /**
          * For [RigidBodyType.DYNAMIC]: applies a (linear) impulse - instantaneous change in force - at the center of
          * the body.
          */
-        fun applyImpulse(impulse: Vec)
+        fun applyImpulse(impulse: DVec3)
 
         /**
          * For [RigidBodyType.DYNAMIC]: applies a (linear) impulse - instantaneous change in force - at a specific
          * position on the body, taking into account rotation.
          */
-        fun applyImpulseAt(impulse: Vec, at: Vec)
+        fun applyImpulseAt(impulse: DVec3, at: DVec3)
 
         /**
          * For [RigidBodyType.DYNAMIC]: applies an (angular) torque, causing a change in rotation.
          */
-        fun applyTorque(torque: Vec)
+        fun applyTorque(torque: DVec3)
 
         /**
          * For [RigidBodyType.DYNAMIC]: applies an (angular) torque impulse - instantaneous change in torque - causing
          * a change in rotation.
          */
-        fun applyTorqueImpulse(torqueImpulse: Vec)
+        fun applyTorqueImpulse(torqueImpulse: DVec3)
 
         /**
          * For [RigidBodyType.KINEMATIC]: sets this body's kinematic target to a specific position in the world, and
@@ -233,7 +225,7 @@ interface RigidBody {
          * In this way, the movement is physically accurate (pushing other physics objects out of the way) but this
          * body will not be pushed by others.
          */
-        fun moveTo(to: Iso)
+        fun moveTo(to: DIso3)
 
         /**
          * Puts this body to sleep (see [RigidBody]).
@@ -254,19 +246,19 @@ interface RigidBody {
     interface Own : Mut, Destroyable {
         override fun type(value: RigidBodyType): Own
 
-        override fun position(value: Iso): Own
+        override fun position(value: DIso3): Own
 
-        override fun linearVelocity(value: Vec): Own
+        override fun linearVelocity(value: DVec3): Own
 
-        override fun angularVelocity(value: Vec): Own
+        override fun angularVelocity(value: DVec3): Own
 
         override fun isCcdEnabled(value: Boolean): Own
 
-        override fun gravityScale(value: Real): Own
+        override fun gravityScale(value: Double): Own
 
-        override fun linearDamping(value: Real): Own
+        override fun linearDamping(value: Double): Own
 
-        override fun angularDamping(value: Real): Own
+        override fun angularDamping(value: Double): Own
 
         override fun canSleep(value: Boolean): Own
     }

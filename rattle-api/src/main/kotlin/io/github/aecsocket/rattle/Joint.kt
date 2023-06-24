@@ -1,5 +1,7 @@
 package io.github.aecsocket.rattle
 
+import io.github.aecsocket.klam.*
+
 /**
  * A key used to index into a [PhysicsSpace] to gain a reference, mutable or immutable, to an [ImpulseJoint].
  */
@@ -20,9 +22,9 @@ interface JointAxis {
         /* TODO: Kotlin 1.9 data */ object Free : State
 
         data class Limited(
-            val min: Real,
-            val max: Real,
-            val impulse: Real,
+            val min: Double,
+            val max: Double,
+            val impulse: Double,
         ) : State
 
         /* TODO: Kotlin 1.9 data */ object Locked : State
@@ -32,12 +34,12 @@ interface JointAxis {
         /* TODO: Kotlin 1.9 data */ object Disabled : Motor
 
         data class Enabled(
-            val targetVel: Real,
-            val targetPos: Real,
-            val stiffness: Real,
-            val damping: Real,
-            val maxForce: Real,
-            val impulse: Real,
+            val targetVel: Double,
+            val targetPos: Double,
+            val stiffness: Double,
+            val damping: Double,
+            val maxForce: Double,
+            val impulse: Double,
             val model: Model,
         ) : Motor {
             init {
@@ -54,19 +56,19 @@ interface JointAxis {
 }
 
 interface Joint {
-    val localFrameA: Iso
+    val localFrameA: DIso3
 
-    val localFrameB: Iso
+    val localFrameB: DIso3
 
     // these four fields are just accessors into a slice of the localFrame effectively
     // but they're more convenient to use
-    val localAxisA: Vec
+    val localAxisA: DVec3
 
-    val localAxisB: Vec
+    val localAxisB: DVec3
 
-    val localAnchorA: Vec
+    val localAnchorA: DVec3
 
-    val localAnchorB: Vec
+    val localAnchorB: DVec3
 
     val contactsEnabled: Boolean
 
@@ -95,17 +97,17 @@ interface Joint {
 
         override val angZ: JointAxis.Mut
 
-        fun localFrameA(value: Iso): Mut
+        fun localFrameA(value: DIso3): Mut
 
-        fun localFrameB(value: Iso): Mut
+        fun localFrameB(value: DIso3): Mut
 
-        fun localAxisA(value: Vec): Mut
+        fun localAxisA(value: DVec3): Mut
 
-        fun localAxisB(value: Vec): Mut
+        fun localAxisB(value: DVec3): Mut
 
-        fun localAnchorA(value: Vec): Mut
+        fun localAnchorA(value: DVec3): Mut
 
-        fun localAnchorB(value: Vec): Mut
+        fun localAnchorB(value: DVec3): Mut
 
         fun contactsEnabled(value: Boolean): Mut
 
@@ -115,17 +117,17 @@ interface Joint {
     }
 
     interface Own : Mut {
-        override fun localFrameA(value: Iso): Own
+        override fun localFrameA(value: DIso3): Own
 
-        override fun localFrameB(value: Iso): Own
+        override fun localFrameB(value: DIso3): Own
 
-        override fun localAxisA(value: Vec): Own
+        override fun localAxisA(value: DVec3): Own
 
-        override fun localAxisB(value: Vec): Own
+        override fun localAxisB(value: DVec3): Own
 
-        override fun localAnchorA(value: Vec): Own
+        override fun localAnchorA(value: DVec3): Own
 
-        override fun localAnchorB(value: Vec): Own
+        override fun localAnchorB(value: DVec3): Own
 
         override fun contactsEnabled(value: Boolean): Own
 
@@ -140,9 +142,9 @@ interface ImpulseJoint : Joint {
 
     val bodyB: RigidBodyKey
 
-    val translationImpulses: Vec
+    val translationImpulses: DVec3
 
-    val rotationImpulses: Vec
+    val rotationImpulses: DVec3
 
     interface Mut : ImpulseJoint, Joint.Mut {
         fun bodyA(value: RigidBodyKey): Mut
