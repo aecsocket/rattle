@@ -1,9 +1,20 @@
 package io.github.aecsocket.rattle.paper
 
+import io.github.aecsocket.alexandria.ItemRender
+import io.github.aecsocket.alexandria.Shaping
+import io.github.aecsocket.alexandria.desc.ItemDesc
+import io.github.aecsocket.alexandria.desc.ItemType
+import io.github.aecsocket.alexandria.paper.ItemDisplayRender
+import io.github.aecsocket.alexandria.paper.extension.nextEntityId
+import io.github.aecsocket.alexandria.paper.extension.position
+import io.github.aecsocket.alexandria.paper.extension.sendPacket
 import io.github.aecsocket.alexandria.paper.extension.toDVec
+import io.github.aecsocket.alexandria.serializer.HierarchySerializer
+import io.github.aecsocket.alexandria.serializer.subType
 import io.github.aecsocket.alexandria.sync.Locked
 import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.*
+import io.github.aecsocket.rattle.impl.RattlePlatform
 import io.github.aecsocket.rattle.world.TILES_IN_SLICE
 import io.github.aecsocket.rattle.world.TerrainStrategy
 import net.kyori.adventure.key.Key
@@ -14,6 +25,7 @@ import org.bukkit.Chunk
 import org.bukkit.Material
 import org.bukkit.World
 import org.bukkit.block.Block
+import org.bukkit.entity.Player
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 
 /*
@@ -120,16 +132,12 @@ all NMS SoundType's:
     DECORATED_POT
  */
 
-private val debugColliderBound = PaperDynamicTerrain.DebugInfo(NamedTextColor.WHITE, 0.0)
-private val debugNewSlice = PaperDynamicTerrain.DebugInfo(NamedTextColor.BLUE, 0.2)
-private val debugPersistSlice = PaperDynamicTerrain.DebugInfo(NamedTextColor.GRAY, 0.0)
-private val debugUpdateSlice = PaperDynamicTerrain.DebugInfo(NamedTextColor.GREEN, 0.4)
-private val debugRemoveSlice = PaperDynamicTerrain.DebugInfo(NamedTextColor.RED, 0.2)
-
-class PaperDynamicTerrain(
-    private val rattle: PaperRattle,
-    val physics: PhysicsSpace,
-    private val world: World,
+abstract class DynamicTerrain<W>(
+    val world: W,
+    private val platform: RattlePlatform<W, *>,
+    // SAFETY: while a caller has access to a DynamicTerrain object, they also have access to the containing
+    // WorldPhysics, and therefore the PhysicsSpace is locked
+    private val physics: PhysicsSpace,
     val settings: Settings = Settings(),
 ) : TerrainStrategy {
     @ConfigSerializable
@@ -138,6 +146,7 @@ class PaperDynamicTerrain(
         val expandVelocity: Double = 0.1,
         val expandConstant: Double = 1.0,
         val layers: Layers = Layers(),
+        val debugRenderItem: ItemDesc = ItemDesc(ItemType.Keyed(Key.key("minecraft", "terracotta"))),
     ) {
         @ConfigSerializable
         data class Layers(
@@ -150,11 +159,6 @@ class PaperDynamicTerrain(
             val byBlock: Map<Key, String> = emptyMap(),
         )
     }
-
-    data class DebugInfo(
-        val color: TextColor,
-        val offset: Double,
-    )
 
     sealed interface Layer {
         @ConfigSerializable
@@ -177,13 +181,66 @@ class PaperDynamicTerrain(
         val shapes: List<Compound.Child>,
     )
 
+    protected abstract fun createItemRender(pos: IVec3): ItemRender
+
+    data class RenderData(
+        val position: DVec3,
+        val transform: FAffine3,
+        val render: ItemRender,
+    )
+
     inner class Slice(val pos: IVec3, var state: SliceState) {
         var remove: SliceRemove = SliceRemove.None
         var collision: SliceCollision? = null
             internal set
 
+        val debugRenders = Shaping.box(DVec3(8.0))
+            .map { (from, to) ->
+                RenderData(
+                    position = (pos * 16 + 8).toDouble(),
+                    transform = Shaping.lineTransform((to - from).toFloat(), 0.1f),
+                    render = createItemRender(pos)
+                )
+            }
+        var debugColor: TextColor = NamedTextColor.DARK_GRAY
+            set(value) {
+                field = value
+                debugRenders.forEach { it.render.glowColor(value) }
+            }
+
         internal fun colliders(): List<ColliderKey> {
             return collision?.layers ?: emptyList()
+        }
+
+        /*
+
+
+        fun onTrack(render: ItemRender) {
+            render
+                .spawn(nextPosition.translation)
+                .transform(FAffine3(
+                    rotation = nextPosition.rotation.toFloat(),
+                    scale = scale,
+                ))
+                .interpolationDuration(settings.renderInterpolationDuration)
+                .item(item)
+        }
+
+        fun onUntrack(render: ItemRender) {
+            render.despawn()
+        }
+         */
+
+        fun onTrack(data: RenderData) {
+            data.render
+                .spawn(data.position)
+                .transform(data.transform)
+                .glowing(true)
+                .glowColor(debugColor)
+        }
+
+        fun onUntrack(data: RenderData) {
+            data.render.despawn()
         }
     }
 
@@ -249,7 +306,8 @@ class PaperDynamicTerrain(
 
         fun remove(pos: IVec3) {
             swapCollision(pos, null)
-            _map.remove(pos)
+            val slice = _map.remove(pos) ?: return
+            slice.
         }
 
         fun swapCollision(pos: IVec3, collision: SliceCollision?) {
@@ -273,12 +331,12 @@ class PaperDynamicTerrain(
         }
     }
 
-    private val slices = Locked(Slices())
+    val slices = Locked(Slices())
     private val layers = ArrayList<Layer>()
-    private val defaultSolidLayer: Int
-    private val defaultFluidLayer: Int
-    private val layerByKey = HashMap<String, Int>()
-    private val layerByBlock = HashMap<Material, Int>()
+    protected val defaultSolidLayer: Int
+    protected val defaultFluidLayer: Int
+    protected val layerByKey = HashMap<String, Int>()
+    protected val layerByBlock = HashMap<Material, Int>()
 
     init {
         // layers
@@ -340,7 +398,6 @@ class PaperDynamicTerrain(
             body.colliders.forEach coll@ { collKey ->
                 val coll = physics.colliders.read(collKey) ?: return@coll
                 val bounds = expandBounds(linVel, coll)
-                drawDebugAabb(bounds, debugColliderBound)
                 val slicePos = enclosedPoints(bounds / 16.0).toSet()
                 toRemove -= slicePos
                 toSnapshot += slicePos
@@ -349,49 +406,17 @@ class PaperDynamicTerrain(
 
         slices.withLock { slices ->
             toSnapshot.forEach { pos ->
-                if (slices.contains(pos)) {
-                    drawDebugAabb(sliceBounds(pos), debugPersistSlice)
-                } else {
-                    drawDebugAabb(sliceBounds(pos), debugNewSlice)
+                if (!slices.contains(pos)) {
                     slices.add(Slice(pos, SliceState.PendingScheduleSnapshot))
                     slices.dirty(pos)
                 }
             }
 
             toRemove.forEach { pos ->
-                drawDebugAabb(sliceBounds(pos), debugRemoveSlice)
                 slices.dirty(pos)
             }
 
             transformStates(slices, toRemove)
-        }
-    }
-
-    fun onUpdate(slicePos: IVec3) {
-        // wake any bodies which intersect this slice
-        // note that this will not generate the slice collision *right now*; it will be scheduled on the next update
-        val min = (slicePos * 16).run { DVec3(x.toDouble(), y.toDouble(), z.toDouble()) }
-        physics.query.intersectBounds(DAabb3(min, min + 16.0)) { collKey ->
-            physics.colliders.read(collKey)?.let { coll ->
-                val parent = coll.parent?.let { physics.rigidBodies.write(it) } ?: return@let
-                parent.wakeUp()
-            }
-            QueryResult.CONTINUE
-        }
-
-        // if a slice already exists for this position, schedule an update for its collision shape
-        slices.withLock { slices ->
-            val slice = slices[slicePos] ?: return@withLock
-            drawDebugAabb(sliceBounds(slicePos), debugUpdateSlice)
-            when (slice.state) {
-                is SliceState.PendingScheduleSnapshot -> {}
-                is SliceState.PendingSnapshot -> {}
-                else -> {
-                    slice.state = SliceState.PendingScheduleSnapshot
-                    slices.dirty(slicePos)
-                    scheduleSnapshot(slicePos)
-                }
-            }
         }
     }
 
@@ -404,6 +429,7 @@ class PaperDynamicTerrain(
                         slice.remove = SliceRemove.PendingDestroy(
                             at = System.currentTimeMillis() + (settings.removeIn * 1000).toLong(),
                         )
+                        slice.debugColor = NamedTextColor.RED
                     }
                 }
                 // we split the removal process into 2 states:
@@ -427,6 +453,7 @@ class PaperDynamicTerrain(
                         }
                     } else {
                         slice.remove = SliceRemove.None
+                        slice.debugColor = NamedTextColor.GRAY
                     }
                 }
                 is SliceRemove.PendingRemove -> {
@@ -451,6 +478,7 @@ class PaperDynamicTerrain(
                     slice.state = SliceState.Built
                     slices.swapCollision(pos, collision)
                     slices.dirty(pos)
+                    slice.debugColor = NamedTextColor.GRAY
                 }
                 is SliceState.Built -> {
                     // nothing to do
@@ -470,7 +498,7 @@ class PaperDynamicTerrain(
 
         state.tiles.forEachIndexed { i, tile ->
             tile ?: return@forEachIndexed
-            val localPos = posInChunk(i).run { DVec3(x.toDouble(), y.toDouble(), z.toDouble()) } + 0.5
+            val localPos = posInChunk(i).toDouble() + 0.5
             val layer = layerShapes[tile.layerId]
 
             val shapes = tile.shapes.map { child ->
@@ -487,10 +515,10 @@ class PaperDynamicTerrain(
                 if (shapes.isEmpty()) return@mapIndexedNotNull null
                 val layer = layers[i]
 
-                val coll = rattle.engine.createCollider(
-                    shape = rattle.engine.createShape(Compound(shapes)),
+                val coll = platform.rattle.engine.createCollider(
+                    shape = platform.rattle.engine.createShape(Compound(shapes)),
                     position = StartPosition.Absolute(
-                        DIso3((slice.pos * 16).run { DVec3(x.toDouble(), y.toDouble(), z.toDouble()) }),
+                        DIso3((slice.pos * 16).toDouble()),
                     )
                 )
                     .handlesEvents(ColliderEvent.COLLISION)
@@ -525,250 +553,131 @@ class PaperDynamicTerrain(
         )
     }
 
-    private fun drawDebugAabb(aabb: DAabb3, info: DebugInfo) {
-        //if (true) return // todo
-        /*
-        rs: Starting step
-rs: 1
-rs: 2
-rs: 4
-rs: 5
-rs: 6
-rs: 7
-rs: 8
-rs: 9
-rs: 11
-rs: 12
-rs: 13
-rs: 14
-rs: 15
-rs: 16
-rs: 17
-rs: 22
-rs: 23
-rs: 24
-rs: 25
-rs: 26
-rs: 27
+    protected abstract fun scheduleSnapshot(pos: IVec3)
 
-            println!("rs: 26");
-            if let Some(queries) = query_pipeline.as_deref_mut() {
-                println!("rs: 27"); <==
-                queries.update_incremental(
-                    colliders,
-                    &modified_colliders,
-                    &[],
-                    remaining_substeps == 0,
-                );
+    fun onSliceUpdate(pos: IVec3) {
+        // wake any bodies which intersect this slice
+        // note that this will not generate the slice collision *right now*; it will be scheduled on the next update
+        val min = (pos * 16).toDouble()
+        physics.query.intersectBounds(DAabb3(min, min + 16.0)) { collKey ->
+            physics.colliders.read(collKey)?.let { coll ->
+                val parent = coll.parent?.let { physics.rigidBodies.write(it) } ?: return@let
+                parent.wakeUp()
             }
-
-            rs: Starting step
-
-rs: Starting step
-rs: 1
-rs: 2
-rs: 4
-rs: 5
-rs: 6
-rs: 7
-rs: 8
-rs: 9
-rs: 11
-rs: 12
-rs: Q 1
-rs: Q 3
-rs: Q 5
-rs: Q finish
-rs: 13
-rs: 14
-rs: 15
-rs: 16
-rs: 17
-rs: 22
-rs: 23
-rs: 24
-rs: 25
-rs: 26
-rs: 27
-rs: Q 1
-rs: Q 3
-rs: Q 4
-rs: Q 4A
-rs: Q 4
-rs: Q 4A
-rs: Q 4
-rs: Q 4A
-rs: Q 4
-rs: Q 4A
-rs: Q 4
-rs: Q 4A
-rs: Q 4
-rs: Q 4A
-rs: Q 4
-rs: Q 4A
-rs: Q 4
-rs: Q 4A
-rs: Q 4
-rs: Q 4A
-rs: Q 4
-rs: Q 4A
-rs: Q 4
-rs: Q 4A
-rs: Q 4
-rs: Q 4A
-rs: Q 4
-rs: Q 4A
-rs: Q 4
-rs: Q 4A
-rs: Q 4
-rs: Q 4A
-rs: Q 4
-rs: Q 4A
-rs: Q 4
-rs: Q 4A
-rs: Q 4
-rs: Q 4A
-rs: Q 4
-rs: Q 4A
-rs: Q 4
-rs: Q 4A
-rs: Q 4
-rs: Q 4A
-rs: Q 4
-rs: Q 4A
-rs: Q 4
-rs: Q 4A
-rs: Q 4
-rs: Q 4A
-rs: Q 4
-rs: Q 4A
-rs: Q 4
-rs: Q 4A
-rs: Q 4
-rs: Q 4A
-rs: Q 4
-rs: Q 4A
-rs: Q 4
-rs: Q 4A
-rs: Q 4
-rs: Q 4A
-rs: Q 5
-rs: Q 6
-rs: Q 6A
-rs: Q 6A
-rs: Q 6A
-rs: Q 6A
-rs: Q 6A
-rs: Q 6A
-rs: Q 6A
-rs: Q 6A
-rs: Q 6A
-rs: Q 6A
-rs: Q 6A
-rs: Q 6A
-rs: Q 6A
-rs: Q 6A
-rs: Q 6A
-rs: Q 6A
-rs: Q 6A
-rs: Q 6A
-rs: Q 6A
-rs: Q 6A
-rs: Q 6A
-rs: Q 6A
-rs: Q 6A
-rs: Q 6A
-rs: Q 6A
-rs: Q 6A
-rs: Q 6A
-rs: Q 6A
-rs: Q 6A
-rs: Q 6A
-rs: Q 6A
-rs: Q 6A
-thread '<unnamed>' panicked at 'No element at index', /home/socket/Projects/rapier/crates/rapier3d-f64/../../src/pipeline/query_pipeline.rs:357:17
-stack backtrace:
-   0:     0x7f88fd79066a - std::backtrace_rs::backtrace::libunwind::trace::h1ac6254167c780d9
-                               at /rustc/22f247c6f3ed388cb702d01c2ff27da658a8b353/library/std/src/../../backtrace/src/backtrace/libunwind.rs:93:5
-   1:     0x7f88fd79066a - std::backtrace_rs::backtrace::trace_unsynchronized::hec2af85915e24f36
-                               at /rustc/22f247c6f3ed388cb702d01c2ff27da658a8b353/library/std/src/../../backtrace/src/backtrace/mod.rs:66:5
-   2:     0x7f88fd79066a - std::sys_common::backtrace::_print_fmt::h58a4e3535fcce206
-                               at /rustc/22f247c6f3ed388cb702d01c2ff27da658a8b353/library/std/src/sys_common/backtrace.rs:65:5
-   3:     0x7f88fd79066a - <std::sys_common::backtrace::_print::DisplayBacktrace as core::fmt::Display>::fmt::h5107e13758b8321c
-                               at /rustc/22f247c6f3ed388cb702d01c2ff27da658a8b353/library/std/src/sys_common/backtrace.rs:44:22
-   4:     0x7f88fd7aefae - core::fmt::write::h2e851dc027730d81
-                               at /rustc/22f247c6f3ed388cb702d01c2ff27da658a8b353/library/core/src/fmt/mod.rs:1232:17
-   5:     0x7f88fd78e2d5 - std::io::Write::write_fmt::hca00074de9f85084
-                               at /rustc/22f247c6f3ed388cb702d01c2ff27da658a8b353/library/std/src/io/mod.rs:1684:15
-   6:     0x7f88fd790435 - std::sys_common::backtrace::_print::h870053c845cddf24
-                               at /rustc/22f247c6f3ed388cb702d01c2ff27da658a8b353/library/std/src/sys_common/backtrace.rs:47:5
-   7:     0x7f88fd790435 - std::sys_common::backtrace::print::hb56add862f96c5fd
-                               at /rustc/22f247c6f3ed388cb702d01c2ff27da658a8b353/library/std/src/sys_common/backtrace.rs:34:9
-   8:     0x7f88fd791bef - std::panicking::default_hook::{{closure}}::h636d4ba3ff8fdc46
-                               at /rustc/22f247c6f3ed388cb702d01c2ff27da658a8b353/library/std/src/panicking.rs:271:22
-   9:     0x7f88fd79192b - std::panicking::default_hook::hf29b58145ee6e43c
-                               at /rustc/22f247c6f3ed388cb702d01c2ff27da658a8b353/library/std/src/panicking.rs:290:9
-  10:     0x7f88fd792198 - std::panicking::rust_panic_with_hook::hbf9ef936d990c16f
-                               at /rustc/22f247c6f3ed388cb702d01c2ff27da658a8b353/library/std/src/panicking.rs:692:13
-  11:     0x7f88fd792099 - std::panicking::begin_panic_handler::{{closure}}::h6be6433dcb901f4b
-                               at /rustc/22f247c6f3ed388cb702d01c2ff27da658a8b353/library/std/src/panicking.rs:583:13
-  12:     0x7f88fd790ad6 - std::sys_common::backtrace::__rust_end_short_backtrace::h802b6104a4d80829
-                               at /rustc/22f247c6f3ed388cb702d01c2ff27da658a8b353/library/std/src/sys_common/backtrace.rs:150:18
-  13:     0x7f88fd791da2 - rust_begin_unwind
-                               at /rustc/22f247c6f3ed388cb702d01c2ff27da658a8b353/library/std/src/panicking.rs:579:5
-  14:     0x7f88fd624403 - core::panicking::panic_fmt::hf7a8a88b9669732e
-                               at /rustc/22f247c6f3ed388cb702d01c2ff27da658a8b353/library/core/src/panicking.rs:64:14
-  15:     0x7f88fd7ad9c1 - core::panicking::panic_display::ha14ecfa86c697326
-                               at /rustc/22f247c6f3ed388cb702d01c2ff27da658a8b353/library/core/src/panicking.rs:147:5
-  16:     0x7f88fd7ad96b - core::panicking::panic_str::h0f5ad79b66e15d80
-                               at /rustc/22f247c6f3ed388cb702d01c2ff27da658a8b353/library/core/src/panicking.rs:131:5
-  17:     0x7f88fd6243c6 - core::option::expect_failed::h6e9ae5a1d735f1ff
-                               at /rustc/22f247c6f3ed388cb702d01c2ff27da658a8b353/library/core/src/option.rs:2091:5
-  18:     0x7f88fd6d322a - rapier3d_f64::pipeline::query_pipeline::QueryPipeline::update_incremental::hc039ebe670ceef43
-  19:     0x7f88fd6d04b8 - rapier3d_f64::pipeline::physics_pipeline::PhysicsPipeline::step::h073110eac85393fc
-  20:     0x7f88fd630796 - RprPhysicsPipeline_step_all
-  21:     0x7f89802930a5 - <unknown>
-fatal runtime error: failed to initiate panic, error 5
-
-        if refit_and_rebalance {
-            println!("rs: Q 6");
-            let _ = self.qbvh.refit(0.0, &mut self.workspace, |handle| {
-                println!("rs: Q 6A = {:?}", handle);
-                colliders[*handle].compute_aabb()
-            });
-            println!("rs: Q 7");
-            self.qbvh.rebalance(0.0, &mut self.workspace);
+            QueryResult.CONTINUE
         }
 
-rs: Q 6A = ColliderHandle(Index { index: 63, generation: 85 })
- .. Isometry { rotation: [0.023060505281168774, -0.07631822832763699, -0.04456479926016141, 0.9958201242132081], translation: [9.087271181911872, 79.27585386552853, -0.3226061464469934] }
-rs: Q 6A = ColliderHandle(Index { index: 109, generation: 92 })
- .. Isometry { rotation: [0.0, 0.0, 0.0, 1.0], translation: [10.118152678902737, 145.69035141642212, 9.156744383001415] }
-rs: Q 6A = ColliderHandle(Index { index: 84, generation: 85 })
- .. Isometry { rotation: [0.16869145213288023, 0.1690841319730785, -0.6864359930891825, -0.6868474195073302], translation: [15.043540813670306, 71.59831337204204, -19.69024832725183] }
-rs: Q 6A = ColliderHandle(Index { index: 96, generation: 85 })
- .. Isometry { rotation: [-0.0002551283153670157, 0.004839132411981812, 0.0007248032307390261, 0.9999879961116127], translation: [8.895699718688075, 76.59736254297809, -4.687474116659055] }
-rs: Q 6A = ColliderHandle(Index { index: 63, generation: 85 })
- .. Isometry { rotation: [0.023060505281168774, -0.07631822832763699, -0.04456479926016141, 0.9958201242132081], translation: [9.087271181911872, 79.27585386552853, -0.3226061464469934] }
+        // if a slice already exists for this position, schedule an update for its collision shape
+        slices.withLock { slices ->
+            val slice = slices[pos] ?: return@withLock
+            slice.debugColor = NamedTextColor.AQUA
+            when (slice.state) {
+                is SliceState.PendingScheduleSnapshot -> {}
+                is SliceState.PendingSnapshot -> {}
+                else -> {
+                    slice.state = SliceState.PendingScheduleSnapshot
+                    slices.dirty(pos)
+                    scheduleSnapshot(pos)
+                }
+            }
+        }
+    }
+}
 
-repeated...
+private fun sliceBounds(pos: IVec3): DAabb3 {
+    val min = DVec3(pos.x.toDouble(), pos.y.toDouble(), pos.z.toDouble()) * 16.0
+    return DAabb3(min, min + 16.0)
+}
 
-         */
+fun posInChunk(i: Int) = IVec3(
+    (i / 16 / 16) % 16,
+    (i / 16) % 16,
+    i % 16,
+)
 
-//        ParticleShaping().aabb(aabb).forEach { (x, y, z) ->
-//            world.players.forEach { player ->
-//                player.spawnParticle(
-//                    Particle.REDSTONE,
-//                    x, y + info.offset, z,
-//                    0,
-//                    1.0, 1.0, 1.0,
-//                    10000.0, DustOptions(info.color.toColor(), 1.0f),
-//                )
-//            }
-//        }
+private fun enclosedPoints(b: DAabb3): Iterable<IVec3> {
+    fun floor(s: Double): Int {
+        val i = s.toInt()
+        return if (s < i) i - 1 else i
     }
 
-    private fun scheduleSnapshot(pos: IVec3) {
+    fun ceil(s: Double): Int {
+        val i = s.toInt()
+        return if (s > i) i + 1 else i
+    }
+
+    val pMin = IVec3(floor(b.min.x), floor(b.min.y), floor(b.min.z))
+    val pMax = IVec3(ceil(b.max.x), ceil(b.max.y), ceil(b.max.z))
+    val extent = pMax - pMin
+    val size = extent.x * extent.y * extent.z
+    return object : Iterable<IVec3> {
+        override fun iterator() = object : Iterator<IVec3> {
+            var i = 0
+            var dx = 0
+            var dy = 0
+            var dz = 0
+
+            override fun hasNext() = i < size
+
+            override fun next(): IVec3 {
+                if (i >= size)
+                    throw IndexOutOfBoundsException("($dx, $dy, $dz)")
+                val point = pMin + IVec3(dx, dy, dz)
+                dx += 1
+                if (dx >= extent.x) {
+                    dx = 0
+                    dy += 1
+                    if (dy >= extent.y) {
+                        dy = 0
+                        dz += 1
+                    }
+                }
+                i += 1
+                return point
+            }
+        }
+    }
+}
+
+val terrainLayerSerializer = HierarchySerializer {
+    subType<_, DynamicTerrain.Layer.Solid>("solid")
+    subType<_, DynamicTerrain.Layer.Fluid>("fluid")
+}
+
+class PaperDynamicTerrain(
+    private val rattle: PaperRattle,
+    world: World,
+    physics: PhysicsSpace,
+    settings: Settings = Settings(),
+) : DynamicTerrain<World>(world, rattle.platform, physics, settings) {
+    private val yIndices = (world.minHeight / 16) until (world.maxHeight / 16)
+    private val playerTracking = HashMap<IVec2, MutableSet<Player>>()
+
+    override fun createItemRender(pos: IVec3) = ItemDisplayRender(nextEntityId()) { packet ->
+        playerTracking[pos.xz]?.forEach { it.sendPacket(packet) }
+    }
+
+    fun onTrackChunk(player: Player, chunk: Chunk) {
+        playerTracking.computeIfAbsent(chunk.position()) { HashSet() } += player
+        rattle.runTask {
+            slices.withLock { slices ->
+                yIndices.forEach { sy ->
+                    val slice = slices[IVec3(chunk.x, sy, chunk.z)] ?: return@forEach
+                    slice.onTrack()
+                }
+            }
+        }
+    }
+
+    fun onUntrackChunk(player: Player, chunk: Chunk) {
+        val forChunk = playerTracking[chunk.position()] ?: return
+        forChunk -= player
+        if (forChunk.isEmpty()) {
+            playerTracking.remove(chunk.position())
+        }
+    }
+
+    override fun scheduleSnapshot(pos: IVec3) {
         val chunk = world.getChunkAt(pos.x, pos.z)
         rattle.scheduling.onChunk(chunk).runLater {
             val snapshot = createSnapshot(chunk, pos)
@@ -847,60 +756,5 @@ repeated...
     private fun boxShape(halfExtent: DVec3): Shape {
         // todo cache this?
         return rattle.engine.createShape(Box(halfExtent))
-    }
-}
-
-private fun sliceBounds(pos: IVec3): DAabb3 {
-    val min = DVec3(pos.x.toDouble(), pos.y.toDouble(), pos.z.toDouble()) * 16.0
-    return DAabb3(min, min + 16.0)
-}
-
-fun posInChunk(i: Int) = IVec3(
-    (i / 16 / 16) % 16,
-    (i / 16) % 16,
-    i % 16,
-)
-
-private fun enclosedPoints(b: DAabb3): Iterable<IVec3> {
-    fun floor(s: Double): Int {
-        val i = s.toInt()
-        return if (s < i) i - 1 else i
-    }
-
-    fun ceil(s: Double): Int {
-        val i = s.toInt()
-        return if (s > i) i + 1 else i
-    }
-
-    val pMin = IVec3(floor(b.min.x), floor(b.min.y), floor(b.min.z))
-    val pMax = IVec3(ceil(b.max.x), ceil(b.max.y), ceil(b.max.z))
-    val extent = pMax - pMin
-    val size = extent.x * extent.y * extent.z
-    return object : Iterable<IVec3> {
-        override fun iterator() = object : Iterator<IVec3> {
-            var i = 0
-            var dx = 0
-            var dy = 0
-            var dz = 0
-
-            override fun hasNext() = i < size
-
-            override fun next(): IVec3 {
-                if (i >= size)
-                    throw IndexOutOfBoundsException("($dx, $dy, $dz)")
-                val point = pMin + IVec3(dx, dy, dz)
-                dx += 1
-                if (dx >= extent.x) {
-                    dx = 0
-                    dy += 1
-                    if (dy >= extent.y) {
-                        dy = 0
-                        dz += 1
-                    }
-                }
-                i += 1
-                return point
-            }
-        }
     }
 }

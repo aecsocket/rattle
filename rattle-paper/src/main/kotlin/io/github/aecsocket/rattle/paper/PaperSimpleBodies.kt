@@ -11,7 +11,6 @@ import io.github.aecsocket.alexandria.sync.Locked
 import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.world.SimpleBodies
-import org.bukkit.Material
 import org.bukkit.World
 import org.bukkit.entity.Entity
 import org.bukkit.entity.ItemDisplay
@@ -35,10 +34,6 @@ class PaperSimpleBodies(
     }
 
     override fun ItemDesc.create() = PaperItem(create(count = 1))
-
-    override fun defaultGeomSettings() = Settings.ForGeometry(
-        item = ItemDesc(PaperItemType(Material.STONE)),
-    )
 
     override fun createRender(position: DVec3, instKey: ArenaKey): ItemRender {
         // we start with no receivers, and update this set every tick
@@ -94,7 +89,7 @@ class PaperSimpleBodies(
         super.onPhysicsStep()
     }
 
-    fun onTrack(player: Player, entity: Entity) {
+    fun onTrackEntity(player: Player, entity: Entity) {
         val inst = trackerToInstance[entity.uniqueId]?.let { get(it) } ?: run {
             trackerToInstance.remove(entity.uniqueId)
             return
@@ -103,7 +98,7 @@ class PaperSimpleBodies(
         inst.onTrack(render.withReceiver(player.packetReceiver()))
     }
 
-    fun onUntrack(player: Player, entity: Entity) {
+    fun onUntrackEntity(player: Player, entity: Entity) {
         val inst = trackerToInstance[entity.uniqueId]?.let { get(it) } ?: run {
             trackerToInstance.remove(entity.uniqueId)
             return

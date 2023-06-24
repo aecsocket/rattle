@@ -4,11 +4,12 @@ import io.github.aecsocket.alexandria.ArenaKey
 import io.github.aecsocket.alexandria.GenArena
 import io.github.aecsocket.alexandria.ItemRender
 import io.github.aecsocket.alexandria.desc.ItemDesc
+import io.github.aecsocket.alexandria.desc.ItemType
 import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.impl.RattlePlatform
+import net.kyori.adventure.key.Key
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
-import org.spongepowered.configurate.objectmapping.meta.Required
 
 enum class Visibility {
     VISIBLE,
@@ -52,12 +53,12 @@ abstract class SimpleBodies<W>(
     @ConfigSerializable
     data class Settings(
         val renderInterpolationDuration: Int = 2,
-        val box: ForGeometry? = null,
-        val sphere: ForGeometry? = null,
+        val box: ForGeometry = ForGeometry(),
+        val sphere: ForGeometry = ForGeometry(),
     ) {
         @ConfigSerializable
         data class ForGeometry(
-            @Required val item: ItemDesc,
+            val item: ItemDesc = ItemDesc(ItemType.Keyed(Key.key("minecraft", "stone"))),
             val scale: FVec3 = FVec3.One,
         )
     }
@@ -124,8 +125,6 @@ abstract class SimpleBodies<W>(
         }
     }
 
-    protected abstract fun defaultGeomSettings(): Settings.ForGeometry
-
     protected abstract fun createRender(position: DVec3, instKey: ArenaKey): ItemRender
 
     fun create(position: DIso3, desc: SimpleBodyDesc): ArenaKey {
@@ -147,11 +146,10 @@ abstract class SimpleBodies<W>(
             .let { physics.rigidBodies.add(it) }
         physics.colliders.attach(collider, body)
 
-        val (rawGeomSettings, rawGeomScale) = when (val geom = desc.geom) {
+        val (geomSettings, rawGeomScale) = when (val geom = desc.geom) {
             is SimpleGeometry.Sphere -> settings.sphere to DVec3(geom.handle.radius * 2.0)
             is SimpleGeometry.Box -> settings.box to geom.handle.halfExtent * 2.0
         }
-        val geomSettings = rawGeomSettings ?: defaultGeomSettings()
         val geomScale = rawGeomScale.toFloat() * geomSettings.scale
 
         val inst = Instance(

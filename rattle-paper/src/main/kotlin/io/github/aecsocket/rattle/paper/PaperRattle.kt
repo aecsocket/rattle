@@ -17,6 +17,8 @@ import io.github.aecsocket.rattle.impl.RattleMessages
 import io.github.aecsocket.rattle.impl.rattleManifest
 import io.github.aecsocket.rattle.world.NoOpEntityStrategy
 import io.github.oshai.kotlinlogging.KLogger
+import io.papermc.paper.event.packet.PlayerChunkLoadEvent
+import io.papermc.paper.event.packet.PlayerChunkUnloadEvent
 import io.papermc.paper.event.player.PlayerTrackEntityEvent
 import io.papermc.paper.event.player.PlayerUntrackEntityEvent
 import org.bukkit.World
@@ -137,26 +139,40 @@ class PaperRattle : AlexandriaPlugin<RattleHook.Settings>(
                 }
             }
 
+            // simple bodies
+
             @EventHandler
             fun on(event: PlayerTrackEntityEvent) {
-                simpleBodies(event.entity) { onTrack(event.player, event.entity) }
+                simpleBodies(event.entity) { onTrackEntity(event.player, event.entity) }
             }
 
             @EventHandler
             fun on(event: PlayerUntrackEntityEvent) {
-                simpleBodies(event.entity) { onUntrack(event.player, event.entity) }
+                simpleBodies(event.entity) { onUntrackEntity(event.player, event.entity) }
+            }
+
+            // terrain
+
+            private fun terrain(world: World, fn: PaperDynamicTerrain.() -> Unit) {
+                runTask {
+                    physicsOrNull(world)?.withLock { physics ->
+                        (physics.terrain as? PaperDynamicTerrain)?.let(fn)
+                    }
+                }
+            }
+
+            @EventHandler
+            fun on(event: PlayerChunkLoadEvent) {
+                terrain(event.world) { onTrackChunk(event.player, event.chunk) }
+            }
+
+            @EventHandler
+            fun on(event: PlayerChunkUnloadEvent) {
+                terrain(event.world) { onUntrackChunk(event.player, event.chunk) }
             }
 
             private fun terrainUpdate(block: Block) {
-                val world = block.world
-                val tilePos = block.position()
-                // this is different to `/ 16`
-                val slicePos = IVec3(tilePos.x shr 4, tilePos.y shr 4, tilePos.z shr 4)
-                runTask {
-                    physicsOrNull(world)?.withLock { physics ->
-                        (physics.terrain as? PaperDynamicTerrain)?.onUpdate(slicePos)
-                    }
-                }
+                terrain(block.world) { onSliceUpdate(block.position().map { it shr 4 }) }
             }
 
             @EventHandler
