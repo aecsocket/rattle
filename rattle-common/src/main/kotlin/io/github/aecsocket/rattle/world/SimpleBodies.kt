@@ -1,6 +1,7 @@
 package io.github.aecsocket.rattle.world
 
 import io.github.aecsocket.alexandria.ArenaKey
+import io.github.aecsocket.alexandria.Dirty
 import io.github.aecsocket.alexandria.GenArena
 import io.github.aecsocket.alexandria.ItemRender
 import io.github.aecsocket.alexandria.desc.ItemDesc
@@ -66,12 +67,13 @@ abstract class SimpleBodies<W>(
     abstract inner class Instance(
         val collider: ColliderKey,
         val body: RigidBodyKey,
-        val scale: FVec3,
+        private val scale: FVec3,
         position: DIso3,
     ) {
         val destroyed = DestroyFlag()
         var render: ItemRender? = null
-        var nextPosition: DIso3 = position
+        private val mPosition = Dirty(position)
+        var position by mPosition
 
         internal fun destroy() {
             destroyed()
@@ -84,9 +86,9 @@ abstract class SimpleBodies<W>(
 
         fun onTrack(render: ItemRender) {
             render
-                .spawn(nextPosition.translation)
+                .spawn(position.translation)
                 .transform(FAffine3(
-                    rotation = nextPosition.rotation.toFloat(),
+                    rotation = position.rotation.toFloat(),
                     scale = scale,
                 ))
                 .interpolationDuration(settings.renderInterpolationDuration)
@@ -95,6 +97,20 @@ abstract class SimpleBodies<W>(
 
         fun onUntrack(render: ItemRender) {
             render.despawn()
+        }
+
+        fun onUpdate() {
+            if (!mPosition.clean()) return
+            val render = render ?: return
+            render
+                // this is required to make the interpolation work properly
+                // because this game SUCKS
+                .interpolationDelay(0)
+                .position(position.translation)
+                .transform(FAffine3(
+                    rotation = position.rotation.toFloat(),
+                    scale = scale,
+                ))
         }
     }
 
@@ -128,7 +144,7 @@ abstract class SimpleBodies<W>(
         geomSettings: Settings.ForGeometry,
     ): Instance
 
-    protected abstract fun createRender(position: DVec3, instKey: ArenaKey): ItemRender
+    protected abstract fun createRender(position: DVec3, inst: Instance, instKey: ArenaKey): ItemRender
 
     fun create(position: DIso3, desc: SimpleBodyDesc): ArenaKey {
         val engine = platform.rattle.engine
@@ -164,7 +180,7 @@ abstract class SimpleBodies<W>(
         )
         val instKey = instances.insert(inst)
         inst.render = when (desc.visibility) {
-            Visibility.VISIBLE -> createRender(position.translation, instKey)
+            Visibility.VISIBLE -> createRender(position.translation, inst, instKey)
             Visibility.INVISIBLE -> null
         }
         return instKey
@@ -185,7 +201,7 @@ abstract class SimpleBodies<W>(
         instances.forEach { (_, instance) ->
             val body = physics.rigidBodies.read(instance.body) ?: return@forEach
             if (!body.isSleeping) {
-                instance.nextPosition = body.position
+                instance.position = body.position
             }
         }
     }

@@ -6,7 +6,7 @@ plugins {
     alias(libs.plugins.run.paper)
 }
 
-val minecraft: String = libs.versions.minecraft.get()
+val minecraft = "1.19.4"
 
 repositories {
     maven("https://repo.papermc.io/repository/maven-public/")
@@ -14,7 +14,7 @@ repositories {
 }
 
 dependencies {
-    paperweight.paperDevBundle("$minecraft-R0.1-SNAPSHOT")
+    paperweight.foliaDevBundle("$minecraft-R0.1-SNAPSHOT")
     api(projects.rattleCommon)
     api(libs.alexandria.paper)
 }

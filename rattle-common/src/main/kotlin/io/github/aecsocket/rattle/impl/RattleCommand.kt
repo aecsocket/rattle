@@ -31,6 +31,7 @@ private const val COUNT = "count"
 private const val CREATE = "create"
 private const val DENSITY = "density"
 private const val DESTROY = "destroy"
+private const val DRAW = "draw"
 private const val DYNAMIC = "dynamic"
 private const val ENABLED = "enabled"
 private const val FIXED = "fixed"
@@ -48,6 +49,7 @@ private const val SPACE = "space"
 private const val SPHERE = "sphere"
 private const val SPREAD = "spread"
 private const val STATS = "stats"
+private const val TERRAIN = "terrain"
 private const val VELOCITY = "velocity"
 private const val VIRTUAL = "virtual"
 private const val WORLD = "world"
@@ -209,6 +211,12 @@ abstract class RattleCommand<C : Audience, W>(
                             )
                         }
                 }
+
+            manager.command(literal(DRAW)
+                .axPermission(DRAW)
+                .flag(manager.flagBuilder(TERRAIN))
+                .axHandler(::draw)
+            )
         }
     }
 
@@ -520,5 +528,14 @@ abstract class RattleCommand<C : Audience, W>(
             messages.command.launcher.box().sendTo(sender)
         }
         launcher(ctx, sender, boxGeom(ctx))
+    }
+
+    private fun draw(ctx: CommandContext<C>) {
+        val server = ctx.server
+        val sender = server.asPlayer(ctx.sender) ?: mustBePlayer(ctx.sender)
+
+        sender.draw = RattlePlayer.Draw(
+            terrain = ctx.hasFlag(TERRAIN),
+        )
     }
 }

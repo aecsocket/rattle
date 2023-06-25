@@ -20,4 +20,4 @@ include("rattle-api")
 include("rattle-rapier")
 include("rattle-common")
 include("rattle-paper")
-//include("rattle-fabric") // TODO
+include("rattle-fabric")

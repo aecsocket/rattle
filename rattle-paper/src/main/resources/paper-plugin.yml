@@ -5,5 +5,4 @@ description: $description
 api-version: 1.19
 authors: [ aecsocket ]
 website: https://github.com/aecsocket/rattle
-# TODO Folia
-#folia-supported: true
+folia-supported: true

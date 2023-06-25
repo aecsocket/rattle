@@ -10,7 +10,7 @@ import org.bukkit.World
 import org.bukkit.entity.Player
 
 class PaperRattlePlayer(
-    rattle: PaperRattle,
+    private val rattle: PaperRattle,
     player: Player,
 ) : RattlePlayer<World, Player>(rattle.platform, player) {
     override var messages: RattleMessages = rattle.messages.forLocale(player.locale())
@@ -32,5 +32,13 @@ class PaperRattlePlayer(
 
     override fun eyeDirection(): DVec3 {
         return player.eyeLocation.direction()
+    }
+
+    override fun updateDraw(draw: Draw) {
+        rattle.runTask {
+            rattle.physicsOrNull(world)?.withLock { physics ->
+                //(physics.terrain as? PaperDynamicTerrain)?.onUntrackChunk(player, )
+            }
+        }
     }
 }

@@ -2,20 +2,18 @@ package io.github.aecsocket.rattle.paper
 
 import io.github.aecsocket.alexandria.ArenaKey
 import io.github.aecsocket.alexandria.ItemRender
+import io.github.aecsocket.alexandria.extension.swapList
 import io.github.aecsocket.alexandria.paper.*
 import io.github.aecsocket.alexandria.paper.extension.nextEntityId
 import io.github.aecsocket.alexandria.paper.extension.sendPacket
-import io.github.aecsocket.alexandria.paper.extension.spawn
+import io.github.aecsocket.alexandria.paper.extension.spawnTracker
 import io.github.aecsocket.alexandria.sync.Locked
 import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.world.SimpleBodies
 import org.bukkit.World
-import org.bukkit.entity.Entity
-import org.bukkit.entity.ItemDisplay
-import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
-import java.util.UUID
+import kotlin.collections.HashSet
 
 class PaperSimpleBodies(
     private val rattle: PaperRattle,
@@ -23,19 +21,18 @@ class PaperSimpleBodies(
     physics: PhysicsSpace,
     settings: Settings = Settings(),
 ) : SimpleBodies<World>(world, rattle.platform, physics, settings) {
-    inner class PaperInstance(
+    private inner class PaperInstance(
         collider: ColliderKey,
         body: RigidBodyKey,
         scale: FVec3,
         position: DIso3,
-        val item: ItemStack,
+        private val item: ItemStack,
     ) : SimpleBodies<World>.Instance(collider, body, scale, position) {
         override fun ItemRender.item() {
             (this as ItemDisplayRender).item(item)
         }
     }
 
-    private val trackerToInstance = HashMap<UUID, ArenaKey>()
     private val toRemove = Locked(HashSet<ArenaKey>())
 
     override fun createInstance(
@@ -44,77 +41,48 @@ class PaperSimpleBodies(
         scale: FVec3,
         position: DIso3,
         geomSettings: Settings.ForGeometry
-    ) = PaperInstance(collider, body, scale, position, geomSettings.item.create())
+    ): Instance = PaperInstance(collider, body, scale, position, geomSettings.item.create())
 
-    override fun createRender(position: DVec3, instKey: ArenaKey): ItemRender {
-        // we start with no receivers, and update this set every tick
-        // instead of using `entity.trackedPlayers` directly, because once that entity is invalid,
-        // that returns an empty set; we want to get the last tracked players instead
-        var lastReceivers: Set<Player> = emptySet()
-        val render = ItemDisplayRender(nextEntityId()) { packet -> lastReceivers.forEach { it.sendPacket(packet) }}
+    override fun createRender(position: DVec3, inst: Instance, instKey: ArenaKey): ItemRender {
+        val render = ItemDisplayRender(nextEntityId()) {}
         rattle.scheduling.onChunk(world, position).runLater {
-            // since the client doesn't track Markers, we have to use something else
-            val tracker = world.spawn<ItemDisplay>(position) { tracker ->
-                trackerToInstance[tracker.uniqueId] = instKey
-            }
+            val tracker = world.spawnTracker(position)
             val trackerId = tracker.uniqueId
+            EntityTracking.register(tracker)
+            EntityTracking.onTrack(tracker).invoke { player ->
+                inst.onTrack(render.withReceiver(player.packetReceiver()))
+            }
+            EntityTracking.onUntrack(tracker).invoke { player ->
+                inst.onUntrack(render.withReceiver(player.packetReceiver()))
+            }
+            render.receiver = PacketReceiver { packet ->
+                EntityTracking.trackedPlayers(tracker).forEach { it.sendPacket(packet) }
+            }
 
             rattle.scheduling.onEntity(tracker, onRetire = {
+                // grab the last tracked players and clear them
+                val receivers = EntityTracking.trackedPlayers(trackerId)
+                render.receiver = PacketReceiver { packet ->
+                    receivers.forEach { it.sendPacket(packet) }
+                }
+                EntityTracking.unregister(trackerId)
                 // we have no clue on what thread this runnable will be run, so we can't delete it immediately
-                trackerToInstance.remove(trackerId)?.let {
-                    toRemove.withLock { toRemove ->
-                        toRemove += it
-                    }
+                toRemove.withLock { toRemove ->
+                    toRemove += instKey
                 }
             }).runRepeating {
-                val inst = get(instKey) ?: run {
-                    tracker.remove()
-                    return@runRepeating
-                }
                 if (inst.destroyed.get()) {
                     tracker.remove()
                     return@runRepeating
                 }
-
-                lastReceivers = tracker.trackedPlayers
-                render
-                    // this is required to make the interpolation work properly
-                    // because this game SUCKS
-                    .interpolationDelay(0)
-                    .position(inst.nextPosition.translation)
-                    .transform(FAffine3(
-                        rotation = inst.nextPosition.rotation.toFloat(),
-                        scale = inst.scale,
-                    ))
+                inst.onUpdate()
             }
         }
         return render
     }
 
     override fun onPhysicsStep() {
-        // remove the previously-scheduled-for-removal instances
-        // under protection of lock on both this SimpleBodies and the PhysicsSpace
-        // copy and swap the set to avoid concurrency issues
-        toRemove.withLock { toRemove -> toRemove.toSet().also { toRemove.clear() } }
-            .forEach { remove(it) }
+        toRemove.withLock { it.swapList() }.forEach { remove(it) }
         super.onPhysicsStep()
-    }
-
-    fun onTrackEntity(player: Player, entity: Entity) {
-        val inst = trackerToInstance[entity.uniqueId]?.let { get(it) } ?: run {
-            trackerToInstance.remove(entity.uniqueId)
-            return
-        }
-        val render = inst.render as? ItemDisplayRender ?: return
-        inst.onTrack(render.withReceiver(player.packetReceiver()))
-    }
-
-    fun onUntrackEntity(player: Player, entity: Entity) {
-        val inst = trackerToInstance[entity.uniqueId]?.let { get(it) } ?: run {
-            trackerToInstance.remove(entity.uniqueId)
-            return
-        }
-        val render = inst.render as? ItemDisplayRender ?: return
-        inst.onUntrack(render.withReceiver(player.packetReceiver()))
     }
 }

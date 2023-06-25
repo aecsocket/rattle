@@ -1,17 +1,20 @@
 package io.github.aecsocket.rattle.fabric
 
 import io.github.aecsocket.alexandria.ArenaKey
-import io.github.aecsocket.alexandria.desc.ItemDesc
-import io.github.aecsocket.alexandria.fabric.FabricItemType
-import io.github.aecsocket.alexandria.fabric.ItemRender
+import io.github.aecsocket.alexandria.ItemRender
+import io.github.aecsocket.alexandria.extension.swapList
+import io.github.aecsocket.alexandria.fabric.ItemDisplayRender
 import io.github.aecsocket.alexandria.fabric.create
-import io.github.aecsocket.klam.FAffine3
-import io.github.aecsocket.klam.FQuat
-import io.github.aecsocket.klam.FVec3
+import io.github.aecsocket.alexandria.fabric.extension.nextEntityId
+import io.github.aecsocket.alexandria.fabric.extension.toVec3
+import io.github.aecsocket.alexandria.sync.Locked
+import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.world.SimpleBodies
 import net.minecraft.server.level.ServerLevel
-import net.minecraft.world.item.Items
+import net.minecraft.world.entity.Display.ItemDisplay
+import net.minecraft.world.entity.EntityType
+import net.minecraft.world.item.ItemStack
 
 class FabricSimpleBodies(
     world: ServerLevel,
@@ -19,39 +22,32 @@ class FabricSimpleBodies(
     physics: PhysicsSpace,
     settings: Settings = Settings(),
 ) : SimpleBodies<ServerLevel>(world, platform, physics, settings) {
-    private inner class RenderInstance(
-        val render: ItemRender,
-        val instance: Instance,
-        val instanceKey: ArenaKey,
-    )
+    private inner class FabricInstance(
+        collider: ColliderKey,
+        body: RigidBodyKey,
+        scale: FVec3,
+        position: DIso3,
+        private val item: ItemStack,
+    ) : SimpleBodies<ServerLevel>.Instance(collider, body, scale, position) {
+        override fun ItemRender.item() {
+            (this as ItemDisplayRender).item(item)
+        }
+    }
 
-    private val renders = platform.renders
-    private val renderInstances = ArrayList<RenderInstance>()
+    private val toRemove = Locked(HashSet<ArenaKey>())
 
-    override fun createVisual(
-        position: Iso,
-        geomSettings: Settings.Geometry?,
-        geomScale: Vec,
-        instance: Instance,
-        instanceKey: ArenaKey,
-    ) {
-        val rGeomSettings = geomSettings
-            ?: Settings.Geometry(ItemDesc(FabricItemType(Items.STONE)))
-        val render = renders.createItem(
-            world = world,
-            position = position.translation,
-            transform = FAffine3(
-                rotation = FQuat(position.rotation),
-                scale = FVec3(geomScale) * rGeomSettings.scale,
-            ),
-            item = rGeomSettings.item.create(),
-            desc = settings.itemRenderDesc,
-        )
-        renderInstances += RenderInstance(
-            render = render,
-            instance = instance,
-            instanceKey = instanceKey,
-        )
+    override fun createInstance(
+        collider: ColliderKey,
+        body: RigidBodyKey,
+        scale: FVec3,
+        position: DIso3,
+        geomSettings: Settings.ForGeometry
+    ): Instance = FabricInstance(collider, body, scale, position, geomSettings.item.create())
+
+    override fun createRender(position: DVec3, inst: Instance, instKey: ArenaKey): ItemRender {
+        val render = ItemDisplayRender(nextEntityId()) {}
+        val tracker = ItemDisplay(EntityType.ITEM_DISPLAY, world)
+        tracker.moveTo(position.toVec3())
     }
 
     fun onTick() {
@@ -73,11 +69,8 @@ class FabricSimpleBodies(
         }
     }
 
-    override fun destroyAll() {
-        super.destroyAll()
-        renderInstances.forEach { ri ->
-            ri.render.remove()
-        }
-        renderInstances.clear()
+    override fun onPhysicsStep() {
+        toRemove.withLock { it.swapList() }.forEach { remove(it) }
+        super.onPhysicsStep()
     }
 }

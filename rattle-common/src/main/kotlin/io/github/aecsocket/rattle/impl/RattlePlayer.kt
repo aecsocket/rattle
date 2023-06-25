@@ -19,6 +19,10 @@ abstract class RattlePlayer<W, P : Audience>(
     private val platform: RattlePlatform<W, *>,
     val player: P,
 ) : ForwardingAudience.Single {
+    data class Draw(
+        val terrain: Boolean = false,
+    )
+
     data class Launcher(
         val geom: SimpleGeometry,
         val material: PhysicsMaterial,
@@ -33,6 +37,11 @@ abstract class RattlePlayer<W, P : Audience>(
     private var statsBar: BossBar? = null
     private var lastStep: Long = 0
     var launcher: Launcher? = null
+    var draw: Draw = Draw()
+        set(value) {
+            field = value
+            updateDraw(draw)
+        }
 
     override fun audience() = player
 
@@ -43,6 +52,8 @@ abstract class RattlePlayer<W, P : Audience>(
     protected abstract fun eyePosition(): DVec3
 
     protected abstract fun eyeDirection(): DVec3
+
+    protected abstract fun updateDraw(draw: Draw)
 
     fun showStatsBar(enabled: Boolean) {
         val statsBar = statsBar
@@ -65,7 +76,7 @@ abstract class RattlePlayer<W, P : Audience>(
                 )
             )
 
-            // SAFETY: we will only access atomic fields, not any stateful fields, so we're fine
+            // SAFETY: we will only access atomic fields, so we're fine
             val (text, lastStep) = platform.physicsOrNull(world)?.leak()?.let { physics ->
                 messages.statsBar.some(
                     world = platform.key(world).asString(),

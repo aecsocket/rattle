@@ -31,17 +31,13 @@ fun timingStatsOf(times: List<Long>): TimingStats {
     return TimingStats(median, best5, worst5)
 }
 
-private val timingColors = mapOf(
-    50.0 to NamedTextColor.RED,
-    15.0 to NamedTextColor.YELLOW,
-    0.0 to NamedTextColor.GREEN,
-)
-
 fun formatTiming(time: Double, messages: RattleMessages): Component {
     val text = messages.timing(time).component()
     val clampedTime = max(0.0, time)
-    val color = timingColors.firstNotNullOf { (threshold, color) ->
-        if (clampedTime >= threshold) color else null
+    val color = when {
+        clampedTime <= 15.0 -> NamedTextColor.GREEN
+        clampedTime <= 50.0 -> NamedTextColor.YELLOW
+        else -> NamedTextColor.RED
     }
     return text.applyFallbackStyle(color)
 }

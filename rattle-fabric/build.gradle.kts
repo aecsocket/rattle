@@ -9,7 +9,7 @@ repositories {
 }
 
 dependencies {
-    minecraft(libs.minecraft)
+    minecraft("com.mojang", "minecraft", "1.20.1")
     mappings(loom.officialMojangMappings())
     modImplementation(libs.fabric.loader)
     modImplementation(libs.fabric.api)

@@ -1,13 +1,20 @@
 package io.github.aecsocket.rattle.impl
 
+import io.github.aecsocket.alexandria.ItemRender
+import io.github.aecsocket.alexandria.Shaping
+import io.github.aecsocket.alexandria.desc.ItemDesc
+import io.github.aecsocket.alexandria.desc.ItemType
 import io.github.aecsocket.alexandria.hook.AlexandriaHook
 import io.github.aecsocket.glossa.Glossa
 import io.github.aecsocket.glossa.MessageProxy
 import io.github.aecsocket.glossa.messageProxy
+import io.github.aecsocket.klam.FVec3
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.rapier.RapierEngine
+import io.github.aecsocket.rattle.world.DynamicTerrain
 import io.github.aecsocket.rattle.world.SimpleBodies
 import io.github.oshai.kotlinlogging.KLogger
+import net.kyori.adventure.key.Key
 import net.kyori.adventure.text.format.TextColor
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import java.util.*
@@ -29,18 +36,14 @@ abstract class RattleHook {
     data class Settings(
         override val defaultLocale: Locale = AlexandriaHook.FallbackLocale,
         val timeStepMultiplier: Double = 1.0,
-        val worlds: Map<String, World> = emptyMap(),
+        val worldPhysics: Map<String, PhysicsSpace.Settings> = emptyMap(),
         val simpleBodies: SimpleBodies.Settings = SimpleBodies.Settings(),
+        val terrain: DynamicTerrain.Settings = DynamicTerrain.Settings(),
         val stats: Stats = Stats(),
         val jobs: Jobs = Jobs(),
+        val draw: Draw = Draw(),
         val rapier: RapierEngine.Settings = RapierEngine.Settings(),
     ) : AlexandriaHook.Settings {
-        @ConfigSerializable
-        data class World(
-            val physics: PhysicsSpace.Settings = PhysicsSpace.Settings(),
-            //val terrain: DynamicTerrain.Settings = DynamicTerrain.Settings(),
-        )
-
         @ConfigSerializable
         data class Stats(
             val timingBuffers: List<Double> = listOf(5.0, 15.0, 60.0),
@@ -54,12 +57,23 @@ abstract class RattleHook {
             val workerTerminateTime: Double = 5.0,
             val spaceTerminateTime: Double = 5.0,
         )
+
+        @ConfigSerializable
+        data class Draw(
+            val lineItem: ItemDesc = ItemDesc(ItemType.Keyed(Key.key("minecraft", "terracotta"))),
+            val lineWidth: Float = 0.05f,
+        )
+    }
+
+    interface Draw {
+        fun lineItem(render: ItemRender)
     }
 
     abstract val ax: AlexandriaHook<*>
     abstract val log: KLogger
     abstract val settings: Settings
     abstract val glossa: Glossa
+    abstract val draw: Draw
 
     private lateinit var executor: ExecutorService
     lateinit var engine: RapierEngine
@@ -121,3 +135,6 @@ abstract class RattleHook {
         }
     }
 }
+
+fun Shaping.lineTransform(delta: FVec3, rattle: RattleHook) =
+    lineTransform(delta, rattle.settings.draw.lineWidth)

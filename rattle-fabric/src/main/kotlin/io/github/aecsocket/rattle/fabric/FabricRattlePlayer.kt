@@ -1,6 +1,7 @@
 package io.github.aecsocket.rattle.fabric
 
 import io.github.aecsocket.alexandria.fabric.extension.toDVec
+import io.github.aecsocket.klam.DVec3
 import io.github.aecsocket.rattle.impl.RattleMessages
 import io.github.aecsocket.rattle.Vec
 import io.github.aecsocket.rattle.impl.RattlePlayer
@@ -22,7 +23,7 @@ class FabricRattlePlayer(
     override var messages: RattleMessages = rattle.messages.forLocale(rattle.settings.defaultLocale)
 
     override val world: ServerLevel
-        get() = player.getLevel()
+        get() = player.serverLevel()
 
     override fun ServerPlayer.showBar(bar: BossBar) {
         rattle.bossBars.subscribe(player, bar)
@@ -32,11 +33,15 @@ class FabricRattlePlayer(
         rattle.bossBars.unsubscribe(player, bar)
     }
 
-    override fun eyePosition(): Vec {
+    override fun eyePosition(): DVec3 {
         return player.eyePosition.toDVec()
     }
 
-    override fun eyeDirection(): Vec {
-        return Vec(player.xRot.toDouble(), player.yRot.toDouble(), 0.0)
+    override fun eyeDirection(): DVec3 {
+        return DVec3(player.xRot.toDouble(), player.yRot.toDouble(), 0.0)
+    }
+
+    override fun updateDraw(draw: Draw) {
+        // todo
     }
 }

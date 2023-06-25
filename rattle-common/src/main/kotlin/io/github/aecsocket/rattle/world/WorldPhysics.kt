@@ -4,21 +4,14 @@ import io.github.aecsocket.rattle.*
 import java.util.concurrent.atomic.AtomicLong
 
 interface WorldHook {
-    fun enable()
-
-    fun disable()
-
     fun onPhysicsStep() {}
 }
 
 interface TerrainStrategy : WorldHook, Destroyable {
-
 }
 
 object NoOpTerrainStrategy : TerrainStrategy {
     override fun destroy() {}
-    override fun enable() {}
-    override fun disable() {}
 }
 
 interface EntityStrategy : WorldHook, Destroyable {
@@ -27,8 +20,6 @@ interface EntityStrategy : WorldHook, Destroyable {
 
 object NoOpEntityStrategy : EntityStrategy {
     override fun destroy() {}
-    override fun enable() {}
-    override fun disable() {}
 }
 
 /**

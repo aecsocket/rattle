@@ -1,11 +1,10 @@
 [versions]
 indra = "3.1.1"
 kotlin = "1.8.21"
-klam = "0.2.5"
+klam = "0.2.6"
 configurate = "4.1.2"
 alexandria = "0.1.1-SNAPSHOT"
 rapier = "0.1.0-SNAPSHOT"
-minecraft = "1.19.4"
 fabric-loader = "0.14.19"
 fabric-api = "0.81.1+1.19.4"
 fabric-language-kotlin = "1.9.4+kotlin.1.8.21"
@@ -28,7 +27,6 @@ alexandria-fabric = { group = "io.github.aecsocket", name = "alexandria-fabric",
 fabric-loader = { group = "net.fabricmc", name = "fabric-loader", version.ref = "fabric-loader" }
 fabric-api = { group = "net.fabricmc.fabric-api", name = "fabric-api", version.ref = "fabric-api" }
 fabric-language-kotlin = { group = "net.fabricmc", name = "fabric-language-kotlin", version.ref = "fabric-language-kotlin" }
-minecraft = { group = "com.mojang", name = "minecraft", version.ref = "minecraft" }
 
 [plugins]
 shadow = { id = "com.github.johnrengelman.shadow", version = "8.1.1" }

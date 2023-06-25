@@ -1,7 +1,11 @@
 package io.github.aecsocket.rattle.paper
 
+import io.github.aecsocket.alexandria.ItemRender
+import io.github.aecsocket.alexandria.extension.registerExact
 import io.github.aecsocket.alexandria.hook.AlexandriaHook
 import io.github.aecsocket.alexandria.paper.AlexandriaPlugin
+import io.github.aecsocket.alexandria.paper.ItemDisplayRender
+import io.github.aecsocket.alexandria.paper.create
 import io.github.aecsocket.alexandria.paper.extension.forWorld
 import io.github.aecsocket.alexandria.paper.extension.position
 import io.github.aecsocket.alexandria.paper.extension.registerEvents
@@ -10,17 +14,20 @@ import io.github.aecsocket.alexandria.sync.Locked
 import io.github.aecsocket.alexandria.sync.Sync
 import io.github.aecsocket.glossa.Glossa
 import io.github.aecsocket.glossa.MessageProxy
-import io.github.aecsocket.klam.IVec3
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.impl.RattleHook
 import io.github.aecsocket.rattle.impl.RattleMessages
 import io.github.aecsocket.rattle.impl.rattleManifest
+import io.github.aecsocket.rattle.serializer.rattleSerializers
 import io.github.aecsocket.rattle.world.NoOpEntityStrategy
+import io.github.aecsocket.rattle.world.NoOpTerrainStrategy
+import io.github.aecsocket.rattle.world.terrainLayerSerializer
 import io.github.oshai.kotlinlogging.KLogger
 import io.papermc.paper.event.packet.PlayerChunkLoadEvent
 import io.papermc.paper.event.packet.PlayerChunkUnloadEvent
 import io.papermc.paper.event.player.PlayerTrackEntityEvent
 import io.papermc.paper.event.player.PlayerUntrackEntityEvent
+import org.bukkit.Material
 import org.bukkit.World
 import org.bukkit.block.Block
 import org.bukkit.entity.Entity
@@ -31,8 +38,8 @@ import org.bukkit.event.block.BlockBreakEvent
 import org.bukkit.event.block.BlockPlaceEvent
 import org.bukkit.event.player.PlayerInteractEvent
 import org.bukkit.event.player.PlayerQuitEvent
-import org.bukkit.event.world.ChunkUnloadEvent
 import org.bukkit.event.world.WorldUnloadEvent
+import org.bukkit.inventory.ItemStack
 import org.spongepowered.configurate.ConfigurationNode
 import org.spongepowered.configurate.ConfigurationOptions
 import org.spongepowered.configurate.kotlin.dataClassFieldDiscoverer
@@ -48,6 +55,7 @@ class PaperRattle : AlexandriaPlugin<RattleHook.Settings>(
     configOptions = ConfigurationOptions.defaults()
         .serializers { it
             .registerAll(paperSerializers)
+            .registerAll(rattleSerializers)
             .registerAnnotatedObjects(ObjectMapper.factoryBuilder()
                 .addDiscoverer(dataClassFieldDiscoverer())
                 .build()
@@ -59,6 +67,8 @@ class PaperRattle : AlexandriaPlugin<RattleHook.Settings>(
         @JvmStatic
         fun api() = Rattle
     }
+
+    lateinit var lineItem: ItemStack
 
     internal val rattle = object : RattleHook() {
         override val ax: AlexandriaHook<*>
@@ -72,6 +82,12 @@ class PaperRattle : AlexandriaPlugin<RattleHook.Settings>(
 
         override val glossa: Glossa
             get() = this@PaperRattle.glossa
+
+        override val draw = object : Draw {
+            override fun lineItem(render: ItemRender) {
+                (render as ItemDisplayRender).item(lineItem)
+            }
+        }
     }
 
     val engine: PhysicsEngine
@@ -132,26 +148,6 @@ class PaperRattle : AlexandriaPlugin<RattleHook.Settings>(
                 }
             }
 
-            private fun simpleBodies(entity: Entity, fn: PaperSimpleBodies.() -> Unit) {
-                runTask {
-                    physicsOrNull(entity.world)?.withLock { physics ->
-                        (physics.simpleBodies as? PaperSimpleBodies)?.let(fn)
-                    }
-                }
-            }
-
-            // simple bodies
-
-            @EventHandler
-            fun on(event: PlayerTrackEntityEvent) {
-                simpleBodies(event.entity) { onTrackEntity(event.player, event.entity) }
-            }
-
-            @EventHandler
-            fun on(event: PlayerUntrackEntityEvent) {
-                simpleBodies(event.entity) { onUntrackEntity(event.player, event.entity) }
-            }
-
             // terrain
 
             private fun terrain(world: World, fn: PaperDynamicTerrain.() -> Unit) {
@@ -190,6 +186,7 @@ class PaperRattle : AlexandriaPlugin<RattleHook.Settings>(
 
     override fun onLoadData() {
         rattle.load(platform)
+        lineItem = settings.draw.lineItem.create()
     }
 
     override fun onReloadData() {
@@ -206,12 +203,16 @@ class PaperRattle : AlexandriaPlugin<RattleHook.Settings>(
     fun physicsOrCreate(world: World): Sync<PaperWorldPhysics> =
         mWorlds.computeIfAbsent(world) {
             val lock = ReentrantLock()
-            val settings = settings.worlds.forWorld(world) ?: RattleHook.Settings.World()
-            val physics = engine.createSpace(settings.physics)
+            val spaceSettings = settings.worldPhysics.forWorld(world) ?: PhysicsSpace.Settings()
+            val physics = engine.createSpace(spaceSettings)
             physics.lock = lock
-            val terrain = PaperDynamicTerrain(this, world, physics) // todo settings
-            val entities = NoOpEntityStrategy // TODO
+
             val simpleBodies = PaperSimpleBodies(this, world, physics, this.settings.simpleBodies)
+            val terrain = if (settings.terrain.enabled) {
+                PaperDynamicTerrain(this, world, physics, settings.terrain)
+            } else NoOpTerrainStrategy
+            val entities = NoOpEntityStrategy // TODO
+
             Locked(PaperWorldPhysics(this, world, physics, terrain, entities, simpleBodies), lock)
         }
 

@@ -1,7 +1,5 @@
 package io.github.aecsocket.rattle.fabric
 
-import io.github.aecsocket.alexandria.fabric.DisplayRenders
-import io.github.aecsocket.rattle.Real
 import io.github.aecsocket.rattle.impl.RattlePlatform
 import net.kyori.adventure.platform.fabric.FabricServerAudiences
 import net.kyori.adventure.platform.fabric.impl.server.ServerBossBarListener
@@ -20,9 +18,8 @@ class FabricRattlePlatform(
     val audiences = FabricServerAudiences.of(server)
     @Suppress("UnstableApiUsage")
     val bossBars = ServerBossBarListener(audiences)
-    val renders = DisplayRenders(audiences)
 
-    override fun callBeforeStep(dt: Real) {
+    override fun callBeforeStep(dt: Double) {
         RattleEvents.BEFORE_STEP.invoker().beforeStep(this, dt)
     }
 

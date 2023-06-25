@@ -1,8 +1,11 @@
 package io.github.aecsocket.rattle.fabric
 
+import io.github.aecsocket.alexandria.ItemRender
 import io.github.aecsocket.alexandria.fabric.AlexandriaMod
-import io.github.aecsocket.alexandria.fabric.extension.fabricSerializers
+import io.github.aecsocket.alexandria.fabric.ItemDisplayRender
+import io.github.aecsocket.alexandria.fabric.create
 import io.github.aecsocket.alexandria.fabric.extension.forWorld
+import io.github.aecsocket.alexandria.fabric.serializer.fabricSerializers
 import io.github.aecsocket.alexandria.hook.AlexandriaHook
 import io.github.aecsocket.alexandria.sync.Locked
 import io.github.aecsocket.alexandria.sync.Sync
@@ -12,6 +15,7 @@ import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.impl.RattleHook
 import io.github.aecsocket.rattle.impl.RattleMessages
 import io.github.aecsocket.rattle.impl.rattleManifest
+import io.github.aecsocket.rattle.serializer.rattleSerializers
 import io.github.aecsocket.rattle.world.NoOpEntityStrategy
 import io.github.aecsocket.rattle.world.NoOpTerrainStrategy
 import io.github.oshai.kotlinlogging.KLogger
@@ -21,6 +25,7 @@ import net.kyori.adventure.platform.fabric.PlayerLocales
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.item.ItemStack
 import org.spongepowered.configurate.ConfigurationNode
 import org.spongepowered.configurate.ConfigurationOptions
 import org.spongepowered.configurate.kotlin.dataClassFieldDiscoverer
@@ -37,6 +42,7 @@ class FabricRattle : AlexandriaMod<RattleHook.Settings>(
     configOptions = ConfigurationOptions.defaults()
         .serializers { it
             .registerAll(fabricSerializers)
+            .registerAll(rattleSerializers)
             .registerAnnotatedObjects(ObjectMapper.factoryBuilder()
                 .addDiscoverer(dataClassFieldDiscoverer())
                 .build()
@@ -47,6 +53,8 @@ class FabricRattle : AlexandriaMod<RattleHook.Settings>(
         @JvmStatic
         fun api() = Rattle
     }
+
+    lateinit var lineItem: ItemStack
 
     internal val rattle = object : RattleHook() {
         override val ax: AlexandriaHook<*>
@@ -60,6 +68,12 @@ class FabricRattle : AlexandriaMod<RattleHook.Settings>(
 
         override val glossa: Glossa
             get() = this@FabricRattle.glossa
+
+        override val draw = object : Draw {
+            override fun lineItem(render: ItemRender) {
+                (render as ItemDisplayRender).item(lineItem)
+            }
+        }
     }
 
     val engine: PhysicsEngine
@@ -103,6 +117,7 @@ class FabricRattle : AlexandriaMod<RattleHook.Settings>(
 
     override fun onLoad() {
         rattle.load(platform)
+        lineItem = settings.draw.lineItem.create()
     }
 
     override fun onReload() {
@@ -116,9 +131,11 @@ class FabricRattle : AlexandriaMod<RattleHook.Settings>(
         world as LevelPhysicsAccess
         val physics = world.rattle_getPhysics() ?: run {
             val lock = ReentrantLock()
-            val settings = settings.worlds.forWorld(world) ?: RattleHook.Settings.World()
+            val spaceSettings = settings.worldPhysics.forWorld(world) ?: PhysicsSpace.Settings()
             val platform = world.server.rattle()
-            val physics = engine.createSpace(settings.physics)
+            val physics = engine.createSpace(spaceSettings)
+            physics.lock = lock
+
             val terrain = NoOpTerrainStrategy // FabricDynamicTerrain(this, Locked(physics, lock), world, settings.terrain)
             val entities = NoOpEntityStrategy
             val simpleBodies = FabricSimpleBodies(world, platform, physics, this.settings.simpleBodies)
