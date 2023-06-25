@@ -142,28 +142,15 @@ class PaperDynamicTerrain(
         val chunk = world.getChunkAt(pos.x, pos.z)
         rattle.scheduling.onChunk(chunk).runLater {
             val snapshot = createSnapshot(chunk, pos)
-            slices.withLock { slices ->
-                val slice = slices[pos] ?: return@withLock
-                when (slice.state) {
-                    is SliceState.PendingSnapshot -> {
-                        // if `snapshot` is null, it means that slice had no data (it may do in the future though)
-                        // in which case we just mark it as "built" and have it hold no colliders
-                        slice.state = snapshot ?: SliceState.Built
-                        slices.dirty(pos)
-                    }
-                    else -> {
-                        // silently fail
-                    }
-                }
-            }
+            setSliceSnapshot(pos, snapshot)
         }
     }
 
-    private fun createSnapshot(chunk: Chunk, pos: IVec3): SliceState.Snapshot? {
-        // TODO if chunk is empty, we don't snapshot
+    private fun createSnapshot(chunk: Chunk, pos: IVec3): SliceState.Snapshot {
         if (pos.y < -world.minHeight / 16 || pos.y >= world.maxHeight / 16) {
-            return null
+            return SliceState.Snapshot.Empty
         }
+        // TODO if chunk is empty, we don't snapshot
 
         val tiles: Array<out Tile?> = Array(TILES_IN_SLICE) { i ->
             val (lx, ly, lz) = posInChunk(i)

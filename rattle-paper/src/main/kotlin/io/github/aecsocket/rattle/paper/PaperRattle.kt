@@ -19,18 +19,11 @@ import io.github.aecsocket.rattle.impl.RattleHook
 import io.github.aecsocket.rattle.impl.RattleMessages
 import io.github.aecsocket.rattle.impl.rattleManifest
 import io.github.aecsocket.rattle.serializer.rattleSerializers
-import io.github.aecsocket.rattle.world.NoOpEntityStrategy
-import io.github.aecsocket.rattle.world.NoOpTerrainStrategy
-import io.github.aecsocket.rattle.world.terrainLayerSerializer
 import io.github.oshai.kotlinlogging.KLogger
 import io.papermc.paper.event.packet.PlayerChunkLoadEvent
 import io.papermc.paper.event.packet.PlayerChunkUnloadEvent
-import io.papermc.paper.event.player.PlayerTrackEntityEvent
-import io.papermc.paper.event.player.PlayerUntrackEntityEvent
-import org.bukkit.Material
 import org.bukkit.World
 import org.bukkit.block.Block
-import org.bukkit.entity.Entity
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
@@ -153,7 +146,7 @@ class PaperRattle : AlexandriaPlugin<RattleHook.Settings>(
             private fun terrain(world: World, fn: PaperDynamicTerrain.() -> Unit) {
                 runTask {
                     physicsOrNull(world)?.withLock { physics ->
-                        (physics.terrain as? PaperDynamicTerrain)?.let(fn)
+                        physics.terrain?.let(fn)
                     }
                 }
             }
@@ -210,8 +203,8 @@ class PaperRattle : AlexandriaPlugin<RattleHook.Settings>(
             val simpleBodies = PaperSimpleBodies(this, world, physics, this.settings.simpleBodies)
             val terrain = if (settings.terrain.enabled) {
                 PaperDynamicTerrain(this, world, physics, settings.terrain)
-            } else NoOpTerrainStrategy
-            val entities = NoOpEntityStrategy // TODO
+            } else null
+            val entities: PaperEntityStrategy? = null // TODO
 
             Locked(PaperWorldPhysics(this, world, physics, terrain, entities, simpleBodies), lock)
         }

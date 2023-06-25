@@ -16,11 +16,10 @@ import io.github.aecsocket.rattle.impl.RattleHook
 import io.github.aecsocket.rattle.impl.RattleMessages
 import io.github.aecsocket.rattle.impl.rattleManifest
 import io.github.aecsocket.rattle.serializer.rattleSerializers
-import io.github.aecsocket.rattle.world.NoOpEntityStrategy
-import io.github.aecsocket.rattle.world.NoOpTerrainStrategy
 import io.github.oshai.kotlinlogging.KLogger
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
+import net.fabricmc.fabric.api.networking.v1.EntityTrackingEvents
 import net.kyori.adventure.platform.fabric.PlayerLocales
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
@@ -105,13 +104,26 @@ class FabricRattle : AlexandriaMod<RattleHook.Settings>(
             platform = null
             log.trace { "Tore down Rattle platform" }
         }
+
         PlayerLocales.CHANGED_EVENT.register { player, newLocale ->
             player.rattle().messages = messages.forLocale(newLocale ?: settings.defaultLocale)
             log.trace { "Updated locale for ${player.name} to $newLocale" }
         }
+
         ServerPlayerEvents.AFTER_RESPAWN.register { oldPlayer, newPlayer, _ ->
             newPlayer.server.rattle().bossBars.replacePlayer(oldPlayer, newPlayer)
             log.trace { "Replaced player instance for ${newPlayer.name}" }
+        }
+
+        EntityTrackingEvents.START_TRACKING.register { trackedEntity, player ->
+            player.serverLevel().physicsOrNull()?.withLock { physics ->
+                physics.simpleBodies.onTrackEntity(player, trackedEntity)
+            }
+        }
+        EntityTrackingEvents.STOP_TRACKING.register { trackedEntity, player ->
+            player.serverLevel().physicsOrNull()?.withLock { physics ->
+                physics.simpleBodies.onUntrackEntity(player, trackedEntity)
+            }
         }
     }
 
@@ -136,9 +148,11 @@ class FabricRattle : AlexandriaMod<RattleHook.Settings>(
             val physics = engine.createSpace(spaceSettings)
             physics.lock = lock
 
-            val terrain = NoOpTerrainStrategy // FabricDynamicTerrain(this, Locked(physics, lock), world, settings.terrain)
-            val entities = NoOpEntityStrategy
             val simpleBodies = FabricSimpleBodies(world, platform, physics, this.settings.simpleBodies)
+            val terrain = if (settings.terrain.enabled) {
+                FabricDynamicTerrain(world, platform, physics, settings.terrain)
+            } else null
+            val entities: FabricEntityStrategy? = null // TODO
 
             Locked(FabricWorldPhysics(world, physics, terrain, entities, simpleBodies), lock).also {
                 world.rattle_setPhysics(it)

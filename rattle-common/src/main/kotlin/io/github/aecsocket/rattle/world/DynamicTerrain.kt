@@ -25,7 +25,7 @@ abstract class DynamicTerrain<W>(
     // WorldPhysics, and therefore the PhysicsSpace is locked
     private val physics: PhysicsSpace,
     val settings: Settings = Settings(),
-) : TerrainStrategy {
+) : Destroyable {
     @ConfigSerializable
     data class Settings(
         val enabled: Boolean = true,
@@ -43,7 +43,12 @@ abstract class DynamicTerrain<W>(
             val defaultSolid: String = "solid",
             val defaultFluid: String = "fluid",
             val byBlock: MutableMap<Key, String> = HashMap(),
-        )
+        ) {
+//            val all = mutableMapOf(
+//                "solid" to Layer.Solid(PhysicsMaterial(friction = 0.4, restitution = 0.2)),
+//                "fluid" to Layer.Fluid(density = 1.0),
+//            )
+        }
     }
 
     sealed interface Layer {
@@ -128,6 +133,10 @@ abstract class DynamicTerrain<W>(
         class Snapshot(
             val tiles: Array<out Tile?>,
         ) : SliceState {
+            companion object {
+                val Empty = Snapshot(arrayOfNulls(TILES_IN_SLICE))
+            }
+
             init {
                 require(tiles.size == TILES_IN_SLICE) { "requires tiles.size == TILES_IN_SLICE" }
             }
@@ -199,6 +208,7 @@ abstract class DynamicTerrain<W>(
         }
     }
 
+    private val destroyed = DestroyFlag()
     val slices = Locked(Slices())
     private val activeBodyRenders = ArrayList<Render>()
 
@@ -244,6 +254,7 @@ abstract class DynamicTerrain<W>(
     }
 
     override fun destroy() {
+        destroyed()
         slices.withLock { slices ->
             slices.destroy()
         }
@@ -253,7 +264,7 @@ abstract class DynamicTerrain<W>(
 
     protected abstract fun scheduleSnapshot(pos: IVec3)
 
-    override fun onPhysicsStep() {
+    fun onPhysicsStep() {
         val toRemove = slices.withLock { it.map.keys.toMutableSet() }
         val toSnapshot = HashSet<IVec3>()
 
@@ -458,6 +469,23 @@ abstract class DynamicTerrain<W>(
                     slice.state = SliceState.PendingScheduleSnapshot
                     slices.dirty(pos)
                     scheduleSnapshot(pos)
+                }
+            }
+        }
+    }
+
+    protected fun setSliceSnapshot(pos: IVec3, snapshot: SliceState.Snapshot) {
+        slices.withLock { slices ->
+            // if the slice has been destroyed by the time we've snapshot it, silently fail
+            val slice = slices[pos] ?: return@withLock
+            when (slice.state) {
+                // or if it's in an invalid state, just silently fail
+                is SliceState.PendingSnapshot -> {
+                    slice.state = snapshot
+                    slices.dirty(pos)
+                }
+                else -> {
+                    // silently fail
                 }
             }
         }

@@ -4,16 +4,22 @@ import io.github.aecsocket.alexandria.ArenaKey
 import io.github.aecsocket.alexandria.ItemRender
 import io.github.aecsocket.alexandria.extension.swapList
 import io.github.aecsocket.alexandria.fabric.ItemDisplayRender
+import io.github.aecsocket.alexandria.fabric.PacketReceiver
 import io.github.aecsocket.alexandria.fabric.create
+import io.github.aecsocket.alexandria.fabric.extension.createTrackerEntity
 import io.github.aecsocket.alexandria.fabric.extension.nextEntityId
-import io.github.aecsocket.alexandria.fabric.extension.toVec3
+import io.github.aecsocket.alexandria.fabric.extension.toDVec
+import io.github.aecsocket.alexandria.fabric.packetReceiver
 import io.github.aecsocket.alexandria.sync.Locked
 import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.world.SimpleBodies
+import io.github.aecsocket.rattle.world.Visibility
+import net.fabricmc.fabric.api.networking.v1.PlayerLookup
 import net.minecraft.server.level.ServerLevel
-import net.minecraft.world.entity.Display.ItemDisplay
-import net.minecraft.world.entity.EntityType
+import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.entity.Entity
+import net.minecraft.world.entity.Entity.RemovalReason
 import net.minecraft.world.item.ItemStack
 
 class FabricSimpleBodies(
@@ -28,12 +34,14 @@ class FabricSimpleBodies(
         scale: FVec3,
         position: DIso3,
         private val item: ItemStack,
+        override val render: ItemDisplayRender?
     ) : SimpleBodies<ServerLevel>.Instance(collider, body, scale, position) {
         override fun ItemRender.item() {
             (this as ItemDisplayRender).item(item)
         }
     }
 
+    private val trackerToInst = Locked(HashMap<Entity, ArenaKey>())
     private val toRemove = Locked(HashSet<ArenaKey>())
 
     override fun createInstance(
@@ -41,36 +49,76 @@ class FabricSimpleBodies(
         body: RigidBodyKey,
         scale: FVec3,
         position: DIso3,
-        geomSettings: Settings.ForGeometry
-    ): Instance = FabricInstance(collider, body, scale, position, geomSettings.item.create())
-
-    override fun createRender(position: DVec3, inst: Instance, instKey: ArenaKey): ItemRender {
-        val render = ItemDisplayRender(nextEntityId()) {}
-        val tracker = ItemDisplay(EntityType.ITEM_DISPLAY, world)
-        tracker.moveTo(position.toVec3())
-    }
-
-    fun onTick() {
-        val iter = renderInstances.iterator()
-        while (iter.hasNext()) {
-            val ri = iter.next()
-            val render = ri.render
-            if (ri.instance.destroyed.get() || ri.render.entity.isRemoved) {
-                destroy(ri.instanceKey)
-                render.remove()
-                iter.remove()
-                continue
-            }
-            ri.instance.nextPosition?.let { pos ->
-                render.position = pos.translation
-                render.transform = FAffine3(rotation = FQuat(pos.rotation))
-                ri.instance.nextPosition = null
+        geomSettings: Settings.ForGeometry,
+        visibility: Visibility,
+    ): Instance {
+        val render = when (visibility) {
+            Visibility.VISIBLE -> {
+                val tracker = createTrackerEntity(world, position.translation)
+                val render = ItemDisplayRender(nextEntityId()) { packet ->
+                    PlayerLookup.tracking(tracker).forEach { it.connection.send(packet) }
+                }
+                trackerToInst.withLock { it[tracker] = inst }
             }
         }
+        val inst = FabricInstance(collider, body, scale, position, geomSettings.item.create(), render)
+    }
+
+    override fun createRender(position: DVec3, inst: Instance, instKey: ArenaKey): ItemRender {
+        val render =
+        trackerToInst.withLock { it[tracker] = instKey }
+        world.addFreshEntity(tracker)
+        render.receiver = PacketReceiver { packet ->
+        }
+        return render
     }
 
     override fun onPhysicsStep() {
         toRemove.withLock { it.swapList() }.forEach { remove(it) }
         super.onPhysicsStep()
+    }
+
+    fun onTick() {
+        trackerToInst.withLock { trackerToInst ->
+            trackerToInst.toList().forEach { (tracker, instKey) ->
+                fun remove() {
+                    tracker.remove(RemovalReason.DISCARDED)
+                }
+
+                val inst = get(instKey) ?: run {
+                    remove()
+                    return@forEach
+                }
+                if (inst.destroyed.get()) {
+                    remove()
+                    return@forEach
+                }
+
+                if (tracker.isRemoved) {
+                    trackerToInst.remove(tracker)
+                    toRemove.withLock { it += instKey }
+                    return@forEach
+                }
+
+                val pos = inst.position.translation
+                if (inst.onUpdate() && distanceSq(tracker.position().toDVec(), pos) > 16.0 * 16.0) {
+                    tracker.teleportTo(pos.x, pos.y, pos.z)
+                }
+            }
+        }
+    }
+
+    fun onTrackEntity(player: ServerPlayer, entity: Entity) {
+        val inst = trackerToInst.withLock { it[entity] }?.let { get(it) } ?: return
+        println("B = $inst")
+        val render = inst.render as? ItemDisplayRender ?: return
+        println("C = $render")
+        inst.onTrack(render.withReceiver(player.packetReceiver()))
+    }
+
+    fun onUntrackEntity(player: ServerPlayer, entity: Entity) {
+        val inst = trackerToInst.withLock { it[entity] }?.let { get(it) } ?: return
+        val render = inst.render as? ItemDisplayRender ?: return
+        inst.onUntrack(render.withReceiver(player.packetReceiver()))
     }
 }

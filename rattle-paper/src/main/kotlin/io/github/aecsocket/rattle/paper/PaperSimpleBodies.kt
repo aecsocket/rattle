@@ -4,9 +4,7 @@ import io.github.aecsocket.alexandria.ArenaKey
 import io.github.aecsocket.alexandria.ItemRender
 import io.github.aecsocket.alexandria.extension.swapList
 import io.github.aecsocket.alexandria.paper.*
-import io.github.aecsocket.alexandria.paper.extension.nextEntityId
-import io.github.aecsocket.alexandria.paper.extension.sendPacket
-import io.github.aecsocket.alexandria.paper.extension.spawnTracker
+import io.github.aecsocket.alexandria.paper.extension.*
 import io.github.aecsocket.alexandria.sync.Locked
 import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.*
@@ -67,15 +65,16 @@ class PaperSimpleBodies(
                 }
                 EntityTracking.unregister(trackerId)
                 // we have no clue on what thread this runnable will be run, so we can't delete it immediately
-                toRemove.withLock { toRemove ->
-                    toRemove += instKey
-                }
+                toRemove.withLock { it += instKey }
             }).runRepeating {
                 if (inst.destroyed.get()) {
                     tracker.remove()
                     return@runRepeating
                 }
-                inst.onUpdate()
+                val pos = inst.position.translation
+                if (inst.onUpdate() && distanceSq(tracker.location.position(), pos) > 16.0 * 16.0) {
+                    tracker.teleportAsync(pos.location(world))
+                }
             }
         }
         return render

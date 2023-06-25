@@ -3,25 +3,6 @@ package io.github.aecsocket.rattle.world
 import io.github.aecsocket.rattle.*
 import java.util.concurrent.atomic.AtomicLong
 
-interface WorldHook {
-    fun onPhysicsStep() {}
-}
-
-interface TerrainStrategy : WorldHook, Destroyable {
-}
-
-object NoOpTerrainStrategy : TerrainStrategy {
-    override fun destroy() {}
-}
-
-interface EntityStrategy : WorldHook, Destroyable {
-
-}
-
-object NoOpEntityStrategy : EntityStrategy {
-    override fun destroy() {}
-}
-
 /**
  * # Concurrency
 
@@ -50,8 +31,8 @@ object NoOpEntityStrategy : EntityStrategy {
 abstract class WorldPhysics<W>(
     open val world: W,
     val physics: PhysicsSpace,
-    val terrain: TerrainStrategy,
-    val entities: EntityStrategy,
+    open val terrain: DynamicTerrain<W>?,
+    open val entities: EntityStrategy?,
     open val simpleBodies: SimpleBodies<W>,
 ) : Destroyable {
     private val destroyed = DestroyFlag()
@@ -78,16 +59,16 @@ abstract class WorldPhysics<W>(
     override fun destroy() {
         destroyed()
         destroyInternal()
-        terrain.destroy()
-        entities.destroy()
+        terrain?.destroy()
+        entities?.destroy()
         simpleBodies.destroy()
         physics.destroy()
     }
 
     fun onPhysicsStep() {
         _lastStep.set(System.currentTimeMillis())
-        terrain.onPhysicsStep()
-        entities.onPhysicsStep()
+        terrain?.onPhysicsStep()
+        entities?.onPhysicsStep()
         simpleBodies.onPhysicsStep()
         stats = Stats(
             colliders = physics.colliders.count,

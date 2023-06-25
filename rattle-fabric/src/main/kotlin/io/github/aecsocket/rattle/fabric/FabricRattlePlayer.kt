@@ -3,7 +3,6 @@ package io.github.aecsocket.rattle.fabric
 import io.github.aecsocket.alexandria.fabric.extension.toDVec
 import io.github.aecsocket.klam.DVec3
 import io.github.aecsocket.rattle.impl.RattleMessages
-import io.github.aecsocket.rattle.Vec
 import io.github.aecsocket.rattle.impl.RattlePlayer
 import net.kyori.adventure.bossbar.BossBar
 import net.minecraft.server.level.ServerLevel

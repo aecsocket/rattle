@@ -71,7 +71,7 @@ abstract class SimpleBodies<W>(
         position: DIso3,
     ) {
         val destroyed = DestroyFlag()
-        var render: ItemRender? = null
+        open val render: ItemRender? = null
         private val mPosition = Dirty(position)
         var position by mPosition
 
@@ -99,9 +99,9 @@ abstract class SimpleBodies<W>(
             render.despawn()
         }
 
-        fun onUpdate() {
-            if (!mPosition.clean()) return
-            val render = render ?: return
+        fun onUpdate(): Boolean {
+            if (!mPosition.clean()) return false
+            val render = render ?: return false
             render
                 // this is required to make the interpolation work properly
                 // because this game SUCKS
@@ -111,6 +111,7 @@ abstract class SimpleBodies<W>(
                     rotation = position.rotation.toFloat(),
                     scale = scale,
                 ))
+            return true
         }
     }
 
@@ -142,9 +143,8 @@ abstract class SimpleBodies<W>(
         scale: FVec3,
         position: DIso3,
         geomSettings: Settings.ForGeometry,
+        visibility: Visibility,
     ): Instance
-
-    protected abstract fun createRender(position: DVec3, inst: Instance, instKey: ArenaKey): ItemRender
 
     fun create(position: DIso3, desc: SimpleBodyDesc): ArenaKey {
         val engine = platform.rattle.engine
@@ -177,12 +177,9 @@ abstract class SimpleBodies<W>(
             scale = geomScale,
             position = position,
             geomSettings = geomSettings,
+            visibility = desc.visibility,
         )
         val instKey = instances.insert(inst)
-        inst.render = when (desc.visibility) {
-            Visibility.VISIBLE -> createRender(position.translation, inst, instKey)
-            Visibility.INVISIBLE -> null
-        }
         return instKey
     }
 

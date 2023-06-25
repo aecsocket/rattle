@@ -1,10 +1,9 @@
 package io.github.aecsocket.rattle.fabric
 
 import io.github.aecsocket.alexandria.fabric.extension.createEvent
-import io.github.aecsocket.rattle.Real
 
 fun interface BeforeStep {
-    fun beforeStep(server: FabricRattlePlatform, dt: Real)
+    fun beforeStep(server: FabricRattlePlatform, dt: Double)
 }
 
 object RattleEvents {

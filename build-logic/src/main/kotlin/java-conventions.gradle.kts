@@ -19,27 +19,10 @@ repositories {
     sonatype.s01Snapshots()
 }
 
-tasks {
-    processResources {
-        listOf(
-            "paper-plugin.yml",
-            "fabric.mod.json",
-        ).forEach { pattern ->
-            filesMatching(pattern) {
-                expand(
-                    "version" to project.version,
-                    "group" to project.group,
-                    "description" to project.description
-                )
-            }
-        }
-    }
-
-    test {
-        jvmArgs(
-            "--enable-preview",
-            "--enable-native-access=ALL-UNNAMED",
-        )
-        testLogging.exceptionFormat = TestExceptionFormat.FULL
-    }
+tasks.test {
+    jvmArgs(
+        "--enable-preview",
+        "--enable-native-access=ALL-UNNAMED",
+    )
+    testLogging.exceptionFormat = TestExceptionFormat.FULL
 }
