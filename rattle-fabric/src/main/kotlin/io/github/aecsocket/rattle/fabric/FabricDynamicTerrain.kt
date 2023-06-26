@@ -53,10 +53,10 @@ class FabricDynamicTerrain(
     }
 
     private fun createSnapshot(chunk: ChunkAccess, pos: IVec3): SliceState.Snapshot {
-        if (pos.y < -world.minBuildHeight / 16 || pos.y >= world.maxBuildHeight / 16) {
+        if (pos.y < world.minBuildHeight / 16 || pos.y >= world.maxBuildHeight / 16) {
             return SliceState.Snapshot.Empty
         }
-        if (chunk.getSection(pos.y + world.minBuildHeight / 16).hasOnlyAir()) {
+        if (chunk.getSection(pos.y - world.minBuildHeight / 16).hasOnlyAir()) {
             return SliceState.Snapshot.Empty
         }
 
