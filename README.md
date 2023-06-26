@@ -26,7 +26,7 @@ the `rattle-rapier` module.
 - [x] Rigid body physics and collision detection
 - [x] Integration with the world, so terrain and entities are automatically included as collision shapes
 - [x] Fully server-side compatible; no client mods required
-- [x] Compatible with [Folia](https://github.com/PaperMC/Folia)
+- [x] Compatible with Paper, Folia and Fabric
 - [x] Free and open-source under the MIT license
 
 ## Motivation

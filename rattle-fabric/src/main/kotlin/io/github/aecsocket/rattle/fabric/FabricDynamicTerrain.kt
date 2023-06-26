@@ -35,6 +35,8 @@ class FabricDynamicTerrain(
     override fun createRender(pos: IVec3) = ItemDisplayRender(nextEntityId()) { packet ->
         PlayerLookup
             .tracking(world, ChunkPos(pos.x, pos.z))
+            // TODO
+            .filter { false }
             // TODO // .filter { it.rattle().draw.terrain }
             .forEach { it.connection.send(packet) }
     }
