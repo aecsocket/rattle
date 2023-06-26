@@ -1,7 +1,6 @@
 package io.github.aecsocket.rattle.world
 
 import io.github.aecsocket.alexandria.ItemRender
-import io.github.aecsocket.alexandria.Render
 import io.github.aecsocket.alexandria.Shaping
 import io.github.aecsocket.alexandria.serializer.HierarchySerializer
 import io.github.aecsocket.alexandria.serializer.subType
@@ -19,7 +18,7 @@ import org.spongepowered.configurate.objectmapping.ConfigSerializable
 const val TILES_IN_SLICE = 16 * 16 * 16
 
 abstract class DynamicTerrain(
-    private val platform: RattlePlatform,
+    protected open val platform: RattlePlatform,
     // SAFETY: while a caller has access to a DynamicTerrain object, they also have access to the containing
     // WorldPhysics, and therefore the PhysicsSpace is locked
     private val physics: PhysicsSpace,
@@ -42,12 +41,7 @@ abstract class DynamicTerrain(
             val defaultSolid: String = "solid",
             val defaultFluid: String = "fluid",
             val byBlock: MutableMap<Key, String> = HashMap(),
-        ) {
-//            val all = mutableMapOf(
-//                "solid" to Layer.Solid(PhysicsMaterial(friction = 0.4, restitution = 0.2)),
-//                "fluid" to Layer.Fluid(density = 1.0),
-//            )
-        }
+        )
     }
 
     sealed interface Layer {
@@ -209,7 +203,6 @@ abstract class DynamicTerrain(
 
     private val destroyed = DestroyFlag()
     val slices = Locked(Slices())
-    private val activeBodyRenders = ArrayList<Render>()
 
     private val layers = ArrayList<Layer>()
     protected val defaultSolidLayer: Int
@@ -267,26 +260,12 @@ abstract class DynamicTerrain(
         val toRemove = slices.withLock { it.map.keys.toMutableSet() }
         val toSnapshot = HashSet<IVec3>()
 
-        activeBodyRenders.toSet().also { activeBodyRenders.clear() }.forEach { it.despawn() }
-
         physics.rigidBodies.active().forEach body@ { bodyKey ->
             val body = physics.rigidBodies.read(bodyKey) ?: return@body
             val linVel = body.linearVelocity
             body.colliders.forEach coll@ { collKey ->
                 val coll = physics.colliders.read(collKey) ?: return@coll
                 val bounds = expandBounds(linVel, coll)
-
-                Shaping.box(halfExtent(bounds))
-                    .map { it + midpoint(bounds) }
-                    .forEach { (from, to) ->
-                        val render = createRender(coll.position.translation.toInt().map { it shr 4 })
-                            .spawn(from)
-                            .transform(Shaping.lineTransform((to - from).toFloat(), platform.rattle))
-                            .glowing(true)
-                            .glowColor(NamedTextColor.GREEN)
-                            .apply { platform.rattle.draw.lineItem(this) }
-                        activeBodyRenders += render
-                    }
 
                 val slicePos = enclosedPoints(bounds / 16.0).toSet()
                 toRemove -= slicePos

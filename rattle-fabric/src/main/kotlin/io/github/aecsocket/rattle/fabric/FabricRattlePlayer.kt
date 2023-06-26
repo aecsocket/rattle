@@ -26,23 +26,11 @@ class FabricRattlePlayer(
 
     override fun audience() = player
 
-    override fun showBar(bar: BossBar) {
-        rattle.bossBars.subscribe(player, bar)
-    }
-
-    override fun hideBar(bar: BossBar) {
-        rattle.bossBars.unsubscribe(player, bar)
-    }
-
     override fun eyePosition(): DVec3 {
         return player.eyePosition.toDVec()
     }
 
     override fun eyeDirection(): DVec3 {
         return DVec3(player.xRot.toDouble(), player.yRot.toDouble(), 0.0)
-    }
-
-    override fun updateDraw(draw: Draw) {
-        // todo
     }
 }

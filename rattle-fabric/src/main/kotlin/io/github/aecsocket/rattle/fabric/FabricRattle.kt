@@ -17,7 +17,6 @@ import io.github.aecsocket.rattle.impl.RattleMessages
 import io.github.aecsocket.rattle.impl.rattleManifest
 import io.github.aecsocket.rattle.serializer.rattleSerializers
 import io.github.oshai.kotlinlogging.KLogger
-import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
 import net.fabricmc.fabric.api.networking.v1.EntityTrackingEvents
 import net.kyori.adventure.platform.fabric.PlayerLocales
@@ -108,11 +107,6 @@ class FabricRattle : AlexandriaMod<RattleHook.Settings>(
         PlayerLocales.CHANGED_EVENT.register { player, newLocale ->
             player.rattle().messages = messages.forLocale(newLocale ?: settings.defaultLocale)
             log.trace { "Updated locale for ${player.name} to $newLocale" }
-        }
-
-        ServerPlayerEvents.AFTER_RESPAWN.register { oldPlayer, newPlayer, _ ->
-            newPlayer.server.rattle().bossBars.replacePlayer(oldPlayer, newPlayer)
-            log.trace { "Replaced player instance for ${newPlayer.name}" }
         }
 
         EntityTrackingEvents.START_TRACKING.register { trackedEntity, player ->

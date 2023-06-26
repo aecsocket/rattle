@@ -47,6 +47,7 @@ tasks.processResources {
             "versions" to mapOf(
                 "fabric" to minecraft,
                 "fabric_loader" to libs.versions.fabric.loader.get(),
+                "fabric_language_kotlin" to libs.versions.fabric.language.kotlin.get(),
             ),
         )
     }

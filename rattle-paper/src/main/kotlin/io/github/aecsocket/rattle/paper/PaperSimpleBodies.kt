@@ -15,11 +15,11 @@ import org.bukkit.inventory.ItemStack
 import kotlin.collections.HashSet
 
 class PaperSimpleBodies(
-    private val rattle: PaperRattle,
+    override val platform: PaperRattlePlatform,
     physics: PhysicsSpace,
     val world: World,
     settings: Settings = Settings(),
-) : SimpleBodies(rattle.platform, physics, settings) {
+) : SimpleBodies(platform, physics, settings) {
     private inner class PaperInstance(
         collider: ColliderKey,
         body: RigidBodyKey,
@@ -52,7 +52,7 @@ class PaperSimpleBodies(
                 val inst = PaperInstance(collider, body, scale, position, geomSettings.item.create(), render)
                 val instKey = instances.insert(inst)
 
-                rattle.scheduling.onChunk(world, position.translation).runLater {
+                platform.plugin.scheduling.onChunk(world, position.translation).runLater {
                     val tracker = world.spawnTracker(position.translation)
                     val trackerId = tracker.uniqueId
                     EntityTracking.register(tracker)
@@ -66,7 +66,7 @@ class PaperSimpleBodies(
                         EntityTracking.trackedPlayers(tracker).forEach { it.sendPacket(packet) }
                     }
 
-                    rattle.scheduling.onEntity(tracker, onRetire = {
+                    platform.plugin.scheduling.onEntity(tracker, onRetire = {
                         // grab the last tracked players and clear them
                         val receivers = EntityTracking.trackedPlayers(trackerId)
                         render.receiver = PacketReceiver { packet ->

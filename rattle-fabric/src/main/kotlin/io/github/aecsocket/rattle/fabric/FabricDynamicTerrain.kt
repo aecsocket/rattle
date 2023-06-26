@@ -35,7 +35,7 @@ class FabricDynamicTerrain(
     override fun createRender(pos: IVec3) = ItemDisplayRender(nextEntityId()) { packet ->
         PlayerLookup
             .tracking(world, ChunkPos(pos.x, pos.z))
-            .filter { it.rattle().draw.terrain }
+            // TODO // .filter { it.rattle().draw.terrain }
             .forEach { it.connection.send(packet) }
     }
 
@@ -65,7 +65,6 @@ class FabricDynamicTerrain(
             wrapBlock(chunk.getBlockState(blockPos), blockPos)
         }
 
-        println("$pos -> ${tiles.count { it != null }}")
         return SliceState.Snapshot(
             tiles = tiles,
         )

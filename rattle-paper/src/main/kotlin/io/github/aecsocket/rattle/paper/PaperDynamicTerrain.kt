@@ -1,19 +1,22 @@
 package io.github.aecsocket.rattle.paper
 
-import io.github.aecsocket.alexandria.paper.ChunkTracking
-import io.github.aecsocket.alexandria.paper.ItemDisplayRender
+import io.github.aecsocket.alexandria.desc.ParticleDesc
+import io.github.aecsocket.alexandria.paper.*
 import io.github.aecsocket.alexandria.paper.extension.nextEntityId
 import io.github.aecsocket.alexandria.paper.extension.sendPacket
+import io.github.aecsocket.alexandria.paper.extension.toColor
 import io.github.aecsocket.alexandria.paper.extension.toDVec
-import io.github.aecsocket.alexandria.paper.packetReceiver
 import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.world.DynamicTerrain
 import io.github.aecsocket.rattle.world.TILES_IN_SLICE
 import io.github.aecsocket.rattle.world.posInChunk
+import net.kyori.adventure.text.format.TextColor
 
 import org.bukkit.Chunk
 import org.bukkit.Material
+import org.bukkit.Particle
+import org.bukkit.Particle.DustOptions
 import org.bukkit.World
 import org.bukkit.block.Block
 import org.bukkit.entity.Player
@@ -123,24 +126,26 @@ all NMS SoundType's:
  */
 
 class PaperDynamicTerrain(
-    private val rattle: PaperRattle,
+    override val platform: PaperRattlePlatform,
     physics: PhysicsSpace,
     val world: World,
     settings: Settings = Settings(),
-) : DynamicTerrain(rattle.platform, physics, settings) {
+) : DynamicTerrain(platform, physics, settings) {
     private val yIndices = (world.minHeight / 16) until (world.maxHeight / 16)
     private val layerByBlock = HashMap<Material, Int>()
 
     override fun createRender(pos: IVec3) = ItemDisplayRender(nextEntityId()) { packet ->
+        val targets = platform.drawPlayers
+        if (targets.isEmpty()) return@ItemDisplayRender
         ChunkTracking
             .trackedPlayers(world, pos.xz)
-            .filter { rattle.playerData(it).draw.terrain }
+            .filter { targets[it]?.terrain == true }
             .forEach { it.sendPacket(packet) }
     }
 
     override fun scheduleSnapshot(pos: IVec3) {
         val chunk = world.getChunkAt(pos.x, pos.z)
-        rattle.scheduling.onChunk(chunk).runLater {
+        platform.plugin.scheduling.onChunk(chunk).runLater {
             val snapshot = createSnapshot(chunk, pos)
             setSliceSnapshot(pos, snapshot)
         }
@@ -202,7 +207,7 @@ class PaperDynamicTerrain(
     }
 
     private fun runForSlicesIn(chunk: Chunk, fn: (Slice) -> Unit) {
-        rattle.runTask {
+        platform.plugin.runTask {
             slices.withLock { slices ->
                 yIndices.forEach { sy ->
                     val slice = slices[IVec3(chunk.x, sy, chunk.z)] ?: return@forEach
@@ -212,8 +217,7 @@ class PaperDynamicTerrain(
         }
     }
 
-    fun onTrackChunk(player: Player, chunk: Chunk) {
-        if (!rattle.playerData(player).draw.terrain) return
+    fun showChunkDebug(player: Player, chunk: Chunk) {
         runForSlicesIn(chunk) { slice ->
             slice.debugRenders.forEach {
                 slice.onTrack((it.render as ItemDisplayRender).withReceiver(player.packetReceiver()), it)
@@ -221,12 +225,35 @@ class PaperDynamicTerrain(
         }
     }
 
-    fun onUntrackChunk(player: Player, chunk: Chunk) {
-        if (!rattle.playerData(player).draw.terrain) return
+    fun showDebug(player: Player) {
+        ChunkTracking.trackedChunks(player).forEach { chunk ->
+            showChunkDebug(player, chunk)
+        }
+    }
+
+    fun hideChunkDebug(player: Player, chunk: Chunk) {
         runForSlicesIn(chunk) { slice ->
             slice.debugRenders.forEach {
                 slice.onUntrack((it.render as ItemDisplayRender).withReceiver(player.packetReceiver()))
             }
+        }
+    }
+
+    fun hideDebug(player: Player) {
+        ChunkTracking.trackedChunks(player).forEach { chunk ->
+            hideChunkDebug(player, chunk)
+        }
+    }
+
+    fun onTrackChunk(player: Player, chunk: Chunk) {
+        if (platform.drawPlayers[player]?.terrain != true) {
+            showChunkDebug(player, chunk)
+        }
+    }
+
+    fun onUntrackChunk(player: Player, chunk: Chunk) {
+        if (platform.drawPlayers[player]?.terrain == true) {
+            hideChunkDebug(player, chunk)
         }
     }
 }

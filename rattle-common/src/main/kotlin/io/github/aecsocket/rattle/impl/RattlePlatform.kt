@@ -1,5 +1,6 @@
 package io.github.aecsocket.rattle.impl
 
+import io.github.aecsocket.alexandria.EventDispatch
 import io.github.aecsocket.alexandria.sync.Sync
 import io.github.aecsocket.rattle.CommandSource
 import io.github.aecsocket.rattle.World
@@ -12,11 +13,15 @@ import java.util.concurrent.atomic.AtomicBoolean
 abstract class RattlePlatform(
     val rattle: RattleHook,
 ) {
+    data class OnPreStep(
+        val dt: Double,
+    )
+
     abstract val worlds: Iterable<World>
 
-    protected abstract fun callBeforeStep(dt: Double)
-
-    abstract fun asPlayer(sender: CommandSource): RattlePlayer?
+    private val _onPreStep = EventDispatch<OnPreStep>()
+    val onPreStep: EventDispatch<OnPreStep>
+        get() = _onPreStep
 
     abstract fun key(world: World): Key
 
@@ -25,6 +30,10 @@ abstract class RattlePlatform(
     abstract fun physicsOrCreate(world: World): Sync<out WorldPhysics>
 
     fun hasPhysics(world: World) = physicsOrNull(world) != null
+
+    abstract fun asPlayer(sender: CommandSource): RattlePlayer?
+
+    abstract fun setPlayerDraw(player: RattlePlayer, draw: RattlePlayer.Draw?)
 
     private val stepping = AtomicBoolean(false)
     val isStepping: Boolean
@@ -69,13 +78,13 @@ abstract class RattlePlatform(
         rattle.log.info { "Destroyed $count world physics spaces" }
     }
 
-    fun tick() {
+    open fun onTick() {
         rattle.runTask {
             if (stepping.getAndSet(true)) return@runTask
             val start = System.nanoTime()
             try {
                 val dt = 0.05 * rattle.settings.timeStepMultiplier
-                callBeforeStep(dt)
+                _onPreStep.dispatch(OnPreStep(dt = dt))
 
                 // SAFETY: we lock all worlds in a batch at once, so no other thread can access it
                 // we batch process all our worlds under lock, then we batch release all locks

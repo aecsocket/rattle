@@ -534,8 +534,9 @@ abstract class RattleCommand<C : Audience>(
         val server = ctx.server
         val sender = server.asPlayer(ctx.sender.source()) ?: mustBePlayer(ctx.sender)
 
-        sender.draw = RattlePlayer.Draw(
+        val draw = RattlePlayer.Draw(
             terrain = ctx.hasFlag(TERRAIN),
         )
+        server.setPlayerDraw(sender, if (draw.isEmpty()) null else draw)
     }
 }

@@ -44,7 +44,7 @@ data class SimpleBodyDesc(
 )
 
 abstract class SimpleBodies(
-    private val platform: RattlePlatform,
+    protected open val platform: RattlePlatform,
     // SAFETY: while a caller has access to a SimpleBodies object, they also have access to the containing
     // WorldPhysics, and therefore the PhysicsSpace is locked
     private val physics: PhysicsSpace,

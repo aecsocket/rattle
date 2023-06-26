@@ -28,6 +28,6 @@ public abstract class ServerPlayerMixin implements PlayerRattleAccess {
 
     @Inject(method = "tick", at = @At("TAIL"))
     public void tick(CallbackInfo ci) {
-        rattle.tick();
+        rattle.onTick();
     }
 }

@@ -1,6 +1,6 @@
 [versions]
 indra = "3.1.1"
-kotlin = "1.8.21"
+kotlin = "1.8.22"
 klam = "0.2.6"
 configurate = "4.1.2"
 alexandria = "0.1.1-SNAPSHOT"
@@ -9,7 +9,7 @@ paper = "1.19.4"
 fabric = "1.20.1"
 fabric-loader = "0.14.21"
 fabric-api = "0.84.0+1.20.1"
-fabric-language-kotlin = "1.9.4+kotlin.1.8.21"
+fabric-language-kotlin = "1.9.5+kotlin.1.8.22"
 
 [libraries]
 indra-common = { group = "net.kyori", name = "indra-common", version.ref = "indra" }

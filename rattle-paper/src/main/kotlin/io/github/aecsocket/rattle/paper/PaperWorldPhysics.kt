@@ -5,7 +5,7 @@ import io.github.aecsocket.rattle.world.WorldPhysics
 import org.bukkit.World
 
 class PaperWorldPhysics internal constructor(
-    private val rattle: PaperRattle,
+    private val platform: PaperRattlePlatform,
     physics: PhysicsSpace,
     override val terrain: PaperDynamicTerrain?,
     override val entities: PaperEntityStrategy?,
@@ -13,6 +13,6 @@ class PaperWorldPhysics internal constructor(
     val world: World,
 ) : WorldPhysics(physics, terrain, entities, simpleBodies) {
     override fun destroyInternal() {
-        rattle.mWorlds.remove(world)
+        platform.removePhysics(world)
     }
 }

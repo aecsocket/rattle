@@ -5,29 +5,18 @@ import io.github.aecsocket.alexandria.paper.extension.position
 import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.impl.RattleMessages
 import io.github.aecsocket.rattle.impl.RattlePlayer
-import net.kyori.adventure.audience.Audience
-import net.kyori.adventure.bossbar.BossBar
-import org.bukkit.World
 import org.bukkit.entity.Player
 
 class PaperRattlePlayer(
-    private val rattle: PaperRattle,
+    override val platform: PaperRattlePlatform,
     val player: Player,
-) : RattlePlayer(rattle.platform) {
-    override var messages: RattleMessages = rattle.messages.forLocale(player.locale())
+) : RattlePlayer(platform) {
+    override var messages: RattleMessages = platform.plugin.messages.forLocale(player.locale())
 
     override val world: RWorld
         get() = player.world.wrap()
 
     override fun audience() = player
-
-    override fun showBar(bar: BossBar) {
-        player.showBossBar(bar)
-    }
-
-    override fun hideBar(bar: BossBar) {
-        player.hideBossBar(bar)
-    }
 
     override fun eyePosition(): DVec3 {
         return player.eyeLocation.position()
@@ -35,13 +24,5 @@ class PaperRattlePlayer(
 
     override fun eyeDirection(): DVec3 {
         return player.eyeLocation.direction()
-    }
-
-    override fun updateDraw(draw: Draw) {
-        rattle.runTask {
-            rattle.physicsOrNull(player.world)?.withLock { physics ->
-                //(physics.terrain as? PaperDynamicTerrain)?.onUntrackChunk(player, )
-            }
-        }
     }
 }

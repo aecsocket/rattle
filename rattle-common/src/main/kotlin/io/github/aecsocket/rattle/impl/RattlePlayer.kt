@@ -15,11 +15,13 @@ import net.kyori.adventure.text.Component
 private const val STATS_BAR_STEP_TIME = 2500L
 
 abstract class RattlePlayer(
-    private val platform: RattlePlatform,
+    protected open val platform: RattlePlatform,
 ) : ForwardingAudience.Single {
     data class Draw(
-        val terrain: Boolean = false,
-    )
+        val terrain: Boolean,
+    ) {
+        fun isEmpty() = !terrain
+    }
 
     data class Launcher(
         val geom: SimpleGeometry,
@@ -33,36 +35,24 @@ abstract class RattlePlayer(
     abstract val world: World
 
     private var statsBar: BossBar? = null
-    private var lastStep: Long = 0
     var launcher: Launcher? = null
-    var draw: Draw = Draw()
-        set(value) {
-            field = value
-            updateDraw(draw)
-        }
-
-    protected abstract fun showBar(bar: BossBar)
-
-    protected abstract fun hideBar(bar: BossBar)
 
     protected abstract fun eyePosition(): DVec3
 
     protected abstract fun eyeDirection(): DVec3
 
-    protected abstract fun updateDraw(draw: Draw)
-
     fun showStatsBar(enabled: Boolean) {
         val statsBar = statsBar
         if (enabled && statsBar == null) {
             this.statsBar = BossBar.bossBar(Component.empty(), 1.0f, BossBar.Color.WHITE, BossBar.Overlay.PROGRESS)
-                .also { showBar(it) }
+                .also { showBossBar(it) }
         } else if (!enabled && statsBar != null) {
-            hideBar(statsBar)
+            hideBossBar(statsBar)
             this.statsBar = null
         }
     }
 
-    fun tick() {
+    fun onTick() {
         val world = world
 
         statsBar?.let { statsBar ->
