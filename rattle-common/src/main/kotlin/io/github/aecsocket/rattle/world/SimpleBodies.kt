@@ -116,7 +116,7 @@ abstract class SimpleBodies<W>(
     }
 
     private val destroyed = DestroyFlag()
-    private val instances = GenArena<Instance>()
+    protected val instances = GenArena<Instance>()
     private val colliderToInstance = HashMap<ColliderKey, ArenaKey>()
 
     val count: Int
@@ -137,14 +137,14 @@ abstract class SimpleBodies<W>(
         }
     }
 
-    protected abstract fun createInstance(
+    protected abstract fun addInstance(
         collider: ColliderKey,
         body: RigidBodyKey,
         scale: FVec3,
         position: DIso3,
         geomSettings: Settings.ForGeometry,
         visibility: Visibility,
-    ): Instance
+    ): ArenaKey
 
     fun create(position: DIso3, desc: SimpleBodyDesc): ArenaKey {
         val engine = platform.rattle.engine
@@ -171,7 +171,7 @@ abstract class SimpleBodies<W>(
         }
         val geomScale = rawGeomScale.toFloat() * geomSettings.scale
 
-        val inst = createInstance(
+        val instKey = addInstance(
             collider = collider,
             body = body,
             scale = geomScale,
@@ -179,7 +179,6 @@ abstract class SimpleBodies<W>(
             geomSettings = geomSettings,
             visibility = desc.visibility,
         )
-        val instKey = instances.insert(inst)
         return instKey
     }
 

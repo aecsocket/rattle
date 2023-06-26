@@ -201,11 +201,6 @@ class PaperDynamicTerrain(
         }
     }
 
-    private fun boxShape(halfExtent: DVec3): Shape {
-        // todo cache this?
-        return rattle.engine.createShape(Box(halfExtent))
-    }
-
     private fun runForSlicesIn(chunk: Chunk, fn: (Slice) -> Unit) {
         rattle.runTask {
             slices.withLock { slices ->

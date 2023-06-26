@@ -490,6 +490,10 @@ abstract class DynamicTerrain<W>(
             }
         }
     }
+
+    protected fun boxShape(halfExtent: DVec3): Shape {
+        return platform.rattle.engine.createShape(Box(halfExtent))
+    }
 }
 
 fun posInChunk(i: Int) = IVec3(

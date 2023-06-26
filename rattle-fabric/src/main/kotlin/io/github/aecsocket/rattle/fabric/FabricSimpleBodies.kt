@@ -44,33 +44,31 @@ class FabricSimpleBodies(
     private val trackerToInst = Locked(HashMap<Entity, ArenaKey>())
     private val toRemove = Locked(HashSet<ArenaKey>())
 
-    override fun createInstance(
+    override fun addInstance(
         collider: ColliderKey,
         body: RigidBodyKey,
         scale: FVec3,
         position: DIso3,
         geomSettings: Settings.ForGeometry,
         visibility: Visibility,
-    ): Instance {
-        val render = when (visibility) {
+    ): ArenaKey {
+        return when (visibility) {
+            Visibility.INVISIBLE -> instances.insert(
+                FabricInstance(collider, body, scale, position, geomSettings.item.create(), render = null)
+            )
             Visibility.VISIBLE -> {
                 val tracker = createTrackerEntity(world, position.translation)
                 val render = ItemDisplayRender(nextEntityId()) { packet ->
                     PlayerLookup.tracking(tracker).forEach { it.connection.send(packet) }
                 }
-                trackerToInst.withLock { it[tracker] = inst }
+                val instKey = instances.insert(
+                    FabricInstance(collider, body, scale, position, geomSettings.item.create(), render)
+                )
+                trackerToInst.withLock { it[tracker] = instKey }
+                world.addFreshEntity(tracker)
+                instKey
             }
         }
-        val inst = FabricInstance(collider, body, scale, position, geomSettings.item.create(), render)
-    }
-
-    override fun createRender(position: DVec3, inst: Instance, instKey: ArenaKey): ItemRender {
-        val render =
-        trackerToInst.withLock { it[tracker] = instKey }
-        world.addFreshEntity(tracker)
-        render.receiver = PacketReceiver { packet ->
-        }
-        return render
     }
 
     override fun onPhysicsStep() {
@@ -110,9 +108,7 @@ class FabricSimpleBodies(
 
     fun onTrackEntity(player: ServerPlayer, entity: Entity) {
         val inst = trackerToInst.withLock { it[entity] }?.let { get(it) } ?: return
-        println("B = $inst")
         val render = inst.render as? ItemDisplayRender ?: return
-        println("C = $render")
         inst.onTrack(render.withReceiver(player.packetReceiver()))
     }
 
