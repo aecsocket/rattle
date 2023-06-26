@@ -54,8 +54,6 @@ private const val VELOCITY = "velocity"
 private const val VIRTUAL = "virtual"
 private const val WORLD = "world"
 
-typealias RealArgument<C> = DoubleArgument<C>
-
 abstract class RattleCommand<C : Audience, W>(
     private val rattle: RattleHook,
     private val messages: MessageProxy<RattleMessages>,
@@ -69,7 +67,9 @@ abstract class RattleCommand<C : Audience, W>(
 
     protected abstract fun CommandContext<C>.getWorld(key: String): W
 
-    protected abstract val CommandContext<C>.server: RattlePlatform<W, C>
+    protected abstract val CommandContext<C>.server: RattlePlatform<W>
+
+    protected abstract fun C.source(): CommandSource
 
     init {
         root.run {
@@ -98,21 +98,21 @@ abstract class RattleCommand<C : Audience, W>(
                     )
                     .flag(manager.flagBuilder(SPREAD)
                         .withAliases("s")
-                        .withArgument(RealArgument.builder<C>(SPREAD).withMin(0))
+                        .withArgument(DoubleArgument.builder<C>(SPREAD).withMin(0))
                     )
                     .flag(manager.flagBuilder(DENSITY)
                         .withAliases("d")
-                        .withArgument(RealArgument.builder<C>(DENSITY).withMin(0))
+                        .withArgument(DoubleArgument.builder<C>(DENSITY).withMin(0))
                     )
                     .flag(manager.flagBuilder(MASS)
                         .withAliases("m")
-                        .withArgument(RealArgument.builder<C>(MASS).withMin(0))
+                        .withArgument(DoubleArgument.builder<C>(MASS).withMin(0))
                     )
                     .flag(manager.flagBuilder(FRICTION)
-                        .withArgument(RealArgument.builder<C>(FRICTION).withMin(0))
+                        .withArgument(DoubleArgument.builder<C>(FRICTION).withMin(0))
                     )
                     .flag(manager.flagBuilder(RESTITUTION)
-                        .withArgument(RealArgument.builder<C>(RESTITUTION).withMin(0))
+                        .withArgument(DoubleArgument.builder<C>(RESTITUTION).withMin(0))
                     )
                     .flag(manager.flagBuilder(VIRTUAL)
                         .withAliases("v")
@@ -122,12 +122,12 @@ abstract class RattleCommand<C : Audience, W>(
                             .run {
                                 manager.command(
                                     literal(SPHERE)
-                                        .argument(RealArgument.of(RADIUS))
+                                        .argument(DoubleArgument.of(RADIUS))
                                         .axHandler(::bodyCreateFixedSphere)
                                 )
                                 manager.command(
                                     literal(BOX)
-                                        .argument(RealArgument.of(HALF_EXTENT))
+                                        .argument(DoubleArgument.of(HALF_EXTENT))
                                         .axHandler(::bodyCreateFixedBox)
                                 )
                             }
@@ -136,23 +136,23 @@ abstract class RattleCommand<C : Audience, W>(
                             .flag(manager.flagBuilder(CCD))
                             .flag(manager.flagBuilder(GRAVITY_SCALE)
                                 .withAliases("g")
-                                .withArgument(RealArgument.builder<C>(GRAVITY_SCALE).withMin(0))
+                                .withArgument(DoubleArgument.builder<C>(GRAVITY_SCALE).withMin(0))
                             )
                             .flag(manager.flagBuilder(LIN_DAMP)
-                                .withArgument(RealArgument.builder<C>(LIN_DAMP).withMin(0))
+                                .withArgument(DoubleArgument.builder<C>(LIN_DAMP).withMin(0))
                             )
                             .flag(manager.flagBuilder(ANG_DAMP)
-                                .withArgument(RealArgument.builder<C>(ANG_DAMP).withMin(0))
+                                .withArgument(DoubleArgument.builder<C>(ANG_DAMP).withMin(0))
                             )
                             .run {
                                 manager.command(
                                     literal(SPHERE)
-                                        .argument(RealArgument.of(RADIUS))
+                                        .argument(DoubleArgument.of(RADIUS))
                                         .axHandler(::bodyCreateDynamicSphere)
                                 )
                                 manager.command(
                                     literal(BOX)
-                                        .argument(RealArgument.of(HALF_EXTENT))
+                                        .argument(DoubleArgument.of(HALF_EXTENT))
                                         .axHandler(::bodyCreateDynamicBox)
                                 )
                             }
@@ -184,29 +184,29 @@ abstract class RattleCommand<C : Audience, W>(
 
                     this
                         .flag(manager.flagBuilder(FRICTION)
-                            .withArgument(RealArgument.builder<C>(FRICTION).withMin(0))
+                            .withArgument(DoubleArgument.builder<C>(FRICTION).withMin(0))
                         )
                         .flag(manager.flagBuilder(RESTITUTION)
-                            .withArgument(RealArgument.builder<C>(RESTITUTION).withMin(0))
+                            .withArgument(DoubleArgument.builder<C>(RESTITUTION).withMin(0))
                         )
                         .flag(manager.flagBuilder(VELOCITY)
                             .withAliases("v")
-                            .withArgument(RealArgument.builder<C>(VELOCITY).withMin(0))
+                            .withArgument(DoubleArgument.builder<C>(VELOCITY).withMin(0))
                         )
                         .flag(manager.flagBuilder(DENSITY)
                             .withAliases("d")
-                            .withArgument(RealArgument.builder<C>(DENSITY).withMin(0))
+                            .withArgument(DoubleArgument.builder<C>(DENSITY).withMin(0))
                         )
                         .flag(manager.flagBuilder(NO_CCD))
                         .run {
                             manager.command(
                                 literal(SPHERE)
-                                    .argument(RealArgument.of(RADIUS))
+                                    .argument(DoubleArgument.of(RADIUS))
                                     .axHandler(::launcherSphere)
                             )
                             manager.command(
                                 literal(BOX)
-                                    .argument(RealArgument.of(HALF_EXTENT))
+                                    .argument(DoubleArgument.of(HALF_EXTENT))
                                     .axHandler(::launcherBox)
                             )
                         }
@@ -472,7 +472,7 @@ abstract class RattleCommand<C : Audience, W>(
 
     private fun statsEnable(ctx: CommandContext<C>) {
         val server = ctx.server
-        val sender = server.asPlayer(ctx.sender) ?: mustBePlayer(ctx.sender)
+        val sender = server.asPlayer(ctx.sender.source()) ?: mustBePlayer(ctx.sender)
         val enabled = ctx.get<Boolean>(ENABLED)
 
         sender.showStatsBar(enabled)
@@ -480,7 +480,7 @@ abstract class RattleCommand<C : Audience, W>(
 
     private fun launcherDisable(ctx: CommandContext<C>) {
         val server = ctx.server
-        val sender = server.asPlayer(ctx.sender) ?: mustBePlayer(ctx.sender)
+        val sender = server.asPlayer(ctx.sender.source()) ?: mustBePlayer(ctx.sender)
         val messages = messages.forAudience(sender)
 
         if (sender.launcher != null) {
@@ -489,7 +489,7 @@ abstract class RattleCommand<C : Audience, W>(
         }
     }
 
-    private fun launcher(ctx: CommandContext<C>, sender: RattlePlayer<W, *>, geom: SimpleGeometry) {
+    private fun launcher(ctx: CommandContext<C>, sender: RattlePlayer<W>, geom: SimpleGeometry) {
         val friction = ctx.flag(FRICTION) ?: DEFAULT_FRICTION
         val restitution = ctx.flag(RESTITUTION) ?: DEFAULT_RESTITUTION
         val velocity = ctx.flag(VELOCITY) ?: 10.0
@@ -510,7 +510,7 @@ abstract class RattleCommand<C : Audience, W>(
 
     private fun launcherSphere(ctx: CommandContext<C>) {
         val server = ctx.server
-        val sender = server.asPlayer(ctx.sender) ?: mustBePlayer(ctx.sender)
+        val sender = server.asPlayer(ctx.sender.source()) ?: mustBePlayer(ctx.sender)
         val messages = messages.forAudience(sender)
 
         if (sender.launcher == null) {
@@ -521,7 +521,7 @@ abstract class RattleCommand<C : Audience, W>(
 
     private fun launcherBox(ctx: CommandContext<C>) {
         val server = ctx.server
-        val sender = server.asPlayer(ctx.sender) ?: mustBePlayer(ctx.sender)
+        val sender = server.asPlayer(ctx.sender.source()) ?: mustBePlayer(ctx.sender)
         val messages = messages.forAudience(sender)
 
         if (sender.launcher == null) {
@@ -532,7 +532,7 @@ abstract class RattleCommand<C : Audience, W>(
 
     private fun draw(ctx: CommandContext<C>) {
         val server = ctx.server
-        val sender = server.asPlayer(ctx.sender) ?: mustBePlayer(ctx.sender)
+        val sender = server.asPlayer(ctx.sender.source()) ?: mustBePlayer(ctx.sender)
 
         sender.draw = RattlePlayer.Draw(
             terrain = ctx.hasFlag(TERRAIN),

@@ -5,25 +5,28 @@ import io.github.aecsocket.alexandria.paper.extension.position
 import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.impl.RattleMessages
 import io.github.aecsocket.rattle.impl.RattlePlayer
+import net.kyori.adventure.audience.Audience
 import net.kyori.adventure.bossbar.BossBar
 import org.bukkit.World
 import org.bukkit.entity.Player
 
 class PaperRattlePlayer(
     private val rattle: PaperRattle,
-    player: Player,
-) : RattlePlayer<World, Player>(rattle.platform, player) {
+    val player: Player,
+) : RattlePlayer<World>(rattle.platform) {
     override var messages: RattleMessages = rattle.messages.forLocale(player.locale())
 
     override val world: World
         get() = player.world
 
-    override fun Player.showBar(bar: BossBar) {
-        this.showBossBar(bar)
+    override fun audience() = player
+
+    override fun showBar(bar: BossBar) {
+        player.showBossBar(bar)
     }
 
-    override fun Player.hideBar(bar: BossBar) {
-        this.hideBossBar(bar)
+    override fun hideBar(bar: BossBar) {
+        player.hideBossBar(bar)
     }
 
     override fun eyePosition(): DVec3 {

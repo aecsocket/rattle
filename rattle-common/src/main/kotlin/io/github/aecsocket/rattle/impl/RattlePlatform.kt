@@ -7,14 +7,14 @@ import net.kyori.adventure.key.Key
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
-abstract class RattlePlatform<W, C>(
+abstract class RattlePlatform<W>(
     val rattle: RattleHook,
 ) {
     abstract val worlds: Iterable<W>
 
     protected abstract fun callBeforeStep(dt: Double)
 
-    abstract fun asPlayer(sender: C): RattlePlayer<W, *>?
+    abstract fun asPlayer(sender: CommandSource): RattlePlayer<W>?
 
     abstract fun key(world: W): Key
 

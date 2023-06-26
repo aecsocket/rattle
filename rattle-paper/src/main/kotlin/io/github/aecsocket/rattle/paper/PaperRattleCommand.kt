@@ -5,11 +5,14 @@ import cloud.commandframework.bukkit.parsers.location.LocationArgument
 import cloud.commandframework.context.CommandContext
 import io.github.aecsocket.alexandria.paper.commandManager
 import io.github.aecsocket.alexandria.paper.extension.position
+import io.github.aecsocket.rattle.impl.CommandSource
 import io.github.aecsocket.rattle.impl.RattleCommand
 import io.github.aecsocket.rattle.impl.RattlePlatform
 import org.bukkit.Location
 import org.bukkit.World
 import org.bukkit.command.CommandSender
+
+internal class PaperCommandSource(val handle: CommandSender) : CommandSource
 
 internal class PaperRattleCommand(
     private val rattle: PaperRattle,
@@ -17,9 +20,9 @@ internal class PaperRattleCommand(
     override fun locationArgumentOf(key: String) =
         LocationArgument.of<CommandSender>(key)
 
-    override fun CommandContext<CommandSender>.getLocation(key: String): io.github.aecsocket.rattle.impl.Location<World> {
+    override fun CommandContext<CommandSender>.getLocation(key: String): io.github.aecsocket.rattle.Location<World> {
         val loc = get<Location>(key)
-        return io.github.aecsocket.rattle.impl.Location(
+        return io.github.aecsocket.rattle.Location(
             world = loc.world,
             position = loc.position(),
         )
@@ -30,6 +33,8 @@ internal class PaperRattleCommand(
 
     override fun CommandContext<CommandSender>.getWorld(key: String) = get<World>(key)
 
-    override val CommandContext<CommandSender>.server: RattlePlatform<World, CommandSender>
+    override val CommandContext<CommandSender>.server: RattlePlatform<World>
         get() = rattle.platform
+
+    override fun CommandSender.source(): CommandSource = PaperCommandSource(this)
 }

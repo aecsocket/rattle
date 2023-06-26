@@ -6,12 +6,15 @@ import cloud.commandframework.fabric.argument.server.Vec3dArgument
 import cloud.commandframework.fabric.data.Coordinates
 import io.github.aecsocket.alexandria.fabric.commandManager
 import io.github.aecsocket.alexandria.fabric.extension.toDVec
-import io.github.aecsocket.rattle.impl.Location
+import io.github.aecsocket.rattle.impl.CommandSource
+import io.github.aecsocket.rattle.Location
 import io.github.aecsocket.rattle.impl.RattleCommand
 import net.minecraft.commands.CommandSourceStack
 import net.minecraft.core.registries.Registries
 import net.minecraft.resources.ResourceKey
 import net.minecraft.server.level.ServerLevel
+
+internal class FabricCommandSource(val handle: CommandSourceStack) : CommandSource
 
 internal class FabricRattleCommand(
     rattle: FabricRattle,
@@ -47,4 +50,6 @@ internal class FabricRattleCommand(
 
     override val CommandContext<CommandSourceStack>.server: FabricRattlePlatform
         get() = sender.server.rattle()
+
+    override fun CommandSourceStack.source() = FabricCommandSource(this)
 }

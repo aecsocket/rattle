@@ -11,8 +11,8 @@ import net.minecraft.server.level.ServerPlayer
 @Suppress("UnstableApiUsage")
 class FabricRattlePlayer(
     rattle: FabricRattle,
-    player: ServerPlayer,
-) : RattlePlayer<ServerLevel, ServerPlayer>(player.server.rattle(), player) {
+    val player: ServerPlayer,
+) : RattlePlayer<ServerLevel>(player.server.rattle()) {
     val rattle = player.server.rattle()
     // Sometimes, when a player is placed into a world, we get an error that `ForwardingAudience$Single.audience()` is null
     // (if we access `player.get(Identity.LOCALE)` through Adventure's pointer mechanism)
@@ -24,11 +24,13 @@ class FabricRattlePlayer(
     override val world: ServerLevel
         get() = player.serverLevel()
 
-    override fun ServerPlayer.showBar(bar: BossBar) {
+    override fun audience() = player
+
+    override fun showBar(bar: BossBar) {
         rattle.bossBars.subscribe(player, bar)
     }
 
-    override fun ServerPlayer.hideBar(bar: BossBar) {
+    override fun hideBar(bar: BossBar) {
         rattle.bossBars.unsubscribe(player, bar)
     }
 

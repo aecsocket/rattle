@@ -1,14 +1,14 @@
 package io.github.aecsocket.rattle.paper
 
+import io.github.aecsocket.rattle.impl.CommandSource
 import io.github.aecsocket.rattle.impl.RattlePlatform
 import org.bukkit.Bukkit
 import org.bukkit.World
-import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 
 class PaperRattlePlatform(
     private val plugin: PaperRattle,
-) : RattlePlatform<World, CommandSender>(plugin.rattle) {
+) : RattlePlatform<World>(plugin.rattle) {
     override val worlds: Iterable<World>
         get() = Bukkit.getWorlds()
 
@@ -16,8 +16,8 @@ class PaperRattlePlatform(
         RattleEvents.BeforePhysicsStep(dt).callEvent()
     }
 
-    override fun asPlayer(sender: CommandSender) =
-        (sender as? Player)?.let { plugin.playerData(it) }
+    override fun asPlayer(sender: CommandSource) =
+        ((sender as PaperCommandSource).handle as? Player)?.let { plugin.playerData(it) }
 
     override fun key(world: World) = world.key()
 

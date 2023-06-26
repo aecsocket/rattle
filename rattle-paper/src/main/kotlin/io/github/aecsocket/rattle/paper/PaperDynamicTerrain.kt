@@ -213,6 +213,7 @@ class PaperDynamicTerrain(
     }
 
     fun onTrackChunk(player: Player, chunk: Chunk) {
+        if (!rattle.playerData(player).draw.terrain) return
         runForSlicesIn(chunk) { slice ->
             slice.debugRenders.forEach {
                 slice.onTrack((it.render as ItemDisplayRender).withReceiver(player.packetReceiver()), it)
@@ -221,6 +222,7 @@ class PaperDynamicTerrain(
     }
 
     fun onUntrackChunk(player: Player, chunk: Chunk) {
+        if (!rattle.playerData(player).draw.terrain) return
         runForSlicesIn(chunk) { slice ->
             slice.debugRenders.forEach {
                 slice.onUntrack((it.render as ItemDisplayRender).withReceiver(player.packetReceiver()))
