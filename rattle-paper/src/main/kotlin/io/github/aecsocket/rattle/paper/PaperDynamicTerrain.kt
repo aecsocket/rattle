@@ -124,10 +124,10 @@ all NMS SoundType's:
 
 class PaperDynamicTerrain(
     private val rattle: PaperRattle,
-    world: World,
     physics: PhysicsSpace,
+    val world: World,
     settings: Settings = Settings(),
-) : DynamicTerrain<World>(world, rattle.platform, physics, settings) {
+) : DynamicTerrain(rattle.platform, physics, settings) {
     private val yIndices = (world.minHeight / 16) until (world.maxHeight / 16)
     private val layerByBlock = HashMap<Material, Int>()
 

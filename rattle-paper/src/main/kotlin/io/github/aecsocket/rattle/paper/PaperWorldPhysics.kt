@@ -6,12 +6,12 @@ import org.bukkit.World
 
 class PaperWorldPhysics internal constructor(
     private val rattle: PaperRattle,
-    world: World,
     physics: PhysicsSpace,
     override val terrain: PaperDynamicTerrain?,
     override val entities: PaperEntityStrategy?,
     simpleBodies: PaperSimpleBodies,
-) : WorldPhysics<World>(world, physics, terrain, entities, simpleBodies) {
+    val world: World,
+) : WorldPhysics(physics, terrain, entities, simpleBodies) {
     override fun destroyInternal() {
         rattle.mWorlds.remove(world)
     }

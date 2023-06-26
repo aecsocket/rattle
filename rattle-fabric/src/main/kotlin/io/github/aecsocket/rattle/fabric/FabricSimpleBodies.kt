@@ -4,7 +4,6 @@ import io.github.aecsocket.alexandria.ArenaKey
 import io.github.aecsocket.alexandria.ItemRender
 import io.github.aecsocket.alexandria.extension.swapList
 import io.github.aecsocket.alexandria.fabric.ItemDisplayRender
-import io.github.aecsocket.alexandria.fabric.PacketReceiver
 import io.github.aecsocket.alexandria.fabric.create
 import io.github.aecsocket.alexandria.fabric.extension.createTrackerEntity
 import io.github.aecsocket.alexandria.fabric.extension.nextEntityId
@@ -23,11 +22,11 @@ import net.minecraft.world.entity.Entity.RemovalReason
 import net.minecraft.world.item.ItemStack
 
 class FabricSimpleBodies(
-    world: ServerLevel,
     platform: FabricRattlePlatform,
     physics: PhysicsSpace,
+    val world: ServerLevel,
     settings: Settings = Settings(),
-) : SimpleBodies<ServerLevel>(world, platform, physics, settings) {
+) : SimpleBodies(platform, physics, settings) {
     private inner class FabricInstance(
         collider: ColliderKey,
         body: RigidBodyKey,
@@ -35,7 +34,7 @@ class FabricSimpleBodies(
         position: DIso3,
         private val item: ItemStack,
         override val render: ItemDisplayRender?
-    ) : SimpleBodies<ServerLevel>.Instance(collider, body, scale, position) {
+    ) : SimpleBodies.Instance(collider, body, scale, position) {
         override fun ItemRender.item() {
             (this as ItemDisplayRender).item(item)
         }

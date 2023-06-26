@@ -94,7 +94,7 @@ abstract class RattleHook {
         log.info { "Set up physics worker thread pool with $workerThreads threads" }
     }
 
-    fun load(platform: RattlePlatform<*>?) {
+    fun load(platform: RattlePlatform?) {
         messages = glossa.messageProxy()
         platform?.load()
     }
@@ -103,7 +103,7 @@ abstract class RattleHook {
         engine.settings = settings.rapier
     }
 
-    fun destroy(platform: RattlePlatform<*>?) {
+    fun destroy(platform: RattlePlatform?) {
         executor.shutdown()
         log.info { "Waiting ${settings.jobs.workerTerminateTime} sec for physics jobs" }
         if (!executor.awaitTermination((settings.jobs.workerTerminateTime * 1000).toLong(), TimeUnit.MILLISECONDS)) {

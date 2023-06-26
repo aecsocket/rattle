@@ -148,13 +148,13 @@ class FabricRattle : AlexandriaMod<RattleHook.Settings>(
             val physics = engine.createSpace(spaceSettings)
             physics.lock = lock
 
-            val simpleBodies = FabricSimpleBodies(world, platform, physics, this.settings.simpleBodies)
+            val simpleBodies = FabricSimpleBodies(platform, physics, world, this.settings.simpleBodies)
             val terrain = if (settings.terrain.enabled) {
-                FabricDynamicTerrain(world, platform, physics, settings.terrain)
+                FabricDynamicTerrain(platform, physics, world, settings.terrain)
             } else null
             val entities: FabricEntityStrategy? = null // TODO
 
-            Locked(FabricWorldPhysics(world, physics, terrain, entities, simpleBodies), lock).also {
+            Locked(FabricWorldPhysics(physics, terrain, entities, simpleBodies, world), lock).also {
                 world.rattle_setPhysics(it)
             }
         }
@@ -169,8 +169,8 @@ fun MinecraftServer.rattle() = (this as ServerRattleAccess).rattle()
 
 fun ServerPlayer.rattle() = (this as PlayerRattleAccess).rattle()
 
-fun ServerLevel.physicsOrNull() = server.rattle().physicsOrNull(this)
+fun ServerLevel.physicsOrNull() = Rattle.physicsOrNull(this)
 
-fun ServerLevel.physicsOrCreate() = server.rattle().physicsOrCreate(this)
+fun ServerLevel.physicsOrCreate() = Rattle.physicsOrCreate(this)
 
 fun ServerLevel.hasPhysics() = physicsOrNull() != null

@@ -13,11 +13,11 @@ import org.bukkit.entity.Player
 class PaperRattlePlayer(
     private val rattle: PaperRattle,
     val player: Player,
-) : RattlePlayer<World>(rattle.platform) {
+) : RattlePlayer(rattle.platform) {
     override var messages: RattleMessages = rattle.messages.forLocale(player.locale())
 
-    override val world: World
-        get() = player.world
+    override val world: RWorld
+        get() = player.world.wrap()
 
     override fun audience() = player
 
@@ -39,7 +39,7 @@ class PaperRattlePlayer(
 
     override fun updateDraw(draw: Draw) {
         rattle.runTask {
-            rattle.physicsOrNull(world)?.withLock { physics ->
+            rattle.physicsOrNull(player.world)?.withLock { physics ->
                 //(physics.terrain as? PaperDynamicTerrain)?.onUntrackChunk(player, )
             }
         }

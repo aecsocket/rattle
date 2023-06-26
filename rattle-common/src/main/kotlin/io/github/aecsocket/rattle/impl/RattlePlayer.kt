@@ -8,15 +8,14 @@ import io.github.aecsocket.rattle.stats.timingStatsOf
 import io.github.aecsocket.rattle.world.SimpleBodyDesc
 import io.github.aecsocket.rattle.world.SimpleGeometry
 import io.github.aecsocket.rattle.world.Visibility
-import net.kyori.adventure.audience.Audience
 import net.kyori.adventure.audience.ForwardingAudience
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
 
 private const val STATS_BAR_STEP_TIME = 2500L
 
-abstract class RattlePlayer<W>(
-    private val platform: RattlePlatform<W>,
+abstract class RattlePlayer(
+    private val platform: RattlePlatform,
 ) : ForwardingAudience.Single {
     data class Draw(
         val terrain: Boolean = false,
@@ -31,7 +30,7 @@ abstract class RattlePlayer<W>(
     )
 
     abstract val messages: RattleMessages
-    abstract val world: W
+    abstract val world: World
 
     private var statsBar: BossBar? = null
     private var lastStep: Long = 0

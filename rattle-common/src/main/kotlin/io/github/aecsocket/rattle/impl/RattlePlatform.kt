@@ -1,28 +1,30 @@
 package io.github.aecsocket.rattle.impl
 
 import io.github.aecsocket.alexandria.sync.Sync
+import io.github.aecsocket.rattle.CommandSource
+import io.github.aecsocket.rattle.World
 import io.github.aecsocket.rattle.stats.TimestampedList
 import io.github.aecsocket.rattle.world.*
 import net.kyori.adventure.key.Key
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
-abstract class RattlePlatform<W>(
+abstract class RattlePlatform(
     val rattle: RattleHook,
 ) {
-    abstract val worlds: Iterable<W>
+    abstract val worlds: Iterable<World>
 
     protected abstract fun callBeforeStep(dt: Double)
 
-    abstract fun asPlayer(sender: CommandSource): RattlePlayer<W>?
+    abstract fun asPlayer(sender: CommandSource): RattlePlayer?
 
-    abstract fun key(world: W): Key
+    abstract fun key(world: World): Key
 
-    abstract fun physicsOrNull(world: W): Sync<out WorldPhysics<W>>?
+    abstract fun physicsOrNull(world: World): Sync<out WorldPhysics>?
 
-    abstract fun physicsOrCreate(world: W): Sync<out WorldPhysics<W>>
+    abstract fun physicsOrCreate(world: World): Sync<out WorldPhysics>
 
-    fun hasPhysics(world: W) = physicsOrNull(world) != null
+    fun hasPhysics(world: World) = physicsOrNull(world) != null
 
     private val stepping = AtomicBoolean(false)
     val isStepping: Boolean

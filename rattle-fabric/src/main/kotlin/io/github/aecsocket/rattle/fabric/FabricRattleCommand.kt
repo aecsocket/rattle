@@ -6,26 +6,23 @@ import cloud.commandframework.fabric.argument.server.Vec3dArgument
 import cloud.commandframework.fabric.data.Coordinates
 import io.github.aecsocket.alexandria.fabric.commandManager
 import io.github.aecsocket.alexandria.fabric.extension.toDVec
-import io.github.aecsocket.rattle.impl.CommandSource
 import io.github.aecsocket.rattle.Location
+import io.github.aecsocket.rattle.World
 import io.github.aecsocket.rattle.impl.RattleCommand
 import net.minecraft.commands.CommandSourceStack
 import net.minecraft.core.registries.Registries
 import net.minecraft.resources.ResourceKey
-import net.minecraft.server.level.ServerLevel
-
-internal class FabricCommandSource(val handle: CommandSourceStack) : CommandSource
 
 internal class FabricRattleCommand(
     rattle: FabricRattle,
-) : RattleCommand<CommandSourceStack, ServerLevel>(rattle.rattle, rattle.messages, commandManager()) {
+) : RattleCommand<CommandSourceStack>(rattle.rattle, rattle.messages, commandManager()) {
     override fun locationArgumentOf(key: String) =
         Vec3dArgument.of<CommandSourceStack>(key)
 
-    override fun CommandContext<CommandSourceStack>.getLocation(key: String): Location<ServerLevel> {
+    override fun CommandContext<CommandSourceStack>.getLocation(key: String): Location {
         val vec = get<Coordinates>(key)
         return Location(
-            world = sender.level,
+            world = sender.level.wrap(),
             position = vec.position().toDVec(),
         )
     }
@@ -43,13 +40,14 @@ internal class FabricRattleCommand(
             }
             .build()
 
-    override fun CommandContext<CommandSourceStack>.getWorld(key: String): ServerLevel {
+    override fun CommandContext<CommandSourceStack>.getWorld(key: String): World {
         val res = ResourceKey.create(Registries.DIMENSION, get(key))
-        return sender.server.getLevel(res) ?: throw IllegalArgumentException("No world with key ${res.key()}")
+        val handle = sender.server.getLevel(res) ?: throw IllegalArgumentException("No world with key ${res.key()}")
+        return handle.wrap()
     }
 
     override val CommandContext<CommandSourceStack>.server: FabricRattlePlatform
         get() = sender.server.rattle()
 
-    override fun CommandSourceStack.source() = FabricCommandSource(this)
+    override fun CommandSourceStack.source() = wrap()
 }

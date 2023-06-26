@@ -2,17 +2,17 @@ package io.github.aecsocket.rattle.fabric
 
 import io.github.aecsocket.alexandria.fabric.extension.toDVec
 import io.github.aecsocket.klam.DVec3
+import io.github.aecsocket.rattle.World
 import io.github.aecsocket.rattle.impl.RattleMessages
 import io.github.aecsocket.rattle.impl.RattlePlayer
 import net.kyori.adventure.bossbar.BossBar
-import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 
 @Suppress("UnstableApiUsage")
 class FabricRattlePlayer(
     rattle: FabricRattle,
     val player: ServerPlayer,
-) : RattlePlayer<ServerLevel>(player.server.rattle()) {
+) : RattlePlayer(player.server.rattle()) {
     val rattle = player.server.rattle()
     // Sometimes, when a player is placed into a world, we get an error that `ForwardingAudience$Single.audience()` is null
     // (if we access `player.get(Identity.LOCALE)` through Adventure's pointer mechanism)
@@ -21,8 +21,8 @@ class FabricRattlePlayer(
     // changes to the player's actual locale later
     override var messages: RattleMessages = rattle.messages.forLocale(rattle.settings.defaultLocale)
 
-    override val world: ServerLevel
-        get() = player.serverLevel()
+    override val world: World
+        get() = player.serverLevel().wrap()
 
     override fun audience() = player
 

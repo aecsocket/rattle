@@ -5,12 +5,12 @@ import io.github.aecsocket.rattle.world.WorldPhysics
 import net.minecraft.server.level.ServerLevel
 
 class FabricWorldPhysics(
-    world: ServerLevel,
     physics: PhysicsSpace,
     override val terrain: FabricDynamicTerrain?,
     override val entities: FabricEntityStrategy?,
     override val simpleBodies: FabricSimpleBodies,
-) : WorldPhysics<ServerLevel>(world, physics, terrain, entities, simpleBodies) {
+    val world: ServerLevel,
+) : WorldPhysics(physics, terrain, entities, simpleBodies) {
     override fun destroyInternal() {
         (world as LevelPhysicsAccess).rattle_setPhysics(null)
     }

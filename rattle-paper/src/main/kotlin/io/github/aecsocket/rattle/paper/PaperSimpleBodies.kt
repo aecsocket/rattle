@@ -16,10 +16,10 @@ import kotlin.collections.HashSet
 
 class PaperSimpleBodies(
     private val rattle: PaperRattle,
-    world: World,
     physics: PhysicsSpace,
+    val world: World,
     settings: Settings = Settings(),
-) : SimpleBodies<World>(world, rattle.platform, physics, settings) {
+) : SimpleBodies(rattle.platform, physics, settings) {
     private inner class PaperInstance(
         collider: ColliderKey,
         body: RigidBodyKey,
@@ -27,7 +27,7 @@ class PaperSimpleBodies(
         position: DIso3,
         private val item: ItemStack,
         override val render: ItemDisplayRender?,
-    ) : SimpleBodies<World>.Instance(collider, body, scale, position) {
+    ) : SimpleBodies.Instance(collider, body, scale, position) {
         override fun ItemRender.item() {
             (this as ItemDisplayRender).item(item)
         }

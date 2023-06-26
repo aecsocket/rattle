@@ -6,7 +6,7 @@ interface CommandSource
 
 interface World
 
-data class Location<W>(
+data class Location(
     val world: World,
     val position: DVec3,
 )

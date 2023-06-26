@@ -28,12 +28,11 @@ import java.util.concurrent.atomic.AtomicLong
  * wouldn't want a terrain strategy to stop working in the middle of processing a physics step.
  * Therefore, its locking is controlled by the WorldPhysics' container (Sync and the like).
  */
-abstract class WorldPhysics<W>(
-    open val world: W,
+abstract class WorldPhysics(
     val physics: PhysicsSpace,
-    open val terrain: DynamicTerrain<W>?,
+    open val terrain: DynamicTerrain?,
     open val entities: EntityStrategy?,
-    open val simpleBodies: SimpleBodies<W>,
+    open val simpleBodies: SimpleBodies,
 ) : Destroyable {
     private val destroyed = DestroyFlag()
 
@@ -51,8 +50,6 @@ abstract class WorldPhysics<W>(
         internal set
 
     operator fun component1() = physics
-
-    operator fun component2() = world
 
     protected abstract fun destroyInternal()
 

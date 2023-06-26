@@ -24,11 +24,11 @@ import net.minecraft.world.level.chunk.ChunkAccess
 import net.minecraft.world.level.chunk.ChunkStatus
 
 class FabricDynamicTerrain(
-    world: ServerLevel,
     platform: FabricRattlePlatform,
     physics: PhysicsSpace,
+    val world: ServerLevel,
     settings: Settings = Settings(),
-) : DynamicTerrain<ServerLevel>(world, platform, physics, settings) {
+) : DynamicTerrain(platform, physics, settings) {
     private val toSnapshot = Locked(HashSet<IVec3>())
     private val layerByBlock = HashMap<Block, Int>()
 

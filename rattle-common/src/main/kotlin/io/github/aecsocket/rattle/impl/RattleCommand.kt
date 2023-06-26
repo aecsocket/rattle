@@ -54,20 +54,20 @@ private const val VELOCITY = "velocity"
 private const val VIRTUAL = "virtual"
 private const val WORLD = "world"
 
-abstract class RattleCommand<C : Audience, W>(
+abstract class RattleCommand<C : Audience>(
     private val rattle: RattleHook,
     private val messages: MessageProxy<RattleMessages>,
     manager: CommandManager<C>,
 ) : AlexandriaCommand<C>(rattle.ax, manager) {
     protected abstract fun locationArgumentOf(key: String): CommandArgument<C, *>
 
-    protected abstract fun CommandContext<C>.getLocation(key: String): Location<W>
+    protected abstract fun CommandContext<C>.getLocation(key: String): Location
 
     protected abstract fun worldArgumentOf(key: String): CommandArgument<C, *>
 
-    protected abstract fun CommandContext<C>.getWorld(key: String): W
+    protected abstract fun CommandContext<C>.getWorld(key: String): World
 
-    protected abstract val CommandContext<C>.server: RattlePlatform<W>
+    protected abstract val CommandContext<C>.server: RattlePlatform
 
     protected abstract fun C.source(): CommandSource
 
@@ -446,24 +446,24 @@ abstract class RattleCommand<C : Audience, W>(
         }
 
         val worlds = server.worlds
-            .mapNotNull { server.physicsOrNull(it) }
+            .mapNotNull { world -> server.physicsOrNull(world)?.let { world to it } }
 
         messages.command.stats.spacesHeader(
             count = worlds.size,
         ).sendTo(sender)
 
-        worlds.forEach { world ->
+        worlds.forEach { (world, physics) ->
             // if the physics engine is under heavy load, it might take us a while to fetch stats for a space
             // during this time, we don't want to lock and block the main thread
             // scheduling a task will mean that the order the spaces are printed in is non-deterministic
             // but that's fine
             ctx.runTask {
-                world.withLock { (physics, world) ->
+                physics.withLock { (space) ->
                     messages.command.stats.space(
                         world = server.key(world).asString(),
-                        colliders = physics.colliders.count,
-                        rigidBodies = physics.rigidBodies.count,
-                        activeRigidBodies = physics.rigidBodies.activeCount,
+                        colliders = space.colliders.count,
+                        rigidBodies = space.rigidBodies.count,
+                        activeRigidBodies = space.rigidBodies.activeCount,
                     ).sendTo(sender)
                 }
             }
@@ -489,7 +489,7 @@ abstract class RattleCommand<C : Audience, W>(
         }
     }
 
-    private fun launcher(ctx: CommandContext<C>, sender: RattlePlayer<W>, geom: SimpleGeometry) {
+    private fun launcher(ctx: CommandContext<C>, sender: RattlePlayer, geom: SimpleGeometry) {
         val friction = ctx.flag(FRICTION) ?: DEFAULT_FRICTION
         val restitution = ctx.flag(RESTITUTION) ?: DEFAULT_RESTITUTION
         val velocity = ctx.flag(VELOCITY) ?: 10.0
