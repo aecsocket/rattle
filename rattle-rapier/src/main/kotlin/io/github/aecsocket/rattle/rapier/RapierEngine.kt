@@ -8,6 +8,7 @@ import rapier.dynamics.RigidBodyBuilder
 import rapier.dynamics.joint.GenericJoint
 import rapier.geometry.ColliderBuilder
 import rapier.pipeline.PhysicsPipeline
+import rapier.pipeline.QueryPipeline
 import rapier.shape.CompoundChild
 import rapier.shape.SharedShape
 import java.util.concurrent.locks.ReentrantLock
@@ -178,9 +179,14 @@ class RapierEngine internal constructor(var settings: Settings = Settings()) : P
             spaces.map { it.impulseJointSet }.toTypedArray(),
             spaces.map { it.multibodyJointSet }.toTypedArray(),
             spaces.map { it.ccdSolver }.toTypedArray(),
-            spaces.map { it.queryPipeline }.toTypedArray(),
+            spaces.map { null }.toTypedArray(),
             spaces.map { it.hooks }.toTypedArray(),
             spaces.map { it.events }.toTypedArray(),
+        )
+        QueryPipeline.updateAll(
+            spaces.map { it.queryPipeline }.toTypedArray(),
+            spaces.map { it.rigidBodySet }.toTypedArray(),
+            spaces.map { it.colliderSet }.toTypedArray(),
         )
         integrationParameters.forEach { it.drop() }
     }
