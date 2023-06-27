@@ -167,6 +167,8 @@ class RapierEngine internal constructor(var settings: Settings = Settings()) : P
                 minCcdDt = dt * settings.integration.minCcdDtMultiplier
             }.build()
         }
+        // "how weird, why are we passing null to the query pipeline, and updating it manually?"
+        // The https://github.com/dimforge/rapier/issues/445 in question:
         PhysicsPipeline.stepAll(
             spaces.map { it.pipeline }.toTypedArray(),
             spaces.map { it.settings.gravity.toVector() }.toTypedArray(),
