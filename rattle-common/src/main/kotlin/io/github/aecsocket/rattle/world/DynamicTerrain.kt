@@ -236,7 +236,7 @@ abstract class DynamicTerrain(
                     if (slices[data.pos]?.remove != SliceRemove.PendingRemove) {
                         return
                     }
-                    physics.colliders.read(coll)!!.parent?.let { physics.rigidBodies.write(it) }?.sleep()
+                    physics.colliders.read(coll)?.parent?.let { physics.rigidBodies.write(it) }?.sleep()
                 }
 
                 slices.byCollider[event.colliderA]?.let { process(it, event.colliderB) }

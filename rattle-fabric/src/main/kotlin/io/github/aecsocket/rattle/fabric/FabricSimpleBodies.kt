@@ -82,18 +82,19 @@ class FabricSimpleBodies(
                     tracker.remove(RemovalReason.DISCARDED)
                 }
 
+                // this must run first since the other removals are based on setting `.isRemoved` to true here
+                if (tracker.isRemoved) {
+                    trackerToInst.remove(tracker)
+                    toRemove.withLock { it += instKey }
+                    return@forEach
+                }
+
                 val inst = get(instKey) ?: run {
                     remove()
                     return@forEach
                 }
                 if (inst.destroyed.get()) {
                     remove()
-                    return@forEach
-                }
-
-                if (tracker.isRemoved) {
-                    trackerToInst.remove(tracker)
-                    toRemove.withLock { it += instKey }
                     return@forEach
                 }
 
