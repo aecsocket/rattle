@@ -20,15 +20,12 @@ import rapier.pipeline.TOI
 import rapier.pipeline.TOIStatus
 import java.lang.foreign.Addressable
 
-// TODO Java 20: just use Arena directly
-typealias Arena = java.lang.foreign.MemorySession
-
 private typealias RAabb = rapier.math.Aabb
 private typealias RRay = rapier.math.Ray
 
-fun Addressable.addr() = address().toRawLongValue()
+internal fun Addressable.addr() = address().toRawLongValue()
 
-fun Native.addr() = memory().addr()
+internal fun Native.addr() = memory().addr()
 
 abstract class RapierNative {
     abstract val handle: Native
@@ -140,9 +137,12 @@ fun MotorModel.toRattle() = when (this) {
     MotorModel.FORCE_BASED        -> JointAxis.Motor.Model.FORCE_BASED
 }
 
-fun QueryFilter.toRapier(arena: Arena, space: RapierSpace): rapier.pipeline.QueryFilter {
-    val filter = rapier.pipeline.QueryFilter.of(
-        arena,
+fun QueryFilter.toRapier(space: RapierSpace): rapier.pipeline.QueryFilter {
+    return rapier.pipeline.QueryFilter(
+        flags.raw,
+        group.toRapier(),
+        excludeCollider?.let { (it as RapierColliderKey).handle },
+        excludeRigidBody?.let { (it as RapierRigidBodyKey).handle },
         predicate?.let { predicate ->
             { handle, coll ->
                 when (predicate(RapierCollider.Read(coll, space), RapierColliderKey(handle))) {
@@ -152,17 +152,6 @@ fun QueryFilter.toRapier(arena: Arena, space: RapierSpace): rapier.pipeline.Quer
             }
         }
     )
-    filter.flags = flags.raw
-    filter.groups = group.toRapier()
-    excludeCollider?.let { exclude ->
-        exclude as RapierColliderKey
-        filter.excludeCollider = exclude.id
-    }
-    excludeRigidBody?.let { exclude ->
-        exclude as RapierRigidBodyKey
-        filter.excludeCollider = exclude.id
-    }
-    return filter
 }
 
 fun FeatureId.toRattle() = when (this) {

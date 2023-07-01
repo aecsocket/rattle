@@ -7,7 +7,6 @@ import io.github.aecsocket.rattle.QueryFilter
 import io.github.aecsocket.rattle.ShapeCast
 import rapier.Native
 import rapier.dynamics.CCDSolver
-import rapier.dynamics.IntegrationParametersDesc
 import rapier.dynamics.IslandManager
 import rapier.dynamics.RigidBodySet
 import rapier.dynamics.joint.impulse.ImpulseJointSet
@@ -32,7 +31,6 @@ class RapierSpace internal constructor(
 
     override var lock: ReentrantLock? = null
 
-    val arena: Arena = Arena.openShared()
     val pipeline = PhysicsPipeline.create()
     val islands = IslandManager.create()
     val broadPhase = BroadPhase.create()
@@ -46,19 +44,17 @@ class RapierSpace internal constructor(
 
     override val onCollision = EventDispatch<PhysicsSpace.OnCollision>()
     override val onContactForce = EventDispatch<PhysicsSpace.OnContactForce>()
+    override val onFilterContactPair = EventDispatch<PhysicsSpace.OnFilterContactPair>()
+    override val onFilterIntersectionPair = EventDispatch<PhysicsSpace.OnFilterIntersectionPair>()
+    override val onModifySolverContacts = EventDispatch<PhysicsSpace.OnModifySolverContacts>()
 
-    val events = EventHandler.of(arena, object : EventHandler.Fn {
+    val events = EventHandler(object : EventHandler.Fn {
         override fun handleCollisionEvent(
             bodies: RigidBodySet,
             colliders: ColliderSet,
             event: CollisionEvent,
             contactPair: rapier.pipeline.ContactPair?,
         ) {
-            /*
-                /// * `contact_pair` - The current state of contacts between the two colliders. This is set ot `None`
-                ///                    if at least one of the collider is a sensor (in which case no contact information
-                ///                    is ever computed).
-             */
             onCollision.dispatch(when (event) {
                 is CollisionEvent.Started -> PhysicsSpace.OnCollision(
                     state = PhysicsSpace.OnCollision.State.STARTED,
@@ -92,15 +88,23 @@ class RapierSpace internal constructor(
         }
     })
 
-    val hooks = PhysicsHooks.of(arena, object : PhysicsHooks.Fn {
+    val hooks = PhysicsHooks(object : PhysicsHooks.Fn {
         override fun filterContactPair(context: PairFilterContext): Int {
-            // todo
-            return SolverFlags.COMPUTE_IMPULSES
+            return onFilterContactPair.dispatch(PhysicsSpace.OnFilterContactPair(
+                colliderA = RapierColliderKey(context.collider1),
+                colliderB = RapierColliderKey(context.collider2),
+                rigidBodyA = context.rigidBody1?.let { RapierRigidBodyKey(it) },
+                rigidBodyB = context.rigidBody2?.let { RapierRigidBodyKey(it) },
+            )).solverFlags.flags
         }
 
         override fun filterIntersectionPair(context: PairFilterContext): Boolean {
-            // todo
-            return true
+            return onFilterIntersectionPair.dispatch(PhysicsSpace.OnFilterIntersectionPair(
+                colliderA = RapierColliderKey(context.collider1),
+                colliderB = RapierColliderKey(context.collider2),
+                rigidBodyA = context.rigidBody1?.let { RapierRigidBodyKey(it) },
+                rigidBodyB = context.rigidBody2?.let { RapierRigidBodyKey(it) },
+            )).createPair
         }
 
         override fun modifySolverContacts(context: ContactModificationContext) {
@@ -110,22 +114,6 @@ class RapierSpace internal constructor(
 
     override val handle: Native
         get() = pipeline
-
-    internal fun createIntegrationParametersDesc() = IntegrationParametersDesc.create(arena).apply {
-        erp = engine.settings.integration.erp
-        dampingRatio = engine.settings.integration.dampingRatio
-        jointErp = engine.settings.integration.jointErp
-        jointDampingRatio = engine.settings.integration.jointDampingRatio
-        allowedLinearError = engine.settings.integration.allowedLinearError
-        maxPenetrationCorrection = engine.settings.integration.maxPenetrationCorrection
-        predictionDistance = engine.settings.integration.predictionDistance
-        maxVelocityIterations = engine.settings.integration.maxVelocityIterations
-        maxVelocityFrictionIterations = engine.settings.integration.maxVelocityFrictionIterations
-        maxStabilizationIterations = engine.settings.integration.maxStabilizationIterations
-        interleaveRestitutionAndFrictionResolution = engine.settings.integration.interleaveRestitutionAndFrictionResolution
-        minIslandSize = engine.settings.integration.minIslandSize
-        maxCcdSubsteps = engine.settings.integration.maxCcdSubsteps
-    }
 
     private fun checkLock() = checkLock("space", lock)
 
@@ -143,8 +131,6 @@ class RapierSpace internal constructor(
         multibodyJointSet.drop()
         ccdSolver.drop()
         queryPipeline.drop()
-
-        arena.close()
     }
 
     private fun assignSpace(obj: RapierPhysicsNative) {
@@ -164,13 +150,13 @@ class RapierSpace internal constructor(
         override fun read(key: ColliderKey): Collider? {
             checkLock()
             key as RapierColliderKey
-            return colliderSet.get(key.id)?.let { RapierCollider.Read(it, this@RapierSpace) }
+            return colliderSet.get(key.handle)?.let { RapierCollider.Read(it, this@RapierSpace) }
         }
 
         override fun write(key: ColliderKey): Collider.Mut? {
             checkLock()
             key as RapierColliderKey
-            return colliderSet.getMut(key.id)?.let { RapierCollider.Write(it, this@RapierSpace) }
+            return colliderSet.getMut(key.handle)?.let { RapierCollider.Write(it, this@RapierSpace) }
         }
 
         override fun all(): Collection<ColliderKey> {
@@ -189,7 +175,7 @@ class RapierSpace internal constructor(
             checkLock()
             key as RapierColliderKey
             return colliderSet.remove(
-                key.id,
+                key.handle,
                 islands,
                 rigidBodySet,
                 false,
@@ -200,13 +186,13 @@ class RapierSpace internal constructor(
             checkLock()
             coll as RapierColliderKey
             to as RapierRigidBodyKey
-            colliderSet.setParent(coll.id, to.id, rigidBodySet)
+            colliderSet.setParent(coll.handle, to.handle, rigidBodySet)
         }
 
         override fun detach(coll: ColliderKey) {
             checkLock()
             coll as RapierColliderKey
-            colliderSet.setParent(coll.id, null, rigidBodySet)
+            colliderSet.setParent(coll.handle, null, rigidBodySet)
         }
     }
 
@@ -226,13 +212,13 @@ class RapierSpace internal constructor(
         override fun read(key: RigidBodyKey): RigidBody? {
             checkLock()
             key as RapierRigidBodyKey
-            return rigidBodySet.get(key.id)?.let { RapierRigidBody.Read(it, this@RapierSpace) }
+            return rigidBodySet.get(key.handle)?.let { RapierRigidBody.Read(it, this@RapierSpace) }
         }
 
         override fun write(key: RigidBodyKey): RigidBody.Mut? {
             checkLock()
             key as RapierRigidBodyKey
-            return rigidBodySet.getMut(key.id)?.let { RapierRigidBody.Write(it, this@RapierSpace) }
+            return rigidBodySet.getMut(key.handle)?.let { RapierRigidBody.Write(it, this@RapierSpace) }
         }
 
         override fun all(): Collection<RigidBodyKey> {
@@ -256,7 +242,7 @@ class RapierSpace internal constructor(
             checkLock()
             key as RapierRigidBodyKey
             return rigidBodySet.remove(
-                key.id,
+                key.handle,
                 islands,
                 colliderSet,
                 impulseJointSet,
@@ -276,13 +262,13 @@ class RapierSpace internal constructor(
         override fun read(key: ImpulseJointKey): ImpulseJoint? {
             checkLock()
             key as RapierImpulseJointKey
-            return impulseJointSet.get(key.id)?.let { RapierImpulseJoint.Read(it, this@RapierSpace) }
+            return impulseJointSet.get(key.handle)?.let { RapierImpulseJoint.Read(it, this@RapierSpace) }
         }
 
         override fun write(key: ImpulseJointKey): ImpulseJoint.Mut? {
             checkLock()
             key as RapierImpulseJointKey
-            return impulseJointSet.getMut(key.id)?.let { RapierImpulseJoint.Write(it, this@RapierSpace) }
+            return impulseJointSet.getMut(key.handle)?.let { RapierImpulseJoint.Write(it, this@RapierSpace) }
         }
 
         override fun all(): Collection<ImpulseJointKey> {
@@ -296,14 +282,14 @@ class RapierSpace internal constructor(
             bodyA as RapierRigidBodyKey
             bodyB as RapierRigidBodyKey
             assignSpace(value)
-            return RapierImpulseJointKey(impulseJointSet.insert(bodyA.id, bodyB.id, value.handle, false))
+            return RapierImpulseJointKey(impulseJointSet.insert(bodyA.handle, bodyB.handle, value.handle, false))
         }
 
         override fun remove(key: ImpulseJointKey): Joint.Own? {
             checkLock()
             key as RapierImpulseJointKey
             return impulseJointSet.remove(
-                key.id,
+                key.handle,
                 false,
             )?.let {
                 // `.remove` returns an ImpulseJoint.Mut, which contains some extra data relating to that joint
@@ -321,13 +307,13 @@ class RapierSpace internal constructor(
             bodyA as RapierRigidBodyKey
             bodyB as RapierRigidBodyKey
             assignSpace(value)
-            multibodyJointSet.insert(bodyA.id, bodyB.id, value.handle, false)
+            multibodyJointSet.insert(bodyA.handle, bodyB.handle, value.handle, false)
         }
 
         override fun removeOn(bodyKey: RigidBodyKey) {
             checkLock()
             bodyKey as RapierRigidBodyKey
-            multibodyJointSet.removeJointsAttachedToRigidBody(bodyKey.id)
+            multibodyJointSet.removeJointsAttachedToRigidBody(bodyKey.handle)
         }
     }
 
@@ -354,7 +340,7 @@ class RapierSpace internal constructor(
                 rigidBodySet,
                 colliderSet,
                 point.toVector(),
-                filter.toRapier(arena, this@RapierSpace),
+                filter.toRapier(this@RapierSpace),
             ) { res ->
                 fn(RapierColliderKey(res)).shouldContinue
             }
@@ -381,12 +367,11 @@ class RapierSpace internal constructor(
             checkLock()
             shape as RapierShape
             return queryPipeline.intersectionWithShape(
-                arena,
                 rigidBodySet,
                 colliderSet,
                 shapePos.toIsometry(),
                 shape.handle,
-                filter.toRapier(arena, this@RapierSpace),
+                filter.toRapier(this@RapierSpace),
             )?.let { RapierColliderKey(it) }
         }
 
@@ -403,7 +388,7 @@ class RapierSpace internal constructor(
                 colliderSet,
                 shapePos.toIsometry(),
                 shape.handle,
-                filter.toRapier(arena, this@RapierSpace),
+                filter.toRapier(this@RapierSpace),
             ) { res ->
                 fn(RapierColliderKey(res)).shouldContinue
             }
@@ -422,7 +407,7 @@ class RapierSpace internal constructor(
                 ray.toRapier(),
                 maxDistance,
                 settings.isSolid,
-                filter.toRapier(arena, this@RapierSpace),
+                filter.toRapier(this@RapierSpace),
             )?.toRattle()
         }
 
@@ -439,7 +424,7 @@ class RapierSpace internal constructor(
                 ray.toRapier(),
                 maxDistance,
                 settings.isSolid,
-                filter.toRapier(arena, this@RapierSpace),
+                filter.toRapier(this@RapierSpace),
             )?.toRattle()
         }
 
@@ -457,7 +442,7 @@ class RapierSpace internal constructor(
                 ray.toRapier(),
                 maxDistance,
                 settings.isSolid,
-                filter.toRapier(arena, this@RapierSpace),
+                filter.toRapier(this@RapierSpace),
             ) { res ->
                 fn(res.toRattle()).shouldContinue
             }
@@ -481,7 +466,7 @@ class RapierSpace internal constructor(
                 shape.handle,
                 maxDistance,
                 settings.stopAtPenetration,
-                filter.toRapier(arena, this@RapierSpace),
+                filter.toRapier(this@RapierSpace),
             )?.toRattle()
         }
 
@@ -512,7 +497,7 @@ class RapierSpace internal constructor(
                 timeStart,
                 timeEnd,
                 settings.stopAtPenetration,
-                filter.toRapier(arena, this@RapierSpace)
+                filter.toRapier(this@RapierSpace)
             )?.toRattle()
         }
 
@@ -527,7 +512,7 @@ class RapierSpace internal constructor(
                 colliderSet,
                 point.toVector(),
                 settings.isSolid,
-                filter.toRapier(arena, this@RapierSpace)
+                filter.toRapier(this@RapierSpace)
             )?.toRattle()
         }
 
@@ -542,7 +527,7 @@ class RapierSpace internal constructor(
                 colliderSet,
                 point.toVector(),
                 // settings.isSolid, // TODO Rapier screwed this one up. Not us.
-                filter.toRapier(arena, this@RapierSpace),
+                filter.toRapier(this@RapierSpace),
             )?.toRattle()
         }
     }

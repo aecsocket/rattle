@@ -4,6 +4,7 @@ import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.*
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import rapier.Rapier
+import rapier.dynamics.IntegrationParameters
 import rapier.dynamics.RigidBodyBuilder
 import rapier.dynamics.joint.GenericJoint
 import rapier.geometry.ColliderBuilder
@@ -134,7 +135,7 @@ class RapierEngine internal constructor(var settings: Settings = Settings()) : P
         shape as RapierShape
         val coll = ColliderBuilder.of(shape.handle).use { it.build() }
         when (position) {
-            is StartPosition.Absolute -> coll.setPosition(position.pos.toIsometry())
+            is StartPosition.Absolute -> coll.position = position.pos.toIsometry()
             is StartPosition.Relative -> coll.setPositionWrtParent(position.pos.toIsometry())
         }
         return RapierCollider.Write(coll, space = null)
@@ -161,18 +162,29 @@ class RapierEngine internal constructor(var settings: Settings = Settings()) : P
     override fun stepSpaces(dt: Double, spaces: Collection<PhysicsSpace>) {
         @Suppress("UNCHECKED_CAST")
         spaces as Collection<RapierSpace>
-        val integrationParameters = spaces.map { space ->
-            space.createIntegrationParametersDesc().apply {
-                this.dt = dt
-                minCcdDt = dt * settings.integration.minCcdDtMultiplier
-            }.build()
-        }
+        val integrationParameters = IntegrationParameters(
+            dt,
+            dt * settings.integration.minCcdDtMultiplier,
+            settings.integration.erp,
+            settings.integration.dampingRatio,
+            settings.integration.jointErp,
+            settings.integration.jointDampingRatio,
+            settings.integration.allowedLinearError,
+            settings.integration.maxPenetrationCorrection,
+            settings.integration.predictionDistance,
+            settings.integration.maxVelocityIterations,
+            settings.integration.maxVelocityFrictionIterations,
+            settings.integration.maxStabilizationIterations,
+            settings.integration.interleaveRestitutionAndFrictionResolution,
+            settings.integration.minIslandSize,
+            settings.integration.maxCcdSubsteps,
+        )
         // "how weird, why are we passing null to the query pipeline, and updating it manually?"
         // The https://github.com/dimforge/rapier/issues/445 in question:
         PhysicsPipeline.stepAll(
             spaces.map { it.pipeline }.toTypedArray(),
             spaces.map { it.settings.gravity.toVector() }.toTypedArray(),
-            integrationParameters.toTypedArray(),
+            spaces.map { integrationParameters }.toTypedArray(),
             spaces.map { it.islands }.toTypedArray(),
             spaces.map { it.broadPhase }.toTypedArray(),
             spaces.map { it.narrowPhase }.toTypedArray(),
@@ -190,7 +202,6 @@ class RapierEngine internal constructor(var settings: Settings = Settings()) : P
             spaces.map { it.rigidBodySet }.toTypedArray(),
             spaces.map { it.colliderSet }.toTypedArray(),
         )
-        integrationParameters.forEach { it.drop() }
     }
 
     class Builder(

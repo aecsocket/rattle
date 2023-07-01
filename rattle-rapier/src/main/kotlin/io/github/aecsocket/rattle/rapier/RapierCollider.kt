@@ -18,8 +18,8 @@ class RapierShape internal constructor(
 }
 
 @JvmInline
-value class RapierColliderKey(val id: Long) : ColliderKey {
-    override fun toString(): String = ArenaKey.asString(id)
+value class RapierColliderKey(val handle: ArenaKey) : ColliderKey {
+    override fun toString() = handle.toString()
 }
 
 sealed class RapierCollider(

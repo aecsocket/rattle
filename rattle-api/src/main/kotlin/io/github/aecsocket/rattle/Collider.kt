@@ -169,8 +169,8 @@ class InteractionField private constructor(val raw: Int) {
  * which is written as
  * ```
  * InteractionGroup(
- *     memberships = 0b1101,
- *     filter = 0b0100,
+ *     memberships = InteractionField.fromRaw(0b1101),
+ *     filter = InteractionField.fromRaw(0b0100),
  * )
  * ```
  *
@@ -288,7 +288,7 @@ interface ColliderKey
  */
 interface Collider {
     /**
-     * The shape.
+     * The shape that this collider takes on in the world.
      */
     val shape: Shape
 
@@ -347,21 +347,46 @@ interface Collider {
      * Mutable interface for a [Collider].
      */
     interface Mut : Collider {
+        /**
+         * @see Collider.shape
+         */
         fun shape(value: Shape): Mut
 
+        /**
+         * @see Collider.material
+         */
         fun material(value: PhysicsMaterial): Mut
 
+        /**
+         * @see Collider.collisionGroup
+         */
         fun collisionGroup(value: InteractionGroup): Mut
 
+        /**
+         * @see Collider.solverGroup
+         */
         fun solverGroup(value: InteractionGroup): Mut
 
+        /**
+         * @see Collider.position
+         */
         fun position(value: DIso3): Mut
 
+        /**
+         * @see Collider.relativePosition
+         */
         fun relativePosition(value: DIso3): Mut
 
+        /**
+         * @see Collider.mass
+         */
         fun mass(value: Mass): Mut
 
+        /**
+         * @see Collider.physicsMode
+         */
         fun physicsMode(value: PhysicsMode): Mut
+
 
         fun handlesEvents(vararg values: ColliderEvent): Mut
     }

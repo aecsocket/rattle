@@ -158,6 +158,9 @@ interface RigidBody {
      * Mutable interface for a [RigidBody].
      */
     interface Mut : RigidBody {
+        /**
+         * @see RigidBody.type
+         */
         fun type(value: RigidBodyType): Mut
 
         // TODO center of mass
@@ -168,21 +171,45 @@ interface RigidBody {
          * to another without considering collisions in between. If you want to have fine control over where the body
          * moves, but have it still consider collisions in between, consider using a [RigidBodyType.KINEMATIC] and
          * [moveTo].
+         *
+         * @see RigidBody.position
          */
         fun position(value: DIso3): Mut
 
+        /**
+         * @see RigidBody.linearVelocity
+         */
         fun linearVelocity(value: DVec3): Mut
 
+        /**
+         * @see RigidBody.angularVelocity
+         */
         fun angularVelocity(value: DVec3): Mut
 
+        /**
+         * @see RigidBody.isCcdEnabled
+         */
         fun isCcdEnabled(value: Boolean): Mut
 
+        /**
+         * @see RigidBody.gravityScale
+         */
         fun gravityScale(value: Double): Mut
 
+        /**
+         * @see RigidBody.linearDamping
+         */
         fun linearDamping(value: Double): Mut
 
+        /**
+         * @see RigidBody.angularDamping
+         */
         fun angularDamping(value: Double): Mut
 
+
+        /**
+         * Sets if this body is able to fall asleep by itself (see [RigidBody]).
+         */
         fun canSleep(value: Boolean): Mut
 
         /**

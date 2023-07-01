@@ -9,8 +9,8 @@ import kotlin.experimental.inv
 import kotlin.experimental.or
 
 @JvmInline
-value class RapierImpulseJointKey(val id: Long) : ImpulseJointKey {
-    override fun toString(): String = ArenaKey.asString(id)
+value class RapierImpulseJointKey(val handle: ArenaKey) : ImpulseJointKey {
+    override fun toString() = handle.toString()
 }
 
 private fun Array<out Dof>.bitMask() = (fold(0) { acc, layer -> acc or (1 shl layer.ordinal) }).toByte()
@@ -240,13 +240,13 @@ sealed class RapierImpulseJoint(
 
         override fun bodyA(value: RigidBodyKey): Write {
             value as RapierRigidBodyKey
-            handle.body1 = value.id
+            handle.body1 = value.handle
             return this
         }
 
         override fun bodyB(value: RigidBodyKey): Write {
             value as RapierRigidBodyKey
-            handle.body2 = value.id
+            handle.body2 = value.handle
             return this
         }
     }

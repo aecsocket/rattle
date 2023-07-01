@@ -31,8 +31,15 @@ interface Destroyable {
 interface RefCounted {
     val refCount: Long
 
+    /**
+     * Adds one to the reference count of this object.
+     */
     fun acquire(): RefCounted
 
+    /**
+     * Removes one from the reference count of this object.
+     * If the object's reference count drops to 0, it will be freed and be unusable.
+     */
     fun release(): RefCounted
 }
 
@@ -42,6 +49,14 @@ interface RefCounted {
  * with the physics backend.
  *
  * The units used throughout the engine are metric: **meters, radians, seconds, kilograms**.
+ *
+ * # Thread safety
+ *
+ * Physics structures used by the engine are not thread-safe, so must be treated carefully when interacting with them
+ * from multiple threads. Typically, the user of e.g. a [PhysicsSpace] or [RigidBody] would wrap accesses to that
+ * object in a lock. To enforce this, you can specify a [java.util.concurrent.locks.ReentrantLock] on some structures.
+ * Before any read or write access, this lock will be checked to make sure the current thread holds an exclusive lock.
+ * If it does not, an exception will be thrown.
  */
 interface PhysicsEngine : Destroyable {
     /**

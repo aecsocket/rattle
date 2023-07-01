@@ -3,6 +3,9 @@ package io.github.aecsocket.rattle
 import io.github.aecsocket.klam.*
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 
+/**
+ * The default convex margin used by [Geometry] instances (see [Geometry]).
+ */
 const val DEFAULT_MARGIN: Double = 0.05
 
 /**
@@ -12,23 +15,17 @@ const val DEFAULT_MARGIN: Double = 0.05
  *
  * Not every geometry has the same performance and stability. You should use the simplest shape that fits your
  * use case, rather than trying to make the physics shape match the visible shape.
- */
-sealed interface Geometry
-
-/**
- * A geometry which is guaranteed to be always convex. This is the type you should prefer working with, as they
- * are the cheapest and simplest to work with.
  *
  * # Margin
  *
- * Geometries may have a "margin", "convex radius" or "border radius", which is an extra scalar value which adds a bit
+ * Convex geometries may have a "margin", "convex radius" or "border radius", which is an extra scalar value which adds a bit
  * of extra volume to the outside of the shape, making the shape rounded. This is used to improve performance during
  * collision detection, since this margin means less work has to be done during narrow-phase collision resolution
  * (finding contact normals and penetration depth).
  * - If you're unsure, you should leave this as the default for the specific geometry type you're working with.
  * - If you want to disable this, set it to `0.0`.
  */
-sealed interface ConvexGeometry : Geometry
+sealed interface Geometry
 
 /**
  * A ball centered around zero with a defined radius.
@@ -37,7 +34,7 @@ sealed interface ConvexGeometry : Geometry
 @ConfigSerializable
 data class Sphere(
     val radius: Double,
-) : ConvexGeometry {
+) : Geometry {
     init {
         require(radius > 0.0) { "requires radius > 0.0" }
     }
@@ -53,7 +50,7 @@ data class Sphere(
 data class Box(
     val halfExtent: DVec3,
     val margin: Double = 0.0,
-) : ConvexGeometry {
+) : Geometry {
     init {
         require(halfExtent.x > 0.0) { "requires halfExtent.x > 0.0" }
         require(halfExtent.y > 0.0) { "requires halfExtent.y > 0.0" }
@@ -74,7 +71,7 @@ data class Capsule(
     val axis: LinAxis,
     val halfHeight: Double,
     val radius: Double,
-) : ConvexGeometry {
+) : Geometry {
     init {
         require(halfHeight > 0.0) { "requires halfHeight > 0.0" }
         require(radius > 0.0) { "requires radius > 0.0" }
@@ -94,7 +91,7 @@ data class Cylinder(
     val halfHeight: Double,
     val radius: Double,
     val margin: Double = DEFAULT_MARGIN,
-) : ConvexGeometry {
+) : Geometry {
     init {
         require(halfHeight > 0.0) { "requires halfHeight > 0.0" }
         require(radius > 0.0) { "requires radius > 0.0" }
@@ -115,7 +112,7 @@ data class Cone(
     val halfHeight: Double,
     val radius: Double,
     val margin: Double = DEFAULT_MARGIN,
-) : ConvexGeometry {
+) : Geometry {
     init {
         require(halfHeight > 0.0) { "requires halfHeight > 0.0" }
         require(radius > 0.0) { "requires radius > 0.0" }
@@ -134,7 +131,7 @@ data class Cone(
 data class ConvexHull(
     val points: List<DVec3>,
     val margin: Double = DEFAULT_MARGIN,
-) : ConvexGeometry
+) : Geometry
 
 /**
  * A shape **assumed** to be already convex, defined by an array of vertices and array of triangle face indices.
@@ -150,7 +147,7 @@ data class ConvexMesh(
     val vertices: List<DVec3>,
     val indices: List<IVec3>,
     val margin: Double = DEFAULT_MARGIN,
-) : ConvexGeometry
+) : Geometry
 
 /**
  * A shape of **unknown** convexity which, when turned into a [Shape], will be decomposed into a [Compound] of
@@ -166,7 +163,7 @@ data class ConvexDecomposition(
     val indices: List<IVec3>,
     val vhacd: VhacdSettings = VhacdSettings(),
     val margin: Double = DEFAULT_MARGIN,
-) : ConvexGeometry
+) : Geometry
 
 /**
  * Options for the VHACD convex decomposition process. See [VHACD](https://github.com/Unity-Technologies/VHACD#parameters)
@@ -233,8 +230,8 @@ data class VhacdSettings(
 
 /**
  * A shape consisting of multiple already-created sub-[Shape]s, which can be positioned at different [Child.delta]
- * offsets to the root compound. Shapes from a [Compound] can *not* be a child.
- * @param children The child shapes of this compound. Must not contain [Compound] shapes.
+ * offsets to the root compound. Shapes from a [Compound] can *not* be a child, and you must provide at least one child.
+ * @param children The child shapes of this compound. Must not contain [Compound] shapes and must not be empty.
  */
 data class Compound(
     val children: List<Child>,

@@ -5,8 +5,8 @@ import io.github.aecsocket.rattle.*
 import rapier.data.ArenaKey
 
 @JvmInline
-value class RapierRigidBodyKey(val id: Long) : RigidBodyKey {
-    override fun toString(): String = ArenaKey.asString(id)
+value class RapierRigidBodyKey(val handle: ArenaKey) : RigidBodyKey {
+    override fun toString() = handle.toString()
 }
 
 sealed class RapierRigidBody(
