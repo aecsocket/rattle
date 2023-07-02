@@ -20,4 +20,8 @@ include("rattle-api")
 include("rattle-rapier")
 include("rattle-common")
 include("rattle-paper")
-include("rattle-fabric")
+// don't include fabric build in the CI because it eats too much RAM and crashes
+// TODO: make this work lol
+if (!providers.environmentVariable("CI").map { it.toBoolean() }.getOrElse(false)) {
+    include("rattle-fabric")
+}
