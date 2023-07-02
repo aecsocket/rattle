@@ -44,10 +44,16 @@ class PaperRattlePlatform(
 
     override fun key(world: RWorld) = world.unwrap().key()
 
+    /**
+     * Gets the physics state of a world if it already exists.
+     */
     fun physicsOrNull(world: World) = worldMap[world]
 
     override fun physicsOrNull(world: RWorld) = physicsOrNull(world.unwrap())
 
+    /**
+     * Gets the physics state of a world if it already exists, or creates a new physics state if it does not exist.
+     */
     fun physicsOrCreate(world: World): Sync<PaperWorldPhysics> {
         return worldMap.computeIfAbsent(world) {
             val lock = ReentrantLock()

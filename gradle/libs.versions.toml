@@ -1,11 +1,14 @@
 [versions]
 indra = "3.1.1"
 kotlin = "1.8.22"
-klam = "0.3.0"
+dokka = "1.8.20"
+klam = "0.4.0"
 configurate = "4.1.2"
 alexandria = "0.1.2-SNAPSHOT"
 rapier = "0.2.0-SNAPSHOT"
+
 paper = "1.19.4"
+
 fabric = "1.20.1"
 fabric-loader = "0.14.21"
 fabric-api = "0.84.0+1.20.1"
@@ -16,6 +19,7 @@ indra-common = { group = "net.kyori", name = "indra-common", version.ref = "indr
 indra-publishing-sonatype = { group = "net.kyori", name = "indra-publishing-sonatype", version.ref = "indra" }
 kotlin = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version.ref = "kotlin" }
 kotlin-reflect = { group = "org.jetbrains.kotlin", name = "kotlin-reflect", version.ref = "kotlin" }
+dokka = { group = "org.jetbrains.dokka", name = "dokka-gradle-plugin", version.ref = "dokka" }
 klam = { group = "io.github.aecsocket", name = "klam", version.ref = "klam" }
 configurate-core = { group = "org.spongepowered", name = "configurate-core", version.ref = "configurate" }
 rapier = { group = "io.github.aecsocket", name = "rapier-java-dim3-f64", version.ref = "rapier" }

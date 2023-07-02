@@ -1,5 +1,6 @@
 plugins {
     id("net.kyori.indra.publishing.sonatype")
+    id("org.jetbrains.dokka")
 }
 
 indraSonatype {

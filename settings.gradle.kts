@@ -14,7 +14,7 @@ plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version("0.4.0")
 }
 
-rootProject.name = "rattle"
+rootProject.name = "rattle-parent"
 
 include("rattle-api")
 include("rattle-rapier")

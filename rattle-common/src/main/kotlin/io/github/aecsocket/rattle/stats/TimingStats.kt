@@ -1,6 +1,6 @@
 package io.github.aecsocket.rattle.stats
 
-import io.github.aecsocket.glossa.component
+import io.github.aecsocket.glossa.oneLine
 import io.github.aecsocket.rattle.impl.RattleMessages
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
@@ -32,7 +32,7 @@ fun timingStatsOf(times: List<Long>): TimingStats {
 }
 
 fun formatTiming(time: Double, messages: RattleMessages): Component {
-    val text = messages.timing(time).component()
+    val text = messages.timing(time).oneLine()
     val clampedTime = max(0.0, time)
     val color = when {
         clampedTime <= 15.0 -> NamedTextColor.GREEN

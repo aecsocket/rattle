@@ -23,9 +23,15 @@ import org.spongepowered.configurate.kotlin.dataClassFieldDiscoverer
 import org.spongepowered.configurate.kotlin.extensions.get
 import org.spongepowered.configurate.objectmapping.ObjectMapper
 
+/**
+ * The entry point for Rattle on the Paper platform.
+ */
 lateinit var Rattle: PaperRattle
     private set
 
+/**
+ * The Paper implementation of Rattle, handling startup, events, teardown, etc.
+ */
 class PaperRattle : AlexandriaPlugin<RattleHook.Settings>(
     manifest = rattleManifest,
     configOptions = ConfigurationOptions.defaults()
@@ -44,7 +50,7 @@ class PaperRattle : AlexandriaPlugin<RattleHook.Settings>(
         fun api() = Rattle
     }
 
-    lateinit var lineItem: ItemStack
+    private lateinit var lineItem: ItemStack
 
     internal val rattle = object : RattleHook() {
         override val ax: AlexandriaHook<*>
@@ -66,6 +72,9 @@ class PaperRattle : AlexandriaPlugin<RattleHook.Settings>(
         }
     }
 
+    /**
+     * Gets the physics engine that this implementation uses.
+     */
     val engine: PhysicsEngine
         get() = rattle.engine
 
@@ -111,10 +120,22 @@ class PaperRattle : AlexandriaPlugin<RattleHook.Settings>(
     }
 }
 
+/**
+ * @see PaperRattlePlayer
+ */
 fun Player.rattle() = Rattle.platform.playerData(this)
 
+/**
+ * @see PaperRattlePlatform.physicsOrNull
+ */
 fun World.physicsOrNull() = Rattle.platform.physicsOrNull(this)
 
+/**
+ * @see PaperRattlePlatform.physicsOrCreate
+ */
 fun World.physicsOrCreate() = Rattle.platform.physicsOrCreate(this)
 
+/**
+ * @see PaperRattlePlatform.hasPhysics
+ */
 fun World.hasPhysics() = physicsOrNull() != null

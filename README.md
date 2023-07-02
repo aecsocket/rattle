@@ -1,13 +1,13 @@
 <div align="center">
 
 # Rattle
-<!-- [![CI](https://img.shields.io/github/actions/workflow/status/aecsocket/rattle/build.yml)](https://github.com/aecsocket/rattle/actions/workflows/build.yml) -->
+[![CI](https://img.shields.io/github/actions/workflow/status/aecsocket/rattle/build.yml)](https://github.com/aecsocket/rattle/actions/workflows/build.yml)
 
 ![Banner](static/banner.png)
 
 Generic physics engine framework for Minecraft servers
 
-### [GitHub](https://github.com/aecsocket/rattle) · [Docs](https://aecsocket.github.io/rattle)
+### [GitHub](https://github.com/aecsocket/rattle) · [Docs](https://aecsocket.github.io/rattle) · [Dokka](https://aecsocket.github.io/rattle/dokka)
 
 </div>
 

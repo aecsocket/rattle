@@ -1,6 +1,6 @@
 package io.github.aecsocket.rattle.impl
 
-import io.github.aecsocket.glossa.component
+import io.github.aecsocket.glossa.oneLine
 import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.stats.formatTiming
@@ -82,7 +82,7 @@ abstract class RattlePlayer(
             val timeSinceUpdate = System.currentTimeMillis() - lastStep
             val invBarProgress = timeSinceUpdate.toFloat() / STATS_BAR_STEP_TIME
 
-            statsBar.name(text.component())
+            statsBar.name(text.oneLine())
             statsBar.progress(clamp(1.0f - (invBarProgress % 1.0f), 0.0f, 1.0f))
             statsBar.color(when {
                 invBarProgress <= 1.0f -> BossBar.Color.WHITE

@@ -10,6 +10,9 @@ import net.kyori.adventure.key.Key
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
+/**
+ * A container for a single server's physics state, providing access to world physics.
+ */
 abstract class RattlePlatform(
     val rattle: RattleHook,
 ) {
