@@ -3,8 +3,7 @@ package io.github.aecsocket.rattle.rapier
 import io.github.aecsocket.alexandria.EventDispatch
 import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.*
-import io.github.aecsocket.rattle.QueryFilter
-import io.github.aecsocket.rattle.ShapeCast
+import io.github.aecsocket.rattle.ContactManifold
 import rapier.Native
 import rapier.dynamics.CCDSolver
 import rapier.dynamics.IslandManager
@@ -48,12 +47,12 @@ class RapierSpace internal constructor(
     override val onFilterIntersectionPair = EventDispatch<PhysicsSpace.OnFilterIntersectionPair>()
     override val onModifySolverContacts = EventDispatch<PhysicsSpace.OnModifySolverContacts>()
 
-    val events = EventHandler(object : EventHandler.Fn {
+    val events = object : EventHandler {
         override fun handleCollisionEvent(
             bodies: RigidBodySet,
             colliders: ColliderSet,
             event: CollisionEvent,
-            contactPair: rapier.pipeline.ContactPair?,
+            contactPair: ContactPair?,
         ) {
             onCollision.dispatch(when (event) {
                 is CollisionEvent.Started -> PhysicsSpace.OnCollision(
@@ -75,7 +74,7 @@ class RapierSpace internal constructor(
             dt: Double,
             bodies: RigidBodySet,
             colliders: ColliderSet,
-            contactPair: rapier.pipeline.ContactPair,
+            contactPair: ContactPair,
             totalForceMagnitude: Double
         ) {
             onContactForce.dispatch(PhysicsSpace.OnContactForce(
@@ -86,15 +85,15 @@ class RapierSpace internal constructor(
                 manifolds = emptyList(), // TODO
             ))
         }
-    })
+    }
 
-    val hooks = PhysicsHooks(object : PhysicsHooks.Fn {
+    val hooks = object : PhysicsHooks {
         override fun filterContactPair(context: PairFilterContext): Int {
             return onFilterContactPair.dispatch(PhysicsSpace.OnFilterContactPair(
                 colliderA = RapierColliderKey(context.collider1),
                 colliderB = RapierColliderKey(context.collider2),
-                rigidBodyA = context.rigidBody1?.let { RapierRigidBodyKey(it) },
-                rigidBodyB = context.rigidBody2?.let { RapierRigidBodyKey(it) },
+                bodyA = context.rigidBody1?.let { RapierRigidBodyKey(it) },
+                bodyB = context.rigidBody2?.let { RapierRigidBodyKey(it) },
             )).solverFlags.flags
         }
 
@@ -102,15 +101,23 @@ class RapierSpace internal constructor(
             return onFilterIntersectionPair.dispatch(PhysicsSpace.OnFilterIntersectionPair(
                 colliderA = RapierColliderKey(context.collider1),
                 colliderB = RapierColliderKey(context.collider2),
-                rigidBodyA = context.rigidBody1?.let { RapierRigidBodyKey(it) },
-                rigidBodyB = context.rigidBody2?.let { RapierRigidBodyKey(it) },
+                bodyA = context.rigidBody1?.let { RapierRigidBodyKey(it) },
+                bodyB = context.rigidBody2?.let { RapierRigidBodyKey(it) },
             )).createPair
         }
 
         override fun modifySolverContacts(context: ContactModificationContext) {
-            // todo
+            val res = onModifySolverContacts.dispatch(PhysicsSpace.OnModifySolverContacts(
+                colliderA = RapierColliderKey(context.collider1),
+                colliderB = RapierColliderKey(context.collider2),
+                bodyA = context.rigidBody1?.let { RapierRigidBodyKey(it) },
+                bodyB = context.rigidBody2?.let { RapierRigidBodyKey(it) },
+                manifold = object : ContactManifold {}, // TODO
+                normal = context.normal.toVec()
+            ))
+            context.normal = res.normal.toVector()
         }
-    })
+    }
 
     override val handle: Native
         get() = pipeline
@@ -294,7 +301,7 @@ class RapierSpace internal constructor(
             )?.let {
                 // `.remove` returns an ImpulseJoint.Mut, which contains some extra data relating to that joint
                 // we only want to return the `GenericJoint`, so we use a little hack and have `.retainData()`,
-                // a native function designed specifically for our use
+                // a native function designed specifically to discard everything apart from the GenericJoint
                 RapierJoint.Write(it.retainData(), space = null)
             }
         }
@@ -317,23 +324,23 @@ class RapierSpace internal constructor(
         }
     }
 
-    override val query = object : PhysicsSpace.Query {
+    override val query = object : PhysicsQuery {
         override fun intersectBounds(
             bounds: DAabb3,
-            fn: (ColliderKey) -> QueryResult,
+            fn: (ColliderKey) -> PhysicsQuery.Result,
         ) {
             checkLock()
             queryPipeline.collidersWithAabbIntersectingAabb(
                 bounds.toRapier(),
-            ) { collHandle ->
-                fn(RapierColliderKey(collHandle)).shouldContinue
+            ) {
+                fn(RapierColliderKey(it)) == PhysicsQuery.Result.CONTINUE
             }
         }
 
         override fun intersectPoint(
             point: DVec3,
-            filter: QueryFilter,
-            fn: (ColliderKey) -> QueryResult,
+            filter: PhysicsQuery.Filter,
+            fn: (ColliderKey) -> PhysicsQuery.Result,
         ) {
             checkLock()
             queryPipeline.intersectionsWithPoint(
@@ -341,28 +348,34 @@ class RapierSpace internal constructor(
                 colliderSet,
                 point.toVector(),
                 filter.toRapier(this@RapierSpace),
-            ) { res ->
-                fn(RapierColliderKey(res)).shouldContinue
+            ) {
+                fn(RapierColliderKey(it)) == PhysicsQuery.Result.CONTINUE
             }
-        }
-
-        override fun intersectPoint(
-            point: DVec3,
-            filter: QueryFilter,
-        ): ColliderKey? {
-            checkLock()
-            var coll: ColliderKey? = null
-            intersectPoint(point, filter) {
-                coll = it
-                QueryResult.STOP
-            }
-            return coll
         }
 
         override fun intersectShape(
             shape: Shape,
             shapePos: DIso3,
-            filter: QueryFilter
+            filter: PhysicsQuery.Filter,
+            fn: (ColliderKey) -> PhysicsQuery.Result,
+        ) {
+            checkLock()
+            shape as RapierShape
+            queryPipeline.intersectionsWithShape(
+                rigidBodySet,
+                colliderSet,
+                shapePos.toIsometry(),
+                shape.handle,
+                filter.toRapier(this@RapierSpace),
+            ) {
+                fn(RapierColliderKey(it)) == PhysicsQuery.Result.CONTINUE
+            }
+        }
+
+        override fun intersectShapeFirst(
+            shape: Shape,
+            shapePos: DIso3,
+            filter: PhysicsQuery.Filter,
         ): ColliderKey? {
             checkLock()
             shape as RapierShape
@@ -375,48 +388,32 @@ class RapierSpace internal constructor(
             )?.let { RapierColliderKey(it) }
         }
 
-        override fun intersectShape(
-            shape: Shape,
-            shapePos: DIso3,
-            filter: QueryFilter,
-            fn: (ColliderKey) -> QueryResult,
-        ) {
-            checkLock()
-            shape as RapierShape
-            return queryPipeline.intersectionsWithShape(
-                rigidBodySet,
-                colliderSet,
-                shapePos.toIsometry(),
-                shape.handle,
-                filter.toRapier(this@RapierSpace),
-            ) { res ->
-                fn(RapierColliderKey(res)).shouldContinue
-            }
-        }
-
-        override fun rayCast(
+        override fun castRay(
             ray: DRay3,
             maxDistance: Double,
-            settings: RayCastSettings,
-            filter: QueryFilter
-        ): RayCast.Simple? {
+            settings: PhysicsQuery.RayCastSettings,
+            filter: PhysicsQuery.Filter,
+            fn: (PhysicsQuery.RayCast) -> PhysicsQuery.Result,
+        ) {
             checkLock()
-            return queryPipeline.castRay(
+            queryPipeline.intersectionWithRay(
                 rigidBodySet,
                 colliderSet,
                 ray.toRapier(),
                 maxDistance,
                 settings.isSolid,
                 filter.toRapier(this@RapierSpace),
-            )?.toRattle()
+            ) {
+                fn(it.toRattle()) == PhysicsQuery.Result.CONTINUE
+            }
         }
 
-        override fun rayCastComplex(
+        override fun castRayFirst(
             ray: DRay3,
             maxDistance: Double,
-            settings: RayCastSettings,
-            filter: QueryFilter,
-        ): RayCast.Complex? {
+            settings: PhysicsQuery.RayCastSettings,
+            filter: PhysicsQuery.Filter,
+        ): PhysicsQuery.RayCast? {
             checkLock()
             return queryPipeline.castRayAndGetNormal(
                 rigidBodySet,
@@ -428,41 +425,21 @@ class RapierSpace internal constructor(
             )?.toRattle()
         }
 
-        override fun rayCastComplex(
-            ray: DRay3,
-            maxDistance: Double,
-            settings: RayCastSettings,
-            filter: QueryFilter,
-            fn: (RayCast.Complex) -> QueryResult
-        ) {
-            checkLock()
-            queryPipeline.intersectionWithRay(
-                rigidBodySet,
-                colliderSet,
-                ray.toRapier(),
-                maxDistance,
-                settings.isSolid,
-                filter.toRapier(this@RapierSpace),
-            ) { res ->
-                fn(res.toRattle()).shouldContinue
-            }
-        }
-
-        override fun shapeCast(
+        override fun castShape(
             shape: Shape,
             shapePos: DIso3,
-            shapeVel: DVec3,
+            shapeDir: DVec3,
             maxDistance: Double,
-            settings: ShapeCastSettings,
-            filter: QueryFilter,
-        ): ShapeCast? {
+            settings: PhysicsQuery.ShapeCastSettings,
+            filter: PhysicsQuery.Filter
+        ): PhysicsQuery.ShapeCast? {
             checkLock()
             shape as RapierShape
             return queryPipeline.castShape(
                 rigidBodySet,
                 colliderSet,
                 shapePos.toIsometry(),
-                shapeVel.toVector(),
+                shapeDir.toVector(),
                 shape.handle,
                 maxDistance,
                 settings.stopAtPenetration,
@@ -470,7 +447,7 @@ class RapierSpace internal constructor(
             )?.toRattle()
         }
 
-        override fun shapeCastNonLinear(
+        override fun castShapeNonLinear(
             shape: Shape,
             shapePos: DIso3,
             shapeLocalCenter: DVec3,
@@ -478,9 +455,9 @@ class RapierSpace internal constructor(
             shapeAngVel: DVec3,
             timeStart: Double,
             timeEnd: Double,
-            settings: ShapeCastSettings,
-            filter: QueryFilter,
-        ): ShapeCast? {
+            settings: PhysicsQuery.ShapeCastSettings,
+            filter: PhysicsQuery.Filter
+        ): PhysicsQuery.ShapeCast? {
             checkLock()
             shape as RapierShape
             val motion = NonlinearRigidMotion(
@@ -501,32 +478,15 @@ class RapierSpace internal constructor(
             )?.toRattle()
         }
 
-        override fun projectPointSimple(
+        override fun projectPoint(
             point: DVec3,
-            settings: PointProjectSettings,
-            filter: QueryFilter,
-        ): PointProject.Simple? {
-            checkLock()
-            return queryPipeline.projectPoint(
-                rigidBodySet,
-                colliderSet,
-                point.toVector(),
-                settings.isSolid,
-                filter.toRapier(this@RapierSpace)
-            )?.toRattle()
-        }
-
-        override fun projectPointComplex(
-            point: DVec3,
-            settings: PointProjectSettings,
-            filter: QueryFilter,
-        ): PointProject.Complex? {
+            filter: PhysicsQuery.Filter
+        ): PhysicsQuery.PointProject? {
             checkLock()
             return queryPipeline.projectPointAndGetFeature(
                 rigidBodySet,
                 colliderSet,
                 point.toVector(),
-                // settings.isSolid, // TODO Rapier screwed this one up. Not us.
                 filter.toRapier(this@RapierSpace),
             )?.toRattle()
         }

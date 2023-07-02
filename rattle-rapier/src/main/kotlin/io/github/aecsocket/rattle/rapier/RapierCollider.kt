@@ -66,7 +66,7 @@ sealed class RapierCollider(
     override val relativePosition: DIso3
         get() {
             checkLock()
-            return handle.positionWrtParent?.toIso() ?: DIso3()
+            return handle.positionWrtParent?.toIso() ?: DIso3.identity
         }
 
     override val mass: Double
@@ -165,12 +165,12 @@ sealed class RapierCollider(
             return this
         }
 
-        override fun mass(value: Mass): Write {
+        override fun mass(value: Collider.Mass): Write {
             checkLock()
             when (value) {
-                is Mass.Constant -> handle.mass = value.mass
-                is Mass.Density -> handle.density = value.density
-                is Mass.Infinite -> handle.mass = 0.0
+                is Collider.Mass.Constant -> handle.mass = value.mass
+                is Collider.Mass.Density -> handle.density = value.density
+                is Collider.Mass.Infinite -> handle.mass = 0.0
             }
             return this
         }
@@ -184,18 +184,19 @@ sealed class RapierCollider(
             return this
         }
 
-        override fun handlesEvents(vararg values: ColliderEvent): Collider.Own {
+        override fun handlesEvents(value: ColliderEvents): Collider.Own {
             checkLock()
             var events = 0
             var hooks = 0
-            values.forEach { value ->
-                when (value) {
+            value.forEach {
+                when (it) {
                     ColliderEvent.COLLISION -> events = events or ActiveEvents.COLLISION_EVENTS
                     ColliderEvent.CONTACT_FORCE -> events = events or ActiveEvents.CONTACT_FORCE_EVENTS
 
                     ColliderEvent.FILTER_CONTACT_PAIR -> hooks = hooks or ActiveHooks.FILTER_CONTACT_PAIRS
                     ColliderEvent.FILTER_INTERSECTION_PAIR -> hooks = hooks or ActiveHooks.FILTER_INTERSECTION_PAIR
                     ColliderEvent.SOLVER_CONTACT -> hooks = hooks or ActiveHooks.MODIFY_SOLVER_CONTACTS
+                    null -> throw IllegalStateException("Null event")
                 }
             }
             handle.activeEvents = events

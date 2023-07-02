@@ -375,7 +375,7 @@ abstract class DynamicTerrain(
             val shapes = tile.shapes.map { child ->
                 Compound.Child(
                     shape = child.shape,
-                    delta = child.delta * DIso3(localPos),
+                    delta = child.delta * DIso3(localPos, DQuat.identity),
                 )
             }
             layer += shapes
@@ -388,11 +388,11 @@ abstract class DynamicTerrain(
 
                 val coll = platform.rattle.engine.createCollider(
                     shape = platform.rattle.engine.createShape(Compound(shapes)),
-                    position = StartPosition.Absolute(
-                        DIso3((slice.pos * 16).toDouble()),
+                    position = Collider.Start.Absolute(
+                        DIso3((slice.pos * 16).toDouble(), DQuat.identity),
                     )
                 )
-                    .handlesEvents(ColliderEvent.COLLISION)
+                    .handlesEvents(ColliderEvents.of(ColliderEvent.COLLISION))
                 when (layer) {
                     is Layer.Solid -> {
                         coll.physicsMode(PhysicsMode.SOLID)
@@ -433,7 +433,7 @@ abstract class DynamicTerrain(
                 val parent = coll.parent?.let { physics.rigidBodies.write(it) } ?: return@let
                 parent.wakeUp()
             }
-            QueryResult.CONTINUE
+            PhysicsQuery.Result.CONTINUE
         }
 
         // if a slice already exists for this position, schedule an update for its collision shape

@@ -27,6 +27,10 @@ enum class Dof {
     ANG_Z,
 }
 
+interface ContactManifold {
+
+}
+
 /**
  * An independent object storing simulation data for a set of physics structures. This takes ownership of objects like
  * [RigidBody] and [Collider] instances, and allows manipulating and querying the internal structures. An instance
@@ -145,15 +149,11 @@ interface PhysicsSpace : Destroyable {
 
     val onModifySolverContacts: EventDispatch<OnModifySolverContacts>
 
-    interface Manifold {
-
-    }
-
     data class OnCollision(
         val state: State,
         val colliderA: ColliderKey,
         val colliderB: ColliderKey,
-        val manifolds: List<Manifold>,
+        val manifolds: List<ContactManifold>,
     ) {
         enum class State {
             STARTED,
@@ -166,14 +166,14 @@ interface PhysicsSpace : Destroyable {
         val totalMagnitude: Double,
         val colliderA: ColliderKey,
         val colliderB: ColliderKey,
-        val manifolds: List<Manifold>,
+        val manifolds: List<ContactManifold>,
     )
 
     data class OnFilterContactPair(
         val colliderA: ColliderKey,
         val colliderB: ColliderKey,
-        val rigidBodyA: RigidBodyKey?,
-        val rigidBodyB: RigidBodyKey?,
+        val bodyA: RigidBodyKey?,
+        val bodyB: RigidBodyKey?,
         var solverFlags: SolverFlags = SolverFlags.COMPUTE_IMPULSES,
     )
 
@@ -191,22 +191,21 @@ interface PhysicsSpace : Destroyable {
     data class OnFilterIntersectionPair(
         val colliderA: ColliderKey,
         val colliderB: ColliderKey,
-        val rigidBodyA: RigidBodyKey?,
-        val rigidBodyB: RigidBodyKey?,
+        val bodyA: RigidBodyKey?,
+        val bodyB: RigidBodyKey?,
         var createPair: Boolean = true,
     )
 
     data class OnModifySolverContacts(
         val colliderA: ColliderKey,
         val colliderB: ColliderKey,
-        val rigidBodyA: RigidBodyKey?,
-        val rigidBodyB: RigidBodyKey?,
-        val manifold: Manifold,
+        val bodyA: RigidBodyKey?,
+        val bodyB: RigidBodyKey?,
+        val manifold: ContactManifold,
         // TODO solverContacts
         var normal: DVec3,
     )
 }
-
 
 interface PhysicsQuery {
     enum class Result {
@@ -215,11 +214,11 @@ interface PhysicsQuery {
     }
 
     data class Filter(
-        val flags: QueryFilterFlags = QueryFilterFlags.fromRaw(0),
-        val group: InteractionGroup = InteractionGroup.All,
+        val flags: Int = 0,
+        val group: InteractionGroup = InteractionGroup.all,
         val excludeCollider: ColliderKey? = null,
         val excludeRigidBody: RigidBodyKey? = null,
-        val predicate: ((coll: Collider, collKey: ColliderKey) -> Result)? = null,
+        val predicate: ((Collider, ColliderKey) -> Result)? = null,
     )
 
     @ConfigSerializable
@@ -231,22 +230,6 @@ interface PhysicsQuery {
     data class ShapeCastSettings(
         @Required val stopAtPenetration: Boolean,
     )
-
-    @ConfigSerializable
-    data class PointProjectSettings(
-        @Required val isSolid: Boolean,
-    )
-
-    @JvmInline
-    value class QueryFilterFlags private constructor(val raw: Int) {
-        companion object {
-            fun fromRaw(raw: Int) = QueryFilterFlags(raw)
-        }
-
-        fun raw() = raw
-
-        infix fun or(rhs: QueryFilterFlags) = QueryFilterFlags(raw or rhs.raw)
-    }
 
     sealed interface ShapeFeature {
         data class Vertex(val id: Int) : ShapeFeature
@@ -294,20 +277,14 @@ interface PhysicsQuery {
         val feature: ShapeFeature,
     )
 
-    data class ContactPair(
-        val colliderA: ColliderKey,
-        val colliderB: ColliderKey,
-        val manifolds: List<PhysicsSpace.Manifold>,
-    )
-
-
     /**
-     * Runs [fn] for every collider whose broad-phase bounds intersect with [bounds].
+     * Gets every collider whose broad-phase bounding box ([Collider.bounds]) intersects with [bounds], in no
+     * specific ordering.
      *
      * This is the fastest and cheapest query, as it only reads the broad-phase. Use this if you only need a coarse
      * set of colliders in a general area.
      * @param bounds The axis-aligned bounds to test against.
-     * @param fn The callback to run for each result.
+     * @param fn The callback to run for each result, allowing you to continue or stop the query.
      */
     fun intersectBounds(
         bounds: DAabb3,
@@ -315,26 +292,51 @@ interface PhysicsQuery {
     )
 
     /**
-     * Returns the first collider for which [point] is inside of it.
+     * Gets every collider whose broad-phase bounding box ([Collider.bounds]) intersects with [bounds], in no
+     * specific ordering.
      *
-     * This is cheaper than the method of the same name which takes a callback function, so prefer using this if you
-     * only need one result.
-     * @param point The point to test against.
-     * @param filter The filter for determining which colliders are tested against.
+     * This is the fastest and cheapest query, as it only reads the broad-phase. Use this if you only need a coarse
+     * set of colliders in a general area.
+     * @param bounds The axis-aligned bounds to test against.
+     * @return The first result found, stopping the query after this result.
      */
-    fun intersectPoint(
-        point: DVec3,
-        filter: Filter,
-    ): ColliderKey?
+    fun intersectBoundsFirst(
+        bounds: DAabb3
+    ): ColliderKey? {
+        var res: ColliderKey? = null
+        intersectBounds(bounds) {
+            res = it
+            Result.STOP
+        }
+        return res
+    }
 
     /**
-     * Runs [fn] for every collider for which [point] is inside of it.
+     * Gets every collider whose broad-phase bounding box ([Collider.bounds]) intersects with [bounds], in no
+     * specific ordering.
      *
-     * This is more expensive than the method of the same name which returns a result, so prefer using that if you only
-     * need one result.
+     * This is the fastest and cheapest query, as it only reads the broad-phase. Use this if you only need a coarse
+     * set of colliders in a general area.
+     * @param bounds The axis-aligned bounds to test against.
+     * @return All collected results.
+     */
+    fun intersectBoundsAll(
+        bounds: DAabb3,
+    ): List<ColliderKey> {
+        val res = ArrayList<ColliderKey>()
+        intersectBounds(bounds) {
+            res += it
+            Result.CONTINUE
+        }
+        return res
+    }
+
+    /**
+     * Gets every collider which contains [point] inside of its shape.
+     *
      * @param point The point to test against.
      * @param filter The filter for determining which colliders are tested against.
-     * @param fn The callback to run for each result.
+     * @param fn The callback to run for each result, allowing you to continue or stop the query.
      */
     fun intersectPoint(
         point: DVec3,
@@ -343,29 +345,50 @@ interface PhysicsQuery {
     )
 
     /**
-     * Returns the first collider whose shape intersects [shape], when that shape is positioned at [shapePos].
+     * Gets every collider which contains [point] inside of its shape.
      *
-     * This is cheaper than the method of the same name which takes a callback function, so prefer using this if you
-     * only need one result.
-     * @param shape The shape to test against.
-     * @param shapePos The position of the tested shape in the world.
+     * @param point The point to test against.
      * @param filter The filter for determining which colliders are tested against.
+     * @return The first result found, stopping the query after this result.
      */
-    fun intersectShape(
-        shape: Shape,
-        shapePos: DIso3,
-        filter: Filter
-    ): ColliderKey?
+    fun intersectPointFirst(
+        point: DVec3,
+        filter: Filter,
+    ): ColliderKey? {
+        var res: ColliderKey? = null
+        intersectPoint(point, filter) {
+            res = it
+            Result.STOP
+        }
+        return res
+    }
 
     /**
-     * Runs [fn] for every collider whose shape intersects [shape], when that shape is positioned at [shapePos].
+     * Gets every collider which contains [point] inside of its shape.
      *
-     * This is more expensive than the method of the same name which returns a result, so prefer using that if you only
-     * need one result.
+     * @param point The point to test against.
+     * @param filter The filter for determining which colliders are tested against.
+     * @return All collected results.
+     */
+    fun intersectPointAll(
+        point: DVec3,
+        filter: Filter,
+    ): List<ColliderKey> {
+        val res = ArrayList<ColliderKey>()
+        intersectPoint(point, filter) {
+            res += it
+            Result.CONTINUE
+        }
+        return res
+    }
+
+    /**
+     * Gets every collider whose shape intersects [shape] if that shape was positioned at [shapePos].
+     *
      * @param shape The shape to test against.
      * @param shapePos The position of the tested shape in the world.
      * @param filter The filter for determining which colliders are tested against.
-     * @param fn The callback to run for each result.
+     * @param fn The callback to run for each result, allowing you to continue or stop the query.
      */
     fun intersectShape(
         shape: Shape,
@@ -375,34 +398,58 @@ interface PhysicsQuery {
     )
 
     /**
-     * Finds the first collider in an intersection between it and [ray], reaching colliders up to a maximum of
-     * [maxDistance] units away.
+     * Gets every collider whose shape intersects [shape] if that shape was positioned at [shapePos].
      *
-     * This is cheaper than the method of the same name which takes a callback function, so prefer using this if you
-     * only need one result.
+     * @param shape The shape to test against.
+     * @param shapePos The position of the tested shape in the world.
+     * @param filter The filter for determining which colliders are tested against.
+     * @return The first result found, stopping the query after this result.
+     */
+    fun intersectShapeFirst(
+        shape: Shape,
+        shapePos: DIso3,
+        filter: Filter,
+    ): ColliderKey? {
+        var res: ColliderKey? = null
+        intersectShape(shape, shapePos, filter) {
+            res = it
+            Result.STOP
+        }
+        return res
+    }
+
+    /**
+     * Gets every collider whose shape intersects [shape] if that shape was positioned at [shapePos].
+     *
+     * @param shape The shape to test against.
+     * @param shapePos The position of the tested shape in the world.
+     * @param filter The filter for determining which colliders are tested against.
+     * @return All collected results.
+     */
+    fun intersectShapeAll(
+        shape: Shape,
+        shapePos: DIso3,
+        filter: Filter,
+    ): List<ColliderKey> {
+        val res = ArrayList<ColliderKey>()
+        intersectShape(shape, shapePos, filter) {
+            res += it
+            Result.CONTINUE
+        }
+        return res
+    }
+
+    /**
+     * Gets every collider whose shape intersects [ray], up to a maximum distance of [maxDistance] away from
+     * [DRay3.origin].
+     *
      * @param ray The ray to test against.
      * @param maxDistance The maximum distance the ray will hit colliders.
      * @param settings Settings on how the raycast will behave.
      * @param filter The filter for determining which colliders are tested against.
+     * @param fn The callback to run for each result, allowing you to continue or stop the query.
      */
-    fun rayCast(
-        ray: DRay3,
-        maxDistance: Double,
-        settings: RayCastSettings,
-        filter: Filter,
-    ): RayCast?
-
-    /**
-     * Runs [fn] for every collider found in an intersection between it and [ray], reaching colliders up to a maximum of
-     * [maxDistance] units away.
-     *
-     * This is more expensive than the method of the same name which returns a result, so prefer using that if you only
-     * need one result.
-     * @param maxDistance The maximum distance the ray will hit colliders.
-     * @param settings Settings on how the raycast will behave.
-     * @param filter The filter for determining which colliders are tested against.
-     */
-    fun rayCast(
+    fun castRay(
         ray: DRay3,
         maxDistance: Double,
         settings: RayCastSettings,
@@ -411,8 +458,56 @@ interface PhysicsQuery {
     )
 
     /**
-     * Finds the first collider for which [shape], when cast (or "swept") across from [shapePos] in the direction of
-     * [shapeDir] units up to a distance of [maxDistance], will collide with the collider's shape.
+     * Gets every collider whose shape intersects [ray], up to a maximum distance of [maxDistance] away from
+     * [DRay3.origin].
+     *
+     * @param ray The ray to test against.
+     * @param maxDistance The maximum distance the ray will hit colliders.
+     * @param settings Settings on how the raycast will behave.
+     * @param filter The filter for determining which colliders are tested against.
+     * @return The first result found, stopping the query after this result.
+     */
+    fun castRayFirst(
+        ray: DRay3,
+        maxDistance: Double,
+        settings: RayCastSettings,
+        filter: Filter,
+    ): RayCast? {
+        var res: RayCast? = null
+        castRay(ray, maxDistance, settings, filter) {
+            res = it
+            Result.STOP
+        }
+        return res
+    }
+
+    /**
+     * Gets every collider whose shape intersects [ray], up to a maximum distance of [maxDistance] away from
+     * [DRay3.origin].
+     *
+     * @param ray The ray to test against.
+     * @param maxDistance The maximum distance the ray will hit colliders.
+     * @param settings Settings on how the raycast will behave.
+     * @param filter The filter for determining which colliders are tested against.
+     * @return All collected results.
+     */
+    fun castRayAll(
+        ray: DRay3,
+        maxDistance: Double,
+        settings: RayCastSettings,
+        filter: Filter,
+    ): List<RayCast> {
+        val res = ArrayList<RayCast>()
+        castRay(ray, maxDistance, settings, filter) {
+            res += it
+            Result.CONTINUE
+        }
+        return res
+    }
+
+    /**
+     * Gets the first collider whose shape intersects a swept version of the provided shape.
+     * The swept [shape] starts at [shapePos] and travels in [shapeDir] up to a distance of [maxDistance].
      *
      * This is the cheapest shape cast method, which does not take rotational velocity into account.
      * @param shape The shape to cast.
@@ -422,7 +517,7 @@ interface PhysicsQuery {
      * @param settings Settings on how the shape cast will behave.
      * @param filter The filter for determining which colliders are tested against.
      */
-    fun shapeCast(
+    fun castShape(
         shape: Shape,
         shapePos: DIso3,
         shapeDir: DVec3,
@@ -432,10 +527,14 @@ interface PhysicsQuery {
     ): ShapeCast?
 
     /**
-     * Finds the first collider for which [shape], when cast (or "swept") across from [shapePos] in the motion specified
-     * by [shapeLinVel] and [shapeAngVel], will collide with the collider's shape.
+     * Gets the first collider whose shape intersects a swept version of the provided shape.
+     * The swept [shape] starts at [shapePos] and travels:
+     * - linearly by [shapeLinVel]
+     * - rotationally by [shapeAngVel] around the local center [shapeLocalCenter]
      *
-     * This is more expensive than [shapeCast] as it also takes rotational velocity into account.
+     * The sweep starts at [timeStart] and ends at [timeEnd].
+     *
+     * This is more expensive than [castShape] as it also takes rotational velocity into account.
      * @param shape The shape to cast.
      * @param shapePos The position the shape starts at.
      * @param shapeLocalCenter The local-space point at which the rotational part of motion is applied.
@@ -446,7 +545,7 @@ interface PhysicsQuery {
      * @param settings Settings on how the shape cast will behave.
      * @param filter The filter for determining which colliders are tested against.
      */
-    fun shapeCastNonLinear(
+    fun castShapeNonLinear(
         shape: Shape,
         shapePos: DIso3,
         shapeLocalCenter: DVec3,
@@ -461,12 +560,10 @@ interface PhysicsQuery {
     /**
      * Projects a point onto the closest collider to that point.
      * @param point The point in world-space to project.
-     * @param settings Settings on how the point projection will behave.
      * @param filter The filter for determining which colliders are tested against.
      */
     fun projectPoint(
         point: DVec3,
-        settings: PointProjectSettings,
         filter: Filter,
     ): PointProject?
 }

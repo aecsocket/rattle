@@ -2,6 +2,7 @@ package io.github.aecsocket.rattle
 
 import io.github.aecsocket.klam.*
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
+import java.util.EnumSet
 
 /**
  * A baked, physics-ready form of a [Geometry]. You can use this object as the shape of a [Collider], however
@@ -121,12 +122,12 @@ class InteractionField private constructor(val raw: Int) {
         /**
          * This field is enabled for all other layers.
          */
-        val All = InteractionField(Int.MAX_VALUE)
+        val all = InteractionField(Int.MAX_VALUE)
 
         /**
          * This field is disabled for all other layers.
          */
-        val None = InteractionField(0)
+        val none = InteractionField(0)
 
         /**
          * Creates a field from a raw integer value, where each bit corresponds to a [InteractionLayer].
@@ -186,49 +187,13 @@ data class InteractionGroup(
         /**
          * This group is part of all layers, and collides with all other layers.
          */
-        val All = InteractionGroup(InteractionField.All, InteractionField.All)
+        val all = InteractionGroup(InteractionField.all, InteractionField.all)
 
         /**
          * This group is part of no layers, and collides with no other layers.
          */
-        val None = InteractionGroup(InteractionField.None, InteractionField.None)
+        val none = InteractionGroup(InteractionField.none, InteractionField.none)
     }
-}
-
-/**
- * Mass properties of a [Collider], used in calculating forces and dynamics during the simulation.
- */
-sealed interface Mass {
-    /**
-     * The mass properties will be calculated based on the shape's volume and the given [density], with a default of 1.
-     * - Mass is calculated
-     * - Density is provided
-     * - Inertia tensor is calculated
-     * @param density The density of the shape. Must be greater than 0.
-     */
-    data class Density(val density: Double) : Mass {
-        init {
-            require(density > 0.0) { "requires density > 0.0" }
-        }
-    }
-
-    /**
-     * The mass properties will be calculated based on a fixed [mass], in kilograms.
-     * - Mass is provided
-     * - Density is calculated
-     * - Inertia tensor is calculated
-     * @param mass The mass of the shape. Must be greater than 0.
-     */
-    data class Constant(val mass: Double) : Mass {
-        init {
-            require(mass > 0.0) { "requires mass > 0.0" }
-        }
-    }
-
-    /**
-     * The collider has infinite mass, and cannot be pushed at all.
-     */
-    /* TODO: Kotlin 1.9 data */ object Infinite : Mass
 }
 
 enum class ColliderEvent {
@@ -240,20 +205,7 @@ enum class ColliderEvent {
     SOLVER_CONTACT,
 }
 
-/**
- * Defines the starting position for a [Collider].
- */
-sealed interface StartPosition {
-    /**
-     * The position is set as absolute coordinates in the world.
-     */
-    data class Absolute(val pos: DIso3) : StartPosition
-
-    /**
-     * The position is set as a relative offset from a parent body.
-     */
-    data class Relative(val pos: DIso3 = DIso3()) : StartPosition
-}
+typealias ColliderEvents = EnumSet<ColliderEvent>
 
 /**
  * A key used to index into a [PhysicsSpace] to gain a reference, mutable or immutable, to a [Collider].
@@ -287,6 +239,57 @@ interface ColliderKey
  * in which case you would use the [solverGroup].
  */
 interface Collider {
+    /**
+     * Defines the starting position for a [Collider].
+     */
+    sealed interface Start {
+        /**
+         * The position is set as absolute coordinates in the world.
+         */
+        data class Absolute(val pos: DIso3) : Start
+
+        /**
+         * The position is set as a relative offset from a parent body.
+         */
+        data class Relative(val pos: DIso3 = DIso3.identity) : Start
+    }
+
+    /**
+     * Mass properties of a [Collider], used in calculating forces and dynamics during the simulation.
+     */
+    sealed interface Mass {
+        /**
+         * The mass properties will be calculated based on the shape's volume and the given [density], with a default of 1.
+         * - Mass is calculated
+         * - Density is provided
+         * - Inertia tensor is calculated
+         * @param density The density of the shape. Must be greater than 0.
+         */
+        data class Density(val density: Double) : Mass {
+            init {
+                require(density > 0.0) { "requires density > 0.0" }
+            }
+        }
+
+        /**
+         * The mass properties will be calculated based on a fixed [mass], in kilograms.
+         * - Mass is provided
+         * - Density is calculated
+         * - Inertia tensor is calculated
+         * @param mass The mass of the shape. Must be greater than 0.
+         */
+        data class Constant(val mass: Double) : Mass {
+            init {
+                require(mass > 0.0) { "requires mass > 0.0" }
+            }
+        }
+
+        /**
+         * The collider has infinite mass, and cannot be pushed at all.
+         */
+        /* TODO: Kotlin 1.9 data */ object Infinite : Mass
+    }
+
     /**
      * The shape that this collider takes on in the world.
      */
@@ -388,7 +391,7 @@ interface Collider {
         fun physicsMode(value: PhysicsMode): Mut
 
 
-        fun handlesEvents(vararg values: ColliderEvent): Mut
+        fun handlesEvents(value: ColliderEvents): Mut
     }
 
     /**
@@ -411,6 +414,6 @@ interface Collider {
 
         override fun physicsMode(value: PhysicsMode): Own
 
-        override fun handlesEvents(vararg values: ColliderEvent): Own
+        override fun handlesEvents(value: ColliderEvents): Own
     }
 }

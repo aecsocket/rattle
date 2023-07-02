@@ -80,9 +80,9 @@ interface PhysicsEngine : Destroyable {
     /**
      * Creates a [Collider] with default parameters, which is not attached to any [RigidBody] or [PhysicsSpace].
      * @param shape The baked shape to use for this collider.
-     * @param position The starting position for this collider (see [StartPosition]).
+     * @param position The starting position for this collider (see [Collider.Start]).
      */
-    fun createCollider(shape: Shape, position: StartPosition): Collider.Own
+    fun createCollider(shape: Shape, position: Collider.Start): Collider.Own
 
     /**
      * Creates a [RigidBody] with default parameters, which is not attached to any [PhysicsSpace].

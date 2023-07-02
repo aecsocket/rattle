@@ -14,6 +14,8 @@ import rapier.math.Vector
 import rapier.pipeline.ComplexPointProject
 import rapier.pipeline.ComplexRayResult
 import rapier.pipeline.FeatureId
+import rapier.pipeline.QueryFilter
+import rapier.pipeline.ShapeCast
 import rapier.pipeline.SimplePointProject
 import rapier.pipeline.SimpleRayResult
 import rapier.pipeline.TOI
@@ -88,7 +90,9 @@ fun VhacdSettings.toParams() = VHACDParameters(
     convexHullDownsampling,
     when (val fillMode = fillMode) {
         is VhacdSettings.FillMode.SurfaceOnly -> VHACDParameters.FillMode.SurfaceOnly.INSTANCE
-        is VhacdSettings.FillMode.FloodFill -> VHACDParameters.FillMode.FloodFill(fillMode.detectCavities)
+        is VhacdSettings.FillMode.FloodFill -> VHACDParameters.FillMode.FloodFill(
+            fillMode.detectCavities,
+        )
     },
     convexHullApproximation,
     maxConvexHulls,
@@ -137,17 +141,17 @@ fun MotorModel.toRattle() = when (this) {
     MotorModel.FORCE_BASED        -> JointAxis.Motor.Model.FORCE_BASED
 }
 
-fun QueryFilter.toRapier(space: RapierSpace): rapier.pipeline.QueryFilter {
-    return rapier.pipeline.QueryFilter(
-        flags.raw,
+fun PhysicsQuery.Filter.toRapier(space: RapierSpace): QueryFilter {
+    return QueryFilter(
+        flags,
         group.toRapier(),
         excludeCollider?.let { (it as RapierColliderKey).handle },
         excludeRigidBody?.let { (it as RapierRigidBodyKey).handle },
         predicate?.let { predicate ->
             { handle, coll ->
                 when (predicate(RapierCollider.Read(coll, space), RapierColliderKey(handle))) {
-                    QueryResult.CONTINUE -> false
-                    QueryResult.STOP -> true
+                    PhysicsQuery.Result.CONTINUE -> false
+                    PhysicsQuery.Result.STOP -> true
                 }
             }
         }
@@ -155,19 +159,19 @@ fun QueryFilter.toRapier(space: RapierSpace): rapier.pipeline.QueryFilter {
 }
 
 fun FeatureId.toRattle() = when (this) {
-    is FeatureId.Vertex -> ShapeFeature.Vertex(id)
-    is FeatureId.Edge -> ShapeFeature.Edge(id)
-    is FeatureId.Face -> ShapeFeature.Face(id)
+    is FeatureId.Vertex -> PhysicsQuery.ShapeFeature.Vertex(id)
+    is FeatureId.Edge -> PhysicsQuery.ShapeFeature.Edge(id)
+    is FeatureId.Face -> PhysicsQuery.ShapeFeature.Face(id)
     is FeatureId.Unknown -> throw IllegalStateException("Did not expect an Unknown FeatureId")
 }
 
-fun TOI.toRattle(): Intersect = when (val status = status) {
-    TOIStatus.PENETRATING -> Intersect.Penetrating
-    else -> Intersect.Separated(
+fun TOI.toRattle(): PhysicsQuery.Intersect = when (val status = status) {
+    TOIStatus.PENETRATING -> PhysicsQuery.Intersect.Penetrating
+    else -> PhysicsQuery.Intersect.Separated(
         state = when (status) {
-            TOIStatus.CONVERGED -> Intersect.State.CONVERGED
-            TOIStatus.OUT_OF_ITERATIONS -> Intersect.State.OUT_OF_ITERATIONS
-            TOIStatus.FAILED -> Intersect.State.FAILED
+            TOIStatus.CONVERGED -> PhysicsQuery.Intersect.State.CONVERGED
+            TOIStatus.OUT_OF_ITERATIONS -> PhysicsQuery.Intersect.State.OUT_OF_ITERATIONS
+            TOIStatus.FAILED -> PhysicsQuery.Intersect.State.FAILED
             else -> throw IllegalStateException()
         },
         time = toi,
@@ -178,33 +182,22 @@ fun TOI.toRattle(): Intersect = when (val status = status) {
     )
 }
 
-fun SimpleRayResult.toRattle() = RayCast.Simple(
-    collider = RapierColliderKey(collider),
-    hitTime = toi,
-)
-
-fun ComplexRayResult.toRattle() = RayCast.Complex(
+fun ComplexRayResult.toRattle() = PhysicsQuery.RayCast(
     collider = RapierColliderKey(collider),
     hitTime = toi,
     normal = normal.toVec(),
     feature = feature.toRattle(),
 )
 
-fun rapier.pipeline.ShapeCast.toRattle(): ShapeCast {
+fun ShapeCast.toRattle(): PhysicsQuery.ShapeCast {
     val toi = toi
-    return ShapeCast(
+    return PhysicsQuery.ShapeCast(
         collider = RapierColliderKey(collider),
         intersect = toi.toRattle(),
     )
 }
 
-fun SimplePointProject.toRattle() = PointProject.Simple(
-    collider = RapierColliderKey(collider),
-    wasInside = isInside,
-    point = point.toVec(),
-)
-
-fun ComplexPointProject.toRattle() = PointProject.Complex(
+fun ComplexPointProject.toRattle() = PhysicsQuery.PointProject(
     collider = RapierColliderKey(collider),
     wasInside = isInside,
     point = point.toVec(),

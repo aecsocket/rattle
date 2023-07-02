@@ -27,7 +27,7 @@ abstract class RattlePlayer(
         val geom: SimpleGeometry,
         val material: PhysicsMaterial,
         val velocity: Double,
-        val mass: Mass,
+        val mass: Collider.Mass,
         val isCcdEnabled: Boolean,
     )
 
@@ -96,7 +96,7 @@ abstract class RattlePlayer(
         val launcher = launcher ?: return
         platform.rattle.runTask {
             platform.physicsOrCreate(world).withLock { physics ->
-                physics.simpleBodies.create(DIso3(eyePosition()), SimpleBodyDesc(
+                physics.simpleBodies.create(DIso3(eyePosition(), DQuat.identity), SimpleBodyDesc(
                     type = RigidBodyType.DYNAMIC,
                     geom = launcher.geom,
                     material = launcher.material,

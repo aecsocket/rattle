@@ -6,6 +6,7 @@ import io.github.aecsocket.alexandria.fabric.extension.nextEntityId
 import io.github.aecsocket.alexandria.fabric.extension.toDVec
 import io.github.aecsocket.alexandria.sync.Locked
 import io.github.aecsocket.klam.DIso3
+import io.github.aecsocket.klam.DQuat
 import io.github.aecsocket.klam.DVec3
 import io.github.aecsocket.klam.IVec3
 import io.github.aecsocket.rattle.Compound
@@ -94,7 +95,7 @@ class FabricDynamicTerrain(
                                 box.maxY - box.minY,
                                 box.maxZ - box.minZ,
                             ) / 2.0),
-                            delta = DIso3(box.center.toDVec() - 0.5),
+                            delta = DIso3(box.center.toDVec() - 0.5, DQuat.identity),
                         )
                     }
                 return Tile(

@@ -283,15 +283,15 @@ abstract class RattleCommand<C : Audience>(
 
     private fun bodyCreate(
         ctx: CommandContext<C>,
-        createDesc: (PhysicsMaterial, Mass, Visibility) -> SimpleBodyDesc,
+        createDesc: (PhysicsMaterial, Collider.Mass, Visibility) -> SimpleBodyDesc,
     ): BodyCreateInfo {
         val server = ctx.server
         val location = ctx.getLocation(LOCATION)
         val count = ctx.flag(COUNT) ?: 1
         val spread = ctx.flag(SPREAD) ?: 0.0
-        val mass = ctx.flag<Double>(DENSITY)?.let { Mass.Density(it) }
-            ?: ctx.flag<Double>(MASS)?.let { Mass.Constant(it) }
-            ?: Mass.Density(1.0)
+        val mass = ctx.flag<Double>(DENSITY)?.let { Collider.Mass.Density(it) }
+            ?: ctx.flag<Double>(MASS)?.let { Collider.Mass.Constant(it) }
+            ?: Collider.Mass.Density(1.0)
         val friction = ctx.flag(FRICTION) ?: DEFAULT_FRICTION
         val restitution = ctx.flag(RESTITUTION) ?: DEFAULT_RESTITUTION
         val virtual = ctx.hasFlag(VIRTUAL)
@@ -309,7 +309,7 @@ abstract class RattleCommand<C : Audience>(
                     val offset = (Random.nextDVec3() * 2.0 - 1.0) * spread
 
                     physics.simpleBodies.create(
-                        position = DIso3(location.position + offset),
+                        position = DIso3(location.position + offset, DQuat.identity),
                         desc = desc,
                     )
                 }
@@ -503,7 +503,7 @@ abstract class RattleCommand<C : Audience>(
                 restitution = restitution,
             ),
             velocity = velocity,
-            mass = Mass.Density(density),
+            mass = Collider.Mass.Density(density),
             isCcdEnabled = ccd,
         )
     }

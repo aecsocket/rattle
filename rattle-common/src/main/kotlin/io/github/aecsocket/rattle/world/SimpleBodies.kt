@@ -33,11 +33,11 @@ data class SimpleBodyDesc(
     val type: RigidBodyType,
     val geom: SimpleGeometry,
     val material: PhysicsMaterial,
-    val mass: Mass = Mass.Density(1.0),
+    val mass: Collider.Mass = Collider.Mass.Density(1.0),
     val visibility: Visibility = Visibility.VISIBLE,
     val isCcdEnabled: Boolean = false,
-    val linearVelocity: DVec3 = DVec3.Zero,
-    val angularVelocity: DVec3 = DVec3.Zero,
+    val linearVelocity: DVec3 = DVec3.zero,
+    val angularVelocity: DVec3 = DVec3.zero,
     val gravityScale: Double = 1.0,
     val linearDamping: Double = DEFAULT_LINEAR_DAMPING,
     val angularDamping: Double = DEFAULT_ANGULAR_DAMPING,
@@ -59,7 +59,7 @@ abstract class SimpleBodies(
         @ConfigSerializable
         data class ForGeometry(
             val item: ItemDesc = ItemDesc(ItemType.Keyed(Key.key("minecraft", "stone"))),
-            val scale: FVec3 = FVec3.One,
+            val scale: FVec3 = FVec3.one,
         )
     }
 
@@ -86,10 +86,7 @@ abstract class SimpleBodies(
         fun onTrack(render: ItemRender) {
             render
                 .spawn(position.translation)
-                .transform(FAffine3(
-                    rotation = position.rotation.toFloat(),
-                    scale = scale,
-                ))
+                .transform(FAffine3(FVec3.zero, position.rotation.toFloat(), scale))
                 .interpolationDuration(settings.renderInterpolationDuration)
                 .item()
         }
@@ -106,10 +103,7 @@ abstract class SimpleBodies(
                 // because this game SUCKS
                 .interpolationDelay(0)
                 .position(position.translation)
-                .transform(FAffine3(
-                    rotation = position.rotation.toFloat(),
-                    scale = scale,
-                ))
+                .transform(FAffine3(FVec3.zero, position.rotation.toFloat(), scale))
             return true
         }
     }
@@ -150,7 +144,7 @@ abstract class SimpleBodies(
 
         // SAFETY: we don't increment the ref count, so `collider` will fully own this shape
         val shape = engine.createShape(desc.geom.handle)
-        val collider = engine.createCollider(shape, StartPosition.Relative())
+        val collider = engine.createCollider(shape, Collider.Start.Relative())
             .material(desc.material)
             .mass(desc.mass)
             .let { physics.colliders.add(it) }

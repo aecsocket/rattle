@@ -21,7 +21,7 @@ class TestSpace {
         val shape = engine.createShape(Sphere(0.5))
 
         repeat(256) {
-            val coll = engine.createCollider(shape.acquire(), StartPosition.Relative())
+            val coll = engine.createCollider(shape.acquire(), Collider.Start.Relative())
                 .material(PhysicsMaterial())
             val key = physics.colliders.add(coll)
             keys += key
@@ -54,7 +54,7 @@ class TestSpace {
 
         lock.lock()
         val shape = engine.createShape(Sphere(0.5))
-        val collKey = engine.createCollider(shape, StartPosition.Absolute(DIso3()))
+        val collKey = engine.createCollider(shape, Collider.Start.Absolute(DIso3.identity))
             .let { physics.colliders.add(it) }
         val coll = physics.colliders.read(collKey)!!
         lock.unlock()
@@ -88,9 +88,9 @@ class TestSpace {
             repeat(10_000) { i ->
                 val keys = (0 until 50).map {
                     physics.withLock { physics ->
-                        val collKey = engine.createCollider(shape.acquire(), StartPosition.Relative())
+                        val collKey = engine.createCollider(shape.acquire(), Collider.Start.Relative())
                             .let { physics.colliders.add(it) }
-                        val bodyKey = engine.createBody(RigidBodyType.DYNAMIC, DIso3())
+                        val bodyKey = engine.createBody(RigidBodyType.DYNAMIC, DIso3.identity)
                             .let { physics.rigidBodies.add(it) }
                         physics.colliders.attach(collKey, bodyKey)
                         collKey to bodyKey

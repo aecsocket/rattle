@@ -247,6 +247,6 @@ data class Compound(
      */
     data class Child(
         val shape: Shape,
-        val delta: DIso3 = DIso3(),
+        val delta: DIso3 = DIso3.identity,
     )
 }

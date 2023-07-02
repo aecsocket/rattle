@@ -1,9 +1,9 @@
 [versions]
 indra = "3.1.1"
 kotlin = "1.8.22"
-klam = "0.2.6"
+klam = "0.3.0-SNAPSHOT"
 configurate = "4.1.2"
-alexandria = "0.1.1-SNAPSHOT"
+alexandria = "0.1.2-SNAPSHOT"
 rapier = "0.2.0-SNAPSHOT"
 paper = "1.19.4"
 fabric = "1.20.1"

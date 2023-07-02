@@ -39,10 +39,10 @@ class RapierEngine internal constructor(var settings: Settings = Settings()) : P
     }
 
     override val name = "Rapier"
-
-    private val destroyed = DestroyFlag()
     override lateinit var version: String
         private set
+
+    private val destroyed = DestroyFlag()
 
     init {
         Rapier.load()
@@ -131,12 +131,12 @@ class RapierEngine internal constructor(var settings: Settings = Settings()) : P
         return RapierShape(handle)
     }
 
-    override fun createCollider(shape: Shape, position: StartPosition): Collider.Own {
+    override fun createCollider(shape: Shape, position: Collider.Start): Collider.Own {
         shape as RapierShape
         val coll = ColliderBuilder.of(shape.handle).use { it.build() }
         when (position) {
-            is StartPosition.Absolute -> coll.position = position.pos.toIsometry()
-            is StartPosition.Relative -> coll.setPositionWrtParent(position.pos.toIsometry())
+            is Collider.Start.Absolute -> coll.position = position.pos.toIsometry()
+            is Collider.Start.Relative -> coll.setPositionWrtParent(position.pos.toIsometry())
         }
         return RapierCollider.Write(coll, space = null)
     }
