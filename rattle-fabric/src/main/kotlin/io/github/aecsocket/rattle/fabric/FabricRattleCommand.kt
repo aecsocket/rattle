@@ -16,38 +16,37 @@ import net.minecraft.resources.ResourceKey
 internal class FabricRattleCommand(
     rattle: FabricRattle,
 ) : RattleCommand<CommandSourceStack>(rattle.rattle, rattle.messages, commandManager()) {
-    override fun locationArgumentOf(key: String) =
-        Vec3dArgument.of<CommandSourceStack>(key)
+  override fun locationArgumentOf(key: String) = Vec3dArgument.of<CommandSourceStack>(key)
 
-    override fun CommandContext<CommandSourceStack>.getLocation(key: String): Location {
-        val vec = get<Coordinates>(key)
-        return Location(
-            world = sender.level.wrap(),
-            position = vec.position().toDVec(),
-        )
-    }
+  override fun CommandContext<CommandSourceStack>.getLocation(key: String): Location {
+    val vec = get<Coordinates>(key)
+    return Location(
+        world = sender.level.wrap(),
+        position = vec.position().toDVec(),
+    )
+  }
 
-    // we can't actually use a RegistryEntryArgument since that would give us either:
-    // · a Level, which is actually a LevelStem and causes a class cast exception in Cloud internals
-    // · a LevelStem, which we can't get the level key from
-    // ...so we manually get the ResourceLocation of our Level
-    override fun worldArgumentOf(key: String) =
-        ResourceLocationArgument.builder<CommandSourceStack>(key)
-            .withSuggestionsProvider { ctx, _ ->
-                ctx.sender.server.allLevels.map { level ->
-                    level.dimension().location().asString()
-                }
-            }
-            .build()
+  // we can't actually use a RegistryEntryArgument since that would give us either:
+  // · a Level, which is actually a LevelStem and causes a class cast exception in Cloud internals
+  // · a LevelStem, which we can't get the level key from
+  // ...so we manually get the ResourceLocation of our Level
+  override fun worldArgumentOf(key: String) =
+      ResourceLocationArgument.builder<CommandSourceStack>(key)
+          .withSuggestionsProvider { ctx, _ ->
+            ctx.sender.server.allLevels.map { level -> level.dimension().location().asString() }
+          }
+          .build()
 
-    override fun CommandContext<CommandSourceStack>.getWorld(key: String): World {
-        val res = ResourceKey.create(Registries.DIMENSION, get(key))
-        val handle = sender.server.getLevel(res) ?: throw IllegalArgumentException("No world with key ${res.key()}")
-        return handle.wrap()
-    }
+  override fun CommandContext<CommandSourceStack>.getWorld(key: String): World {
+    val res = ResourceKey.create(Registries.DIMENSION, get(key))
+    val handle =
+        sender.server.getLevel(res)
+            ?: throw IllegalArgumentException("No world with key ${res.key()}")
+    return handle.wrap()
+  }
 
-    override val CommandContext<CommandSourceStack>.server: FabricRattlePlatform
-        get() = sender.server.rattle()
+  override val CommandContext<CommandSourceStack>.server: FabricRattlePlatform
+    get() = sender.server.rattle()
 
-    override fun CommandSourceStack.source() = wrap()
+  override fun CommandSourceStack.source() = wrap()
 }

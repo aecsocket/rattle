@@ -30,79 +30,86 @@ class FabricDynamicTerrain(
     val world: ServerLevel,
     settings: Settings = Settings(),
 ) : DynamicTerrain(platform, physics, settings) {
-    private val toSnapshot = Locked(HashSet<IVec3>())
-    private val layerByBlock = HashMap<Block, Int>()
+  private val toSnapshot = Locked(HashSet<IVec3>())
+  private val layerByBlock = HashMap<Block, Int>()
 
-    override fun createRender(pos: IVec3) = ItemDisplayRender(nextEntityId()) { packet ->
-        PlayerLookup
-            .tracking(world, ChunkPos(pos.x, pos.z))
+  override fun createRender(pos: IVec3) =
+      ItemDisplayRender(nextEntityId()) { packet ->
+        PlayerLookup.tracking(world, ChunkPos(pos.x, pos.z))
             // TODO
             .filter { false }
             // TODO // .filter { it.rattle().draw.terrain }
             .forEach { it.connection.send(packet) }
+      }
+
+  override fun scheduleSnapshot(pos: IVec3) {
+    toSnapshot.withLock { it += pos }
+  }
+
+  fun onTick() {
+    toSnapshot
+        .withLock { it.swapList() }
+        .forEach { pos ->
+          val snapshot = createSnapshot(world.getChunk(pos.x, pos.z, ChunkStatus.FULL), pos)
+          setSliceSnapshot(pos, snapshot)
+        }
+  }
+
+  private fun createSnapshot(chunk: ChunkAccess, pos: IVec3): SliceState.Snapshot {
+    if (pos.y < world.minBuildHeight / 16 || pos.y >= world.maxBuildHeight / 16) {
+      return SliceState.Snapshot.Empty
+    }
+    if (chunk.getSection(pos.y - world.minBuildHeight / 16).hasOnlyAir()) {
+      return SliceState.Snapshot.Empty
     }
 
-    override fun scheduleSnapshot(pos: IVec3) {
-        toSnapshot.withLock { it += pos }
-    }
-
-    fun onTick() {
-        toSnapshot.withLock { it.swapList() }.forEach { pos ->
-            val snapshot = createSnapshot(world.getChunk(pos.x, pos.z, ChunkStatus.FULL), pos)
-            setSliceSnapshot(pos, snapshot)
-        }
-    }
-
-    private fun createSnapshot(chunk: ChunkAccess, pos: IVec3): SliceState.Snapshot {
-        if (pos.y < world.minBuildHeight / 16 || pos.y >= world.maxBuildHeight / 16) {
-            return SliceState.Snapshot.Empty
-        }
-        if (chunk.getSection(pos.y - world.minBuildHeight / 16).hasOnlyAir()) {
-            return SliceState.Snapshot.Empty
+    val tiles: Array<out Tile?> =
+        Array(TILES_IN_SLICE) { i ->
+          val (gx, gy, gz) = pos * 16 + posInChunk(i)
+          // guaranteed to be in range because of the Y check at the start
+          val blockPos = BlockPos(gx, gy, gz)
+          wrapBlock(chunk.getBlockState(blockPos), blockPos)
         }
 
-        val tiles: Array<out Tile?> = Array(TILES_IN_SLICE) { i ->
-            val (gx, gy, gz) = pos * 16 + posInChunk(i)
-            // guaranteed to be in range because of the Y check at the start
-            val blockPos = BlockPos(gx, gy, gz)
-            wrapBlock(chunk.getBlockState(blockPos), blockPos)
+    return SliceState.Snapshot(
+        tiles = tiles,
+    )
+  }
+
+  private fun wrapBlock(block: BlockState, pos: BlockPos): Tile? {
+    fun layerId(default: Int) =
+        layerByBlock.computeIfAbsent(block.block) {
+          settings.layers.byBlock[BuiltInRegistries.BLOCK.getKey(block.block)]?.let { layerKey ->
+            layerByKey[layerKey]
+          }
+              ?: default
         }
 
-        return SliceState.Snapshot(
-            tiles = tiles,
+    val collShape = block.getCollisionShape(world, pos)
+    when {
+      // TODO isLiquid
+      collShape.isEmpty -> {
+        return null
+      }
+      else -> {
+        val shapes =
+            collShape.toAabbs().map { box ->
+              Compound.Child(
+                  shape =
+                      boxShape(
+                          DVec3(
+                              box.maxX - box.minX,
+                              box.maxY - box.minY,
+                              box.maxZ - box.minZ,
+                          ) / 2.0),
+                  delta = DIso3(box.center.toDVec() - 0.5, DQuat.identity),
+              )
+            }
+        return Tile(
+            layerId = layerId(defaultSolidLayer),
+            shapes = shapes,
         )
+      }
     }
-
-    private fun wrapBlock(block: BlockState, pos: BlockPos): Tile? {
-        fun layerId(default: Int) = layerByBlock.computeIfAbsent(block.block) {
-            settings.layers.byBlock[BuiltInRegistries.BLOCK.getKey(block.block)]?.let { layerKey ->
-                layerByKey[layerKey]
-            } ?: default
-        }
-
-        val collShape = block.getCollisionShape(world, pos)
-        when {
-            // TODO isLiquid
-            collShape.isEmpty -> {
-                return null
-            }
-            else -> {
-                val shapes = collShape.toAabbs()
-                    .map { box ->
-                        Compound.Child(
-                            shape = boxShape(DVec3(
-                                box.maxX - box.minX,
-                                box.maxY - box.minY,
-                                box.maxZ - box.minZ,
-                            ) / 2.0),
-                            delta = DIso3(box.center.toDVec() - 0.5, DQuat.identity),
-                        )
-                    }
-                return Tile(
-                    layerId = layerId(defaultSolidLayer),
-                    shapes = shapes,
-                )
-            }
-        }
-    }
+  }
 }

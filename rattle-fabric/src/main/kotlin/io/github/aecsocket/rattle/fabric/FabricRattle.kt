@@ -17,6 +17,7 @@ import io.github.aecsocket.rattle.impl.RattleMessages
 import io.github.aecsocket.rattle.impl.rattleManifest
 import io.github.aecsocket.rattle.serializer.rattleSerializers
 import io.github.oshai.kotlinlogging.KLogger
+import java.util.concurrent.locks.ReentrantLock
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
 import net.fabricmc.fabric.api.networking.v1.EntityTrackingEvents
 import net.kyori.adventure.platform.fabric.PlayerLocales
@@ -29,134 +30,136 @@ import org.spongepowered.configurate.ConfigurationOptions
 import org.spongepowered.configurate.kotlin.dataClassFieldDiscoverer
 import org.spongepowered.configurate.kotlin.extensions.get
 import org.spongepowered.configurate.objectmapping.ObjectMapper
-import java.util.concurrent.locks.ReentrantLock
 
 lateinit var Rattle: FabricRattle
-    private set
+  private set
 
 @Suppress("UnstableApiUsage")
-class FabricRattle : AlexandriaMod<RattleHook.Settings>(
-    manifest = rattleManifest,
-    configOptions = ConfigurationOptions.defaults()
-        .serializers { it
-            .registerAll(fabricSerializers)
-            .registerAll(rattleSerializers)
-            .registerAnnotatedObjects(ObjectMapper.factoryBuilder()
-                .addDiscoverer(dataClassFieldDiscoverer())
-                .build()
-            )
-        },
-) {
-    companion object {
-        @JvmStatic
-        fun api() = Rattle
-    }
+class FabricRattle :
+    AlexandriaMod<RattleHook.Settings>(
+        manifest = rattleManifest,
+        configOptions =
+            ConfigurationOptions.defaults().serializers {
+              it.registerAll(fabricSerializers)
+                  .registerAll(rattleSerializers)
+                  .registerAnnotatedObjects(
+                      ObjectMapper.factoryBuilder()
+                          .addDiscoverer(dataClassFieldDiscoverer())
+                          .build())
+            },
+    ) {
+  companion object {
+    @JvmStatic fun api() = Rattle
+  }
 
-    lateinit var lineItem: ItemStack
+  lateinit var lineItem: ItemStack
 
-    internal val rattle = object : RattleHook() {
+  internal val rattle =
+      object : RattleHook() {
         override val ax: AlexandriaHook<*>
-            get() = this@FabricRattle.ax
+          get() = this@FabricRattle.ax
 
         override val log: KLogger
-            get() = this@FabricRattle.log
+          get() = this@FabricRattle.log
 
         override val settings: Settings
-            get() = this@FabricRattle.settings
+          get() = this@FabricRattle.settings
 
         override val glossa: Glossa
-            get() = this@FabricRattle.glossa
+          get() = this@FabricRattle.glossa
 
-        override val draw = object : Draw {
-            override fun lineItem(render: ItemRender) {
+        override val draw =
+            object : Draw {
+              override fun lineItem(render: ItemRender) {
                 (render as ItemDisplayRender).item(lineItem)
+              }
             }
-        }
+      }
+
+  val engine: PhysicsEngine
+    get() = rattle.engine
+
+  val messages: MessageProxy<RattleMessages>
+    get() = rattle.messages
+
+  fun runTask(task: Runnable) = rattle.runTask(task)
+
+  var platform: FabricRattlePlatform? = null
+
+  init {
+    Rattle = this
+  }
+
+  override fun loadSettings(node: ConfigurationNode) = node.get() ?: RattleHook.Settings()
+
+  override fun onInit() {
+    rattle.init()
+    FabricRattleCommand(this)
+    ServerLifecycleEvents.SERVER_STARTING.register { server ->
+      platform = server.rattle()
+      log.trace { "Set up Rattle platform" }
+    }
+    ServerLifecycleEvents.SERVER_STOPPING.register { server ->
+      server.rattle().destroy()
+      platform = null
+      log.trace { "Tore down Rattle platform" }
     }
 
-    val engine: PhysicsEngine
-        get() = rattle.engine
-
-    val messages: MessageProxy<RattleMessages>
-        get() = rattle.messages
-
-    fun runTask(task: Runnable) =
-        rattle.runTask(task)
-
-    var platform: FabricRattlePlatform? = null
-
-    init {
-        Rattle = this
+    PlayerLocales.CHANGED_EVENT.register { player, newLocale ->
+      player.rattle().messages = messages.forLocale(newLocale ?: settings.defaultLocale)
+      log.trace { "Updated locale for ${player.name} to $newLocale" }
     }
 
-    override fun loadSettings(node: ConfigurationNode) = node.get() ?: RattleHook.Settings()
+    EntityTrackingEvents.START_TRACKING.register { trackedEntity, player ->
+      player.serverLevel().physicsOrNull()?.withLock { physics ->
+        physics.simpleBodies.onTrackEntity(player, trackedEntity)
+      }
+    }
+    EntityTrackingEvents.STOP_TRACKING.register { trackedEntity, player ->
+      player.serverLevel().physicsOrNull()?.withLock { physics ->
+        physics.simpleBodies.onUntrackEntity(player, trackedEntity)
+      }
+    }
+  }
 
-    override fun onInit() {
-        rattle.init()
-        FabricRattleCommand(this)
-        ServerLifecycleEvents.SERVER_STARTING.register { server ->
-            platform = server.rattle()
-            log.trace { "Set up Rattle platform" }
-        }
-        ServerLifecycleEvents.SERVER_STOPPING.register { server ->
-            server.rattle().destroy()
-            platform = null
-            log.trace { "Tore down Rattle platform" }
-        }
+  override fun onLoad() {
+    rattle.load(platform)
+    lineItem = settings.draw.lineItem.create()
+  }
 
-        PlayerLocales.CHANGED_EVENT.register { player, newLocale ->
-            player.rattle().messages = messages.forLocale(newLocale ?: settings.defaultLocale)
-            log.trace { "Updated locale for ${player.name} to $newLocale" }
-        }
+  override fun onReload() {
+    rattle.reload()
+  }
 
-        EntityTrackingEvents.START_TRACKING.register { trackedEntity, player ->
-            player.serverLevel().physicsOrNull()?.withLock { physics ->
-                physics.simpleBodies.onTrackEntity(player, trackedEntity)
+  fun physicsOrNull(world: ServerLevel): Sync<FabricWorldPhysics>? =
+      (world as LevelPhysicsAccess).rattle_getPhysics()
+
+  fun physicsOrCreate(world: ServerLevel): Sync<FabricWorldPhysics> {
+    world as LevelPhysicsAccess
+    val physics =
+        world.rattle_getPhysics()
+            ?: run {
+              val lock = ReentrantLock()
+              val spaceSettings = settings.worldPhysics.forWorld(world) ?: PhysicsSpace.Settings()
+              val platform = world.server.rattle()
+              val physics = engine.createSpace(spaceSettings)
+              physics.lock = lock
+
+              val simpleBodies =
+                  FabricSimpleBodies(platform, physics, world, this.settings.simpleBodies)
+              val terrain =
+                  if (settings.terrain.enabled) {
+                    FabricDynamicTerrain(platform, physics, world, settings.terrain)
+                  } else null
+              val entities: FabricEntityStrategy? = null // TODO
+
+              Locked(FabricWorldPhysics(physics, terrain, entities, simpleBodies, world), lock)
+                  .also { world.rattle_setPhysics(it) }
             }
-        }
-        EntityTrackingEvents.STOP_TRACKING.register { trackedEntity, player ->
-            player.serverLevel().physicsOrNull()?.withLock { physics ->
-                physics.simpleBodies.onUntrackEntity(player, trackedEntity)
-            }
-        }
-    }
+    return physics
+  }
 
-    override fun onLoad() {
-        rattle.load(platform)
-        lineItem = settings.draw.lineItem.create()
-    }
-
-    override fun onReload() {
-        rattle.reload()
-    }
-
-    fun physicsOrNull(world: ServerLevel): Sync<FabricWorldPhysics>? =
-        (world as LevelPhysicsAccess).rattle_getPhysics()
-
-    fun physicsOrCreate(world: ServerLevel): Sync<FabricWorldPhysics> {
-        world as LevelPhysicsAccess
-        val physics = world.rattle_getPhysics() ?: run {
-            val lock = ReentrantLock()
-            val spaceSettings = settings.worldPhysics.forWorld(world) ?: PhysicsSpace.Settings()
-            val platform = world.server.rattle()
-            val physics = engine.createSpace(spaceSettings)
-            physics.lock = lock
-
-            val simpleBodies = FabricSimpleBodies(platform, physics, world, this.settings.simpleBodies)
-            val terrain = if (settings.terrain.enabled) {
-                FabricDynamicTerrain(platform, physics, world, settings.terrain)
-            } else null
-            val entities: FabricEntityStrategy? = null // TODO
-
-            Locked(FabricWorldPhysics(physics, terrain, entities, simpleBodies, world), lock).also {
-                world.rattle_setPhysics(it)
-            }
-        }
-        return physics
-    }
-
-    fun playerData(player: ServerPlayer): FabricRattlePlayer =
-        (player as PlayerRattleAccess).rattle()
+  fun playerData(player: ServerPlayer): FabricRattlePlayer = (player as PlayerRattleAccess).rattle()
 }
 
 fun MinecraftServer.rattle() = (this as ServerRattleAccess).rattle()

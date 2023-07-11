@@ -6,12 +6,10 @@ import io.github.aecsocket.rattle.world.EntityStrategy
 import org.bukkit.entity.Entity
 
 class PaperEntityStrategy : EntityStrategy() {
-    private data class Instance(
-        val body: RigidBodyKey,
-        val collider: ColliderKey,
-    )
+  private data class Instance(
+      val body: RigidBodyKey,
+      val collider: ColliderKey,
+  )
 
-    private val entityToInst = HashMap<Entity, Instance>()
-
-
+  private val entityToInst = HashMap<Entity, Instance>()
 }

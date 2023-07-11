@@ -8,9 +8,7 @@ plugins {
 
 val minecraft: String = libs.versions.paper.get()
 
-repositories {
-  maven("https://repo.codemc.io/repository/maven-snapshots/")
-}
+repositories { maven("https://repo.codemc.io/repository/maven-snapshots/") }
 
 dependencies {
   paperweight.foliaDevBundle("$minecraft-R0.1-SNAPSHOT")
@@ -19,20 +17,16 @@ dependencies {
 }
 
 tasks {
-  assemble {
-    dependsOn(shadowJar)
-  }
+  assemble { dependsOn(shadowJar) }
 
-  runServer {
-    minecraftVersion(minecraft)
-  }
+  runServer { minecraftVersion(minecraft) }
 
   processResources {
     filesMatching("paper-plugin.yml") {
       expand(
-        "version" to project.version,
-        "group" to project.group,
-        "description" to project.description,
+          "version" to project.version,
+          "group" to project.group,
+          "description" to project.description,
       )
     }
   }

@@ -23,119 +23,105 @@ import org.spongepowered.configurate.kotlin.dataClassFieldDiscoverer
 import org.spongepowered.configurate.kotlin.extensions.get
 import org.spongepowered.configurate.objectmapping.ObjectMapper
 
-/**
- * The entry point for Rattle on the Paper platform.
- */
+/** The entry point for Rattle on the Paper platform. */
 lateinit var Rattle: PaperRattle
-    private set
+  private set
 
-/**
- * The Paper implementation of Rattle, handling startup, events, teardown, etc.
- */
-class PaperRattle : AlexandriaPlugin<RattleHook.Settings>(
-    manifest = rattleManifest,
-    configOptions = ConfigurationOptions.defaults()
-        .serializers { it
-            .registerAll(paperSerializers)
-            .registerAll(rattleSerializers)
-            .registerAnnotatedObjects(ObjectMapper.factoryBuilder()
-                .addDiscoverer(dataClassFieldDiscoverer())
-                .build()
-            )
-        },
-    savedResources = listOf()
-) {
-    companion object {
-        @JvmStatic
-        fun api() = Rattle
-    }
+/** The Paper implementation of Rattle, handling startup, events, teardown, etc. */
+class PaperRattle :
+    AlexandriaPlugin<RattleHook.Settings>(
+        manifest = rattleManifest,
+        configOptions =
+            ConfigurationOptions.defaults().serializers {
+              it.registerAll(paperSerializers)
+                  .registerAll(rattleSerializers)
+                  .registerAnnotatedObjects(
+                      ObjectMapper.factoryBuilder()
+                          .addDiscoverer(dataClassFieldDiscoverer())
+                          .build())
+            },
+        savedResources = listOf()) {
+  companion object {
+    @JvmStatic fun api() = Rattle
+  }
 
-    private lateinit var lineItem: ItemStack
+  private lateinit var lineItem: ItemStack
 
-    internal val rattle = object : RattleHook() {
+  internal val rattle =
+      object : RattleHook() {
         override val ax: AlexandriaHook<*>
-            get() = this@PaperRattle.ax
+          get() = this@PaperRattle.ax
 
         override val log: KLogger
-            get() = this@PaperRattle.log
+          get() = this@PaperRattle.log
 
         override val settings: Settings
-            get() = this@PaperRattle.settings
+          get() = this@PaperRattle.settings
 
         override val glossa: Glossa
-            get() = this@PaperRattle.glossa
+          get() = this@PaperRattle.glossa
 
-        override val draw = object : Draw {
-            override fun lineItem(render: ItemRender) {
+        override val draw =
+            object : Draw {
+              override fun lineItem(render: ItemRender) {
                 (render as ItemDisplayRender).item(lineItem)
+              }
             }
-        }
-    }
+      }
 
-    /**
-     * Gets the physics engine that this implementation uses.
-     */
-    val engine: PhysicsEngine
-        get() = rattle.engine
+  /** Gets the physics engine that this implementation uses. */
+  val engine: PhysicsEngine
+    get() = rattle.engine
 
-    val messages: MessageProxy<RattleMessages>
-        get() = rattle.messages
+  val messages: MessageProxy<RattleMessages>
+    get() = rattle.messages
 
-    fun runTask(task: Runnable) =
-        rattle.runTask(task)
+  fun runTask(task: Runnable) = rattle.runTask(task)
 
-    lateinit var platform: PaperRattlePlatform
-        private set
+  lateinit var platform: PaperRattlePlatform
+    private set
 
-    init {
-        Rattle = this
-    }
+  init {
+    Rattle = this
+  }
 
-    override fun loadSettings(node: ConfigurationNode) = node.get() ?: RattleHook.Settings()
+  override fun loadSettings(node: ConfigurationNode) = node.get() ?: RattleHook.Settings()
 
-    override fun onPreInit() {
-        platform = PaperRattlePlatform(this)
-    }
+  override fun onPreInit() {
+    platform = PaperRattlePlatform(this)
+  }
 
-    override fun onInit() {
-        rattle.init()
-    }
+  override fun onInit() {
+    rattle.init()
+  }
 
-    override fun onPostEnable() {
-        PaperRattleCommand(this)
-        platform.onPostEnable()
-    }
+  override fun onPostEnable() {
+    PaperRattleCommand(this)
+    platform.onPostEnable()
+  }
 
-    override fun onLoadData() {
-        rattle.load(platform)
-        lineItem = settings.draw.lineItem.create()
-    }
+  override fun onLoadData() {
+    rattle.load(platform)
+    lineItem = settings.draw.lineItem.create()
+  }
 
-    override fun onReloadData() {
-        rattle.reload()
-    }
+  override fun onReloadData() {
+    rattle.reload()
+  }
 
-    override fun onDestroy() {
-        rattle.destroy(platform)
-    }
+  override fun onDestroy() {
+    rattle.destroy(platform)
+  }
 }
 
-/**
- * @see PaperRattlePlayer
- */
+/** @see PaperRattlePlayer */
 fun Player.rattle() = Rattle.platform.playerData(this)
 
-/**
- * @see PaperRattlePlatform.physicsOrNull
- */
+/** @see PaperRattlePlatform.physicsOrNull */
 fun World.physicsOrNull() = Rattle.platform.physicsOrNull(this)
 
-/**
- * @see PaperRattlePlatform.physicsOrCreate
- */
+/** @see PaperRattlePlatform.physicsOrCreate */
 fun World.physicsOrCreate() = Rattle.platform.physicsOrCreate(this)
 
-/**
- * @see PaperRattlePlatform.hasPhysics
- */
+/** @see PaperRattlePlatform.hasPhysics */
 fun World.hasPhysics() = physicsOrNull() != null

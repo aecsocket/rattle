@@ -14,25 +14,22 @@ import org.bukkit.command.CommandSender
 internal class PaperRattleCommand(
     private val rattle: PaperRattle,
 ) : RattleCommand<CommandSender>(rattle.rattle, rattle.messages, commandManager(rattle)) {
-    override fun locationArgumentOf(key: String) =
-        LocationArgument.of<CommandSender>(key)
+  override fun locationArgumentOf(key: String) = LocationArgument.of<CommandSender>(key)
 
-    override fun CommandContext<CommandSender>.getLocation(key: String): RLocation {
-        val loc = get<Location>(key)
-        return RLocation(
-            world = loc.world.wrap(),
-            position = loc.position(),
-        )
-    }
+  override fun CommandContext<CommandSender>.getLocation(key: String): RLocation {
+    val loc = get<Location>(key)
+    return RLocation(
+        world = loc.world.wrap(),
+        position = loc.position(),
+    )
+  }
 
-    override fun worldArgumentOf(key: String) =
-        WorldArgument.of<CommandSender>(key)
+  override fun worldArgumentOf(key: String) = WorldArgument.of<CommandSender>(key)
 
-    override fun CommandContext<CommandSender>.getWorld(key: String) =
-        get<World>(key).wrap()
+  override fun CommandContext<CommandSender>.getWorld(key: String) = get<World>(key).wrap()
 
-    override val CommandContext<CommandSender>.server: RattlePlatform
-        get() = rattle.platform
+  override val CommandContext<CommandSender>.server: RattlePlatform
+    get() = rattle.platform
 
-    override fun CommandSender.source() = wrap()
+  override fun CommandSender.source() = wrap()
 }

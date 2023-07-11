@@ -9,7 +9,6 @@ import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.world.DynamicTerrain
 import io.github.aecsocket.rattle.world.TILES_IN_SLICE
 import io.github.aecsocket.rattle.world.posInChunk
-
 import org.bukkit.Chunk
 import org.bukkit.Material
 import org.bukkit.World
@@ -126,129 +125,127 @@ class PaperDynamicTerrain(
     val world: World,
     settings: Settings = Settings(),
 ) : DynamicTerrain(platform, physics, settings) {
-    private val yIndices = (world.minHeight / 16) until (world.maxHeight / 16)
-    private val layerByBlock = HashMap<Material, Int>()
+  private val yIndices = (world.minHeight / 16) until (world.maxHeight / 16)
+  private val layerByBlock = HashMap<Material, Int>()
 
-    override fun createRender(pos: IVec3) = ItemDisplayRender(nextEntityId()) { packet ->
+  override fun createRender(pos: IVec3) =
+      ItemDisplayRender(nextEntityId()) { packet ->
         val targets = platform.drawPlayers
         if (targets.isEmpty()) return@ItemDisplayRender
-        ChunkTracking
-            .trackedPlayers(world, pos.xz)
+        ChunkTracking.trackedPlayers(world, pos.xz)
             .filter { targets[it]?.terrain == true }
             .forEach { it.sendPacket(packet) }
+      }
+
+  override fun scheduleSnapshot(pos: IVec3) {
+    val chunk = world.getChunkAt(pos.x, pos.z)
+    platform.plugin.scheduling.onChunk(chunk).runLater {
+      val snapshot = createSnapshot(chunk, pos)
+      setSliceSnapshot(pos, snapshot)
     }
+  }
 
-    override fun scheduleSnapshot(pos: IVec3) {
-        val chunk = world.getChunkAt(pos.x, pos.z)
-        platform.plugin.scheduling.onChunk(chunk).runLater {
-            val snapshot = createSnapshot(chunk, pos)
-            setSliceSnapshot(pos, snapshot)
-        }
+  private fun createSnapshot(chunk: Chunk, pos: IVec3): SliceState.Snapshot {
+    if (pos.y < -world.minHeight / 16 || pos.y >= world.maxHeight / 16) {
+      return SliceState.Snapshot.Empty
     }
+    // TODO if chunk is empty, we don't snapshot
 
-    private fun createSnapshot(chunk: Chunk, pos: IVec3): SliceState.Snapshot {
-        if (pos.y < -world.minHeight / 16 || pos.y >= world.maxHeight / 16) {
-            return SliceState.Snapshot.Empty
-        }
-        // TODO if chunk is empty, we don't snapshot
-
-        val tiles: Array<out Tile?> = Array(TILES_IN_SLICE) { i ->
-            val (lx, ly, lz) = posInChunk(i)
-            val gy = pos.y * 16 + ly
-            // guaranteed to be in range because of the Y check at the start
-            val block = chunk.getBlock(lx, gy, lz)
-            wrapBlock(block)
+    val tiles: Array<out Tile?> =
+        Array(TILES_IN_SLICE) { i ->
+          val (lx, ly, lz) = posInChunk(i)
+          val gy = pos.y * 16 + ly
+          // guaranteed to be in range because of the Y check at the start
+          val block = chunk.getBlock(lx, gy, lz)
+          wrapBlock(block)
         }
 
-        return SliceState.Snapshot(
-            tiles = tiles,
+    return SliceState.Snapshot(
+        tiles = tiles,
+    )
+  }
+
+  private fun wrapBlock(block: Block): Tile? {
+    fun layerId(default: Int) =
+        layerByBlock.computeIfAbsent(block.type) {
+          settings.layers.byBlock[block.type.key]?.let { layerKey -> layerByKey[layerKey] }
+              ?: default
+        }
+
+    when {
+      block.isLiquid -> {
+        val shape =
+            Compound.Child(
+                shape = boxShape(DVec3(0.5)),
+            )
+        return Tile(
+            layerId = layerId(defaultFluidLayer),
+            shapes = listOf(shape),
         )
-    }
-
-    private fun wrapBlock(block: Block): Tile? {
-        fun layerId(default: Int) = layerByBlock.computeIfAbsent(block.type) {
-            settings.layers.byBlock[block.type.key]?.let { layerKey ->
-                layerByKey[layerKey]
-            } ?: default
-        }
-
-        when {
-            block.isLiquid -> {
-                val shape = Compound.Child(
-                    shape = boxShape(DVec3(0.5)),
-                )
-                return Tile(
-                    layerId = layerId(defaultFluidLayer),
-                    shapes = listOf(shape),
-                )
+      }
+      block.isPassable -> {
+        return null
+      }
+      else -> {
+        val shapes =
+            block.collisionShape.boundingBoxes.map { box ->
+              Compound.Child(
+                  shape = boxShape(box.max.subtract(box.min).toDVec() / 2.0),
+                  delta = DIso3(box.center.toDVec() - 0.5, DQuat.identity),
+              )
             }
-            block.isPassable -> {
-                return null
-            }
-            else -> {
-                val shapes = block.collisionShape.boundingBoxes
-                    .map { box ->
-                        Compound.Child(
-                            shape = boxShape(box.max.subtract(box.min).toDVec() / 2.0),
-                            delta = DIso3(box.center.toDVec() - 0.5, DQuat.identity),
-                        )
-                    }
-                return Tile(
-                    layerId = layerId(defaultSolidLayer),
-                    shapes = shapes,
-                )
-            }
-        }
+        return Tile(
+            layerId = layerId(defaultSolidLayer),
+            shapes = shapes,
+        )
+      }
     }
+  }
 
-    private fun runForSlicesIn(chunk: Chunk, fn: (Slice) -> Unit) {
-        platform.plugin.runTask {
-            slices.withLock { slices ->
-                yIndices.forEach { sy ->
-                    val slice = slices[IVec3(chunk.x, sy, chunk.z)] ?: return@forEach
-                    fn(slice)
-                }
-            }
+  private fun runForSlicesIn(chunk: Chunk, fn: (Slice) -> Unit) {
+    platform.plugin.runTask {
+      slices.withLock { slices ->
+        yIndices.forEach { sy ->
+          val slice = slices[IVec3(chunk.x, sy, chunk.z)] ?: return@forEach
+          fn(slice)
         }
+      }
     }
+  }
 
-    fun showChunkDebug(player: Player, chunk: Chunk) {
-        runForSlicesIn(chunk) { slice ->
-            slice.debugRenders.forEach {
-                slice.onTrack((it.render as ItemDisplayRender).withReceiver(player.packetReceiver()), it)
-            }
-        }
+  fun showChunkDebug(player: Player, chunk: Chunk) {
+    runForSlicesIn(chunk) { slice ->
+      slice.debugRenders.forEach {
+        slice.onTrack((it.render as ItemDisplayRender).withReceiver(player.packetReceiver()), it)
+      }
     }
+  }
 
-    fun showDebug(player: Player) {
-        ChunkTracking.trackedChunks(player).forEach { chunk ->
-            showChunkDebug(player, chunk)
-        }
-    }
+  fun showDebug(player: Player) {
+    ChunkTracking.trackedChunks(player).forEach { chunk -> showChunkDebug(player, chunk) }
+  }
 
-    fun hideChunkDebug(player: Player, chunk: Chunk) {
-        runForSlicesIn(chunk) { slice ->
-            slice.debugRenders.forEach {
-                slice.onUntrack((it.render as ItemDisplayRender).withReceiver(player.packetReceiver()))
-            }
-        }
+  fun hideChunkDebug(player: Player, chunk: Chunk) {
+    runForSlicesIn(chunk) { slice ->
+      slice.debugRenders.forEach {
+        slice.onUntrack((it.render as ItemDisplayRender).withReceiver(player.packetReceiver()))
+      }
     }
+  }
 
-    fun hideDebug(player: Player) {
-        ChunkTracking.trackedChunks(player).forEach { chunk ->
-            hideChunkDebug(player, chunk)
-        }
-    }
+  fun hideDebug(player: Player) {
+    ChunkTracking.trackedChunks(player).forEach { chunk -> hideChunkDebug(player, chunk) }
+  }
 
-    fun onTrackChunk(player: Player, chunk: Chunk) {
-        if (platform.drawPlayers[player]?.terrain != true) {
-            showChunkDebug(player, chunk)
-        }
+  fun onTrackChunk(player: Player, chunk: Chunk) {
+    if (platform.drawPlayers[player]?.terrain != true) {
+      showChunkDebug(player, chunk)
     }
+  }
 
-    fun onUntrackChunk(player: Player, chunk: Chunk) {
-        if (platform.drawPlayers[player]?.terrain == true) {
-            hideChunkDebug(player, chunk)
-        }
+  fun onUntrackChunk(player: Player, chunk: Chunk) {
+    if (platform.drawPlayers[player]?.terrain == true) {
+      hideChunkDebug(player, chunk)
     }
+  }
 }

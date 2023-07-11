@@ -27,94 +27,99 @@ class FabricSimpleBodies(
     val world: ServerLevel,
     settings: Settings = Settings(),
 ) : SimpleBodies(platform, physics, settings) {
-    private inner class FabricInstance(
-        collider: ColliderKey,
-        body: RigidBodyKey,
-        scale: FVec3,
-        position: DIso3,
-        private val item: ItemStack,
-        override val render: ItemDisplayRender?
-    ) : SimpleBodies.Instance(collider, body, scale, position) {
-        override fun ItemRender.item() {
-            (this as ItemDisplayRender).item(item)
-        }
+  private inner class FabricInstance(
+      collider: ColliderKey,
+      body: RigidBodyKey,
+      scale: FVec3,
+      position: DIso3,
+      private val item: ItemStack,
+      override val render: ItemDisplayRender?
+  ) : SimpleBodies.Instance(collider, body, scale, position) {
+    override fun ItemRender.item() {
+      (this as ItemDisplayRender).item(item)
     }
+  }
 
-    private val trackerToInst = Locked(HashMap<Entity, ArenaKey>())
-    private val toRemove = Locked(HashSet<ArenaKey>())
+  private val trackerToInst = Locked(HashMap<Entity, ArenaKey>())
+  private val toRemove = Locked(HashSet<ArenaKey>())
 
-    override fun addInstance(
-        collider: ColliderKey,
-        body: RigidBodyKey,
-        scale: FVec3,
-        position: DIso3,
-        geomSettings: Settings.ForGeometry,
-        visibility: Visibility,
-    ): ArenaKey {
-        return when (visibility) {
-            Visibility.INVISIBLE -> instances.add(
-                FabricInstance(collider, body, scale, position, geomSettings.item.create(), render = null)
-            )
-            Visibility.VISIBLE -> {
-                val tracker = createTrackerEntity(world, position.translation)
-                val render = ItemDisplayRender(nextEntityId()) { packet ->
-                    PlayerLookup.tracking(tracker).forEach { it.connection.send(packet) }
-                }
-                val instKey = instances.add(
-                    FabricInstance(collider, body, scale, position, geomSettings.item.create(), render)
-                )
-                trackerToInst.withLock { it[tracker] = instKey }
-                world.addFreshEntity(tracker)
-                instKey
+  override fun addInstance(
+      collider: ColliderKey,
+      body: RigidBodyKey,
+      scale: FVec3,
+      position: DIso3,
+      geomSettings: Settings.ForGeometry,
+      visibility: Visibility,
+  ): ArenaKey {
+    return when (visibility) {
+      Visibility.INVISIBLE ->
+          instances.add(
+              FabricInstance(
+                  collider, body, scale, position, geomSettings.item.create(), render = null))
+      Visibility.VISIBLE -> {
+        val tracker = createTrackerEntity(world, position.translation)
+        val render =
+            ItemDisplayRender(nextEntityId()) { packet ->
+              PlayerLookup.tracking(tracker).forEach { it.connection.send(packet) }
             }
+        val instKey =
+            instances.add(
+                FabricInstance(collider, body, scale, position, geomSettings.item.create(), render))
+        trackerToInst.withLock { it[tracker] = instKey }
+        world.addFreshEntity(tracker)
+        instKey
+      }
+    }
+  }
+
+  override fun onPhysicsStep() {
+    toRemove.withLock { it.swapList() }.forEach { remove(it) }
+    super.onPhysicsStep()
+  }
+
+  fun onTick() {
+    trackerToInst.withLock { trackerToInst ->
+      trackerToInst.toList().forEach { (tracker, instKey) ->
+        fun remove() {
+          tracker.remove(RemovalReason.DISCARDED)
         }
-    }
 
-    override fun onPhysicsStep() {
-        toRemove.withLock { it.swapList() }.forEach { remove(it) }
-        super.onPhysicsStep()
-    }
-
-    fun onTick() {
-        trackerToInst.withLock { trackerToInst ->
-            trackerToInst.toList().forEach { (tracker, instKey) ->
-                fun remove() {
-                    tracker.remove(RemovalReason.DISCARDED)
-                }
-
-                // this must run first since the other removals are based on setting `.isRemoved` to true here
-                if (tracker.isRemoved) {
-                    trackerToInst.remove(tracker)
-                    toRemove.withLock { it += instKey }
-                    return@forEach
-                }
-
-                val inst = get(instKey) ?: run {
-                    remove()
-                    return@forEach
-                }
-                if (inst.destroyed.get()) {
-                    remove()
-                    return@forEach
-                }
-
-                val pos = inst.position.translation
-                if (inst.onUpdate() && distanceSq(tracker.position().toDVec(), pos) > 16.0 * 16.0) {
-                    tracker.teleportTo(pos.x, pos.y, pos.z)
-                }
-            }
+        // this must run first since the other removals are based on setting `.isRemoved` to true
+        // here
+        if (tracker.isRemoved) {
+          trackerToInst.remove(tracker)
+          toRemove.withLock { it += instKey }
+          return@forEach
         }
-    }
 
-    fun onTrackEntity(player: ServerPlayer, entity: Entity) {
-        val inst = trackerToInst.withLock { it[entity] }?.let { get(it) } ?: return
-        val render = inst.render as? ItemDisplayRender ?: return
-        inst.onTrack(render.withReceiver(player.packetReceiver()))
-    }
+        val inst =
+            get(instKey)
+                ?: run {
+                  remove()
+                  return@forEach
+                }
+        if (inst.destroyed.get()) {
+          remove()
+          return@forEach
+        }
 
-    fun onUntrackEntity(player: ServerPlayer, entity: Entity) {
-        val inst = trackerToInst.withLock { it[entity] }?.let { get(it) } ?: return
-        val render = inst.render as? ItemDisplayRender ?: return
-        inst.onUntrack(render.withReceiver(player.packetReceiver()))
+        val pos = inst.position.translation
+        if (inst.onUpdate() && distanceSq(tracker.position().toDVec(), pos) > 16.0 * 16.0) {
+          tracker.teleportTo(pos.x, pos.y, pos.z)
+        }
+      }
     }
+  }
+
+  fun onTrackEntity(player: ServerPlayer, entity: Entity) {
+    val inst = trackerToInst.withLock { it[entity] }?.let { get(it) } ?: return
+    val render = inst.render as? ItemDisplayRender ?: return
+    inst.onTrack(render.withReceiver(player.packetReceiver()))
+  }
+
+  fun onUntrackEntity(player: ServerPlayer, entity: Entity) {
+    val inst = trackerToInst.withLock { it[entity] }?.let { get(it) } ?: return
+    val render = inst.render as? ItemDisplayRender ?: return
+    inst.onUntrack(render.withReceiver(player.packetReceiver()))
+  }
 }

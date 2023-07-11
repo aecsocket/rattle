@@ -11,18 +11,18 @@ class PaperRattlePlayer(
     override val platform: PaperRattlePlatform,
     val player: Player,
 ) : RattlePlayer(platform) {
-    override var messages: RattleMessages = platform.plugin.messages.forLocale(player.locale())
+  override var messages: RattleMessages = platform.plugin.messages.forLocale(player.locale())
 
-    override val world: RWorld
-        get() = player.world.wrap()
+  override val world: RWorld
+    get() = player.world.wrap()
 
-    override fun audience() = player
+  override fun audience() = player
 
-    override fun eyePosition(): DVec3 {
-        return player.eyeLocation.position()
-    }
+  override fun eyePosition(): DVec3 {
+    return player.eyeLocation.position()
+  }
 
-    override fun eyeDirection(): DVec3 {
-        return player.eyeLocation.direction()
-    }
+  override fun eyeDirection(): DVec3 {
+    return player.eyeLocation.direction()
+  }
 }

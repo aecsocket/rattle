@@ -11,13 +11,13 @@ class FabricWorldPhysics(
     override val simpleBodies: FabricSimpleBodies,
     val world: ServerLevel,
 ) : WorldPhysics(physics, terrain, entities, simpleBodies) {
-    override fun destroyInternal() {
-        (world as LevelPhysicsAccess).rattle_setPhysics(null)
-    }
+  override fun destroyInternal() {
+    (world as LevelPhysicsAccess).rattle_setPhysics(null)
+  }
 
-    fun onTick() {
-        simpleBodies.onTick()
-        terrain?.onTick()
-        entities?.onTick()
-    }
+  fun onTick() {
+    simpleBodies.onTick()
+    terrain?.onTick()
+    entities?.onTick()
+  }
 }

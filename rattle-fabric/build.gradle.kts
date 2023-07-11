@@ -6,9 +6,7 @@ plugins {
 
 val minecraft: String = libs.versions.fabric.asProvider().get()
 
-repositories {
-  sonatype.ossSnapshots()
-}
+repositories { sonatype.ossSnapshots() }
 
 dependencies {
   minecraft("com.mojang", "minecraft", minecraft)
@@ -25,11 +23,7 @@ dependencies {
 loom {
   splitEnvironmentSourceSets()
 
-  mods {
-    create("rattle").apply {
-      sourceSet(sourceSets.main.get())
-    }
-  }
+  mods { create("rattle").apply { sourceSet(sourceSets.main.get()) } }
 
   runs {
     get("client").apply {
@@ -41,14 +35,15 @@ loom {
 tasks.processResources {
   filesMatching("fabric.mod.json") {
     expand(
-      "version" to project.version,
-      "group" to project.group,
-      "description" to project.description,
-      "versions" to mapOf(
-        "fabric" to minecraft,
-        "fabric_loader" to libs.versions.fabric.loader.get(),
-        "fabric_language_kotlin" to libs.versions.fabric.language.kotlin.get(),
-      ),
+        "version" to project.version,
+        "group" to project.group,
+        "description" to project.description,
+        "versions" to
+            mapOf(
+                "fabric" to minecraft,
+                "fabric_loader" to libs.versions.fabric.loader.get(),
+                "fabric_language_kotlin" to libs.versions.fabric.language.kotlin.get(),
+            ),
     )
   }
 }

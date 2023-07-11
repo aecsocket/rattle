@@ -15,7 +15,6 @@ indra {
 }
 
 repositories {
-  if (!ci.get()) mavenLocal()
   mavenCentral()
   sonatype.s01Snapshots()
 }

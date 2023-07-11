@@ -9,6 +9,6 @@ dependencies {
   api(libs.alexandria.common)
 
   runtimeOnly(libs.rapier.linux.x86)
-  //runtimeOnly(libs.rapier.windows.x86)
-  //runtimeOnly(libs.rapier.macos.x86)
+  // runtimeOnly(libs.rapier.windows.x86)
+  // runtimeOnly(libs.rapier.macos.x86)
 }
