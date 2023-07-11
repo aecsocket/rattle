@@ -1,10 +1,10 @@
 package io.github.aecsocket.rattle.fabric
 
-import io.github.aecsocket.alexandria.extension.swapList
 import io.github.aecsocket.alexandria.fabric.ItemDisplayRender
 import io.github.aecsocket.alexandria.fabric.extension.nextEntityId
 import io.github.aecsocket.alexandria.fabric.extension.toDVec
-import io.github.aecsocket.alexandria.sync.Locked
+import io.github.aecsocket.kbeam.extension.swapList
+import io.github.aecsocket.kbeam.sync.Locked
 import io.github.aecsocket.klam.DIso3
 import io.github.aecsocket.klam.DQuat
 import io.github.aecsocket.klam.DVec3

@@ -1,11 +1,11 @@
 plugins {
-    id("kotlin-conventions")
-    id("publishing-conventions")
+  id("kotlin-conventions")
+  id("publishing-conventions")
 }
 
 dependencies {
-    api(libs.kotlin.reflect)
-    api(libs.klam)
-    api(libs.configurate.core)
-    api(libs.alexandria.api)
+  api(libs.kotlin.reflect)
+  api(libs.klam)
+  api(libs.configurate.core)
+  api(libs.alexandria.api)
 }

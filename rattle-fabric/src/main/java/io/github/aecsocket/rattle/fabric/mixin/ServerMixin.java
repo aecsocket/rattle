@@ -13,21 +13,20 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(MinecraftServer.class)
 public abstract class ServerMixin implements ServerRattleAccess {
-    @Unique
-    private FabricRattlePlatform rattle;
+  @Unique private FabricRattlePlatform rattle;
 
-    @Inject(method = "<init>", at = @At("TAIL"))
-    public void init(CallbackInfo ci) {
-        rattle = new FabricRattlePlatform(FabricRattle.api(), (MinecraftServer) (Object) this);
-    }
+  @Inject(method = "<init>", at = @At("TAIL"))
+  public void init(CallbackInfo ci) {
+    rattle = new FabricRattlePlatform(FabricRattle.api(), (MinecraftServer) (Object) this);
+  }
 
-    @Override
-    public @NotNull FabricRattlePlatform rattle() {
-        return rattle;
-    }
+  @Override
+  public @NotNull FabricRattlePlatform rattle() {
+    return rattle;
+  }
 
-    @Inject(method = "tickServer", at = @At("TAIL"))
-    private void onTick(CallbackInfo ci) {
-        rattle.onTick();
-    }
+  @Inject(method = "tickServer", at = @At("TAIL"))
+  private void onTick(CallbackInfo ci) {
+    rattle.onTick();
+  }
 }

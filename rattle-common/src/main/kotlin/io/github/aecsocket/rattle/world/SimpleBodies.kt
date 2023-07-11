@@ -1,11 +1,11 @@
 package io.github.aecsocket.rattle.world
 
-import io.github.aecsocket.alexandria.ArenaKey
-import io.github.aecsocket.alexandria.Dirty
-import io.github.aecsocket.alexandria.GenArena
 import io.github.aecsocket.alexandria.ItemRender
 import io.github.aecsocket.alexandria.desc.ItemDesc
 import io.github.aecsocket.alexandria.desc.ItemType
+import io.github.aecsocket.kbeam.ArenaKey
+import io.github.aecsocket.kbeam.Dirty
+import io.github.aecsocket.kbeam.GenArena
 import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.impl.RattlePlatform

@@ -4,7 +4,7 @@ import io.github.aecsocket.alexandria.ItemRender
 import io.github.aecsocket.alexandria.Shaping
 import io.github.aecsocket.alexandria.serializer.HierarchySerializer
 import io.github.aecsocket.alexandria.serializer.subType
-import io.github.aecsocket.alexandria.sync.Locked
+import io.github.aecsocket.kbeam.sync.Locked
 import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.impl.RattlePlatform

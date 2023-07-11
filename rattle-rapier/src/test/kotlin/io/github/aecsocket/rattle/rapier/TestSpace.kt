@@ -1,6 +1,6 @@
 package io.github.aecsocket.rattle.rapier
 
-import io.github.aecsocket.alexandria.sync.Locked
+import io.github.aecsocket.kbeam.sync.Locked
 import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.*
 import org.junit.jupiter.api.assertThrows

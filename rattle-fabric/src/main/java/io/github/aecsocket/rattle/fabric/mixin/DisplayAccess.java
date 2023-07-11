@@ -8,8 +8,8 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Mixin(Display.class)
 public interface DisplayAccess {
-    @Accessor("DATA_LEFT_ROTATION_ID")
-    static EntityDataAccessor<Quaternionf> getDataLeftRotationId() {
-        throw new AssertionError();
-    }
+  @Accessor("DATA_LEFT_ROTATION_ID")
+  static EntityDataAccessor<Quaternionf> getDataLeftRotationId() {
+    throw new AssertionError();
+  }
 }

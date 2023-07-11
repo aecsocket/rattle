@@ -1,7 +1,7 @@
 <div align="center">
 
 # Rattle
-<!-- [![CI](https://img.shields.io/github/actions/workflow/status/aecsocket/rattle/build.yml)](https://github.com/aecsocket/rattle/actions/workflows/build.yml) -->
+[![CI](https://img.shields.io/github/actions/workflow/status/aecsocket/rattle/build.yml)](https://github.com/aecsocket/rattle/actions/workflows/build.yml)
 
 ![Banner](static/banner.png)
 

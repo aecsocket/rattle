@@ -1,11 +1,10 @@
 package io.github.aecsocket.rattle.paper
 
-import io.github.aecsocket.alexandria.paper.ChunkTracking
 import io.github.aecsocket.alexandria.paper.extension.forWorld
 import io.github.aecsocket.alexandria.paper.extension.position
 import io.github.aecsocket.alexandria.paper.extension.registerEvents
-import io.github.aecsocket.alexandria.sync.Locked
-import io.github.aecsocket.alexandria.sync.Sync
+import io.github.aecsocket.kbeam.sync.Locked
+import io.github.aecsocket.kbeam.sync.Sync
 import io.github.aecsocket.rattle.CommandSource
 import io.github.aecsocket.rattle.PhysicsSpace
 import io.github.aecsocket.rattle.impl.RattlePlatform

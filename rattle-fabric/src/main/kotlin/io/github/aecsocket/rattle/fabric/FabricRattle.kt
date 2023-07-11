@@ -7,10 +7,10 @@ import io.github.aecsocket.alexandria.fabric.create
 import io.github.aecsocket.alexandria.fabric.extension.forWorld
 import io.github.aecsocket.alexandria.fabric.serializer.fabricSerializers
 import io.github.aecsocket.alexandria.hook.AlexandriaHook
-import io.github.aecsocket.alexandria.sync.Locked
-import io.github.aecsocket.alexandria.sync.Sync
 import io.github.aecsocket.glossa.Glossa
 import io.github.aecsocket.glossa.MessageProxy
+import io.github.aecsocket.kbeam.sync.Locked
+import io.github.aecsocket.kbeam.sync.Sync
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.impl.RattleHook
 import io.github.aecsocket.rattle.impl.RattleMessages

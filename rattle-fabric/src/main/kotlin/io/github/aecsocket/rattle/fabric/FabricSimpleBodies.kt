@@ -1,15 +1,15 @@
 package io.github.aecsocket.rattle.fabric
 
-import io.github.aecsocket.alexandria.ArenaKey
 import io.github.aecsocket.alexandria.ItemRender
-import io.github.aecsocket.alexandria.extension.swapList
 import io.github.aecsocket.alexandria.fabric.ItemDisplayRender
 import io.github.aecsocket.alexandria.fabric.create
 import io.github.aecsocket.alexandria.fabric.extension.createTrackerEntity
 import io.github.aecsocket.alexandria.fabric.extension.nextEntityId
 import io.github.aecsocket.alexandria.fabric.extension.toDVec
 import io.github.aecsocket.alexandria.fabric.packetReceiver
-import io.github.aecsocket.alexandria.sync.Locked
+import io.github.aecsocket.kbeam.ArenaKey
+import io.github.aecsocket.kbeam.extension.swapList
+import io.github.aecsocket.kbeam.sync.Locked
 import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.world.SimpleBodies
@@ -52,7 +52,7 @@ class FabricSimpleBodies(
         visibility: Visibility,
     ): ArenaKey {
         return when (visibility) {
-            Visibility.INVISIBLE -> instances.insert(
+            Visibility.INVISIBLE -> instances.add(
                 FabricInstance(collider, body, scale, position, geomSettings.item.create(), render = null)
             )
             Visibility.VISIBLE -> {
@@ -60,7 +60,7 @@ class FabricSimpleBodies(
                 val render = ItemDisplayRender(nextEntityId()) { packet ->
                     PlayerLookup.tracking(tracker).forEach { it.connection.send(packet) }
                 }
-                val instKey = instances.insert(
+                val instKey = instances.add(
                     FabricInstance(collider, body, scale, position, geomSettings.item.create(), render)
                 )
                 trackerToInst.withLock { it[tracker] = instKey }

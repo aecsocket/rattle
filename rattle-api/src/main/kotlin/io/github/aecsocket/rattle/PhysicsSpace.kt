@@ -1,6 +1,6 @@
 package io.github.aecsocket.rattle
 
-import io.github.aecsocket.alexandria.EventDispatch
+import io.github.aecsocket.kbeam.EventDispatch
 import io.github.aecsocket.klam.*
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import org.spongepowered.configurate.objectmapping.meta.Required

@@ -1,7 +1,7 @@
 package io.github.aecsocket.rattle.impl
 
-import io.github.aecsocket.alexandria.EventDispatch
-import io.github.aecsocket.alexandria.sync.Sync
+import io.github.aecsocket.kbeam.EventDispatch
+import io.github.aecsocket.kbeam.sync.Sync
 import io.github.aecsocket.rattle.CommandSource
 import io.github.aecsocket.rattle.World
 import io.github.aecsocket.rattle.stats.TimestampedList

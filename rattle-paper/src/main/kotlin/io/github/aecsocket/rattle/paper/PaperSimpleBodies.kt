@@ -1,11 +1,11 @@
 package io.github.aecsocket.rattle.paper
 
-import io.github.aecsocket.alexandria.ArenaKey
 import io.github.aecsocket.alexandria.ItemRender
-import io.github.aecsocket.alexandria.extension.swapList
 import io.github.aecsocket.alexandria.paper.*
 import io.github.aecsocket.alexandria.paper.extension.*
-import io.github.aecsocket.alexandria.sync.Locked
+import io.github.aecsocket.kbeam.ArenaKey
+import io.github.aecsocket.kbeam.extension.swapList
+import io.github.aecsocket.kbeam.sync.Locked
 import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.world.SimpleBodies
@@ -44,13 +44,13 @@ class PaperSimpleBodies(
         visibility: Visibility
     ): ArenaKey {
         return when (visibility) {
-            Visibility.INVISIBLE -> instances.insert(
+            Visibility.INVISIBLE -> instances.add(
                 PaperInstance(collider, body, scale, position, geomSettings.item.create(), render = null)
             )
             Visibility.VISIBLE -> {
                 val render = ItemDisplayRender(nextEntityId()) {}
                 val inst = PaperInstance(collider, body, scale, position, geomSettings.item.create(), render)
-                val instKey = instances.insert(inst)
+                val instKey = instances.add(inst)
 
                 platform.plugin.scheduling.onChunk(world, position.translation).runLater {
                     val tracker = world.spawnTracker(position.translation)
