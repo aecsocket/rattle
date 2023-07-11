@@ -1,0 +1,60 @@
+name: Publish
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  maven:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-java@v3
+      with:
+        distribution: temurin
+        java-version: 19
+    - uses: gradle/gradle-build-action@v2
+    - name: Build
+      run: |
+        ./gradlew --info --stacktrace build
+    - name: Get version type
+      run: |
+        VERSION_TYPE=$(./gradlew -q --console=plain --no-daemon printVersionType)
+        echo VERSION_TYPE=$VERSION_TYPE
+        echo VERSION_TYPE=$VERSION_TYPE >> $GITHUB_ENV
+    - name: Publish snapshot
+      if: ${{ env.VERSION_TYPE == 'snapshot' }}
+      run: |
+        ./gradlew publish
+      env:
+        ORG_GRADLE_PROJECT_sonatypeUsername: ${{ secrets.SONATYPE_USERNAME }}
+        ORG_GRADLE_PROJECT_sonatypePassword: ${{ secrets.SONATYPE_PASSWORD }}
+    - name: Publish release
+      if: ${{ env.VERSION_TYPE == 'release' }}
+      run: |
+        ./gradlew -PforceSign=true publishToSonatype closeSonatypeStagingRepository
+      env:
+        ORG_GRADLE_PROJECT_sonatypeUsername: ${{ secrets.SONATYPE_USERNAME }}
+        ORG_GRADLE_PROJECT_sonatypePassword: ${{ secrets.SONATYPE_PASSWORD }}
+        ORG_GRADLE_PROJECT_mavenSigningKey: ${{ secrets.SIGNING_KEY }}
+        ORG_GRADLE_PROJECT_mavenSigningPassword: ${{ secrets.SIGNING_PASSWORD }}
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: 19
+      - uses: gradle/gradle-build-action@v2
+      - name: Generate docs
+        run: |
+          ./gradlew --info --stacktrace dokkaHtmlMultiModule
+      - name: Publish docs
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          personal_token: ${{ secrets.DOCS_PAT }}
+          external_repository: aecsocket/aecsocket.github.io
+          publish_dir: ./build/dokka/htmlMultiModule
+          destination_dir: ./rattle/dokka

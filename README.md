@@ -2,6 +2,8 @@
 
 # Rattle
 [![CI](https://img.shields.io/github/actions/workflow/status/aecsocket/rattle/build.yml)](https://github.com/aecsocket/rattle/actions/workflows/build.yml)
+[![Release](https://img.shields.io/maven-central/v/io.github.aecsocket/rattle-api?label=release)](https://central.sonatype.com/artifact/io.github.aecsocket/rattle-api)
+[![Snapshot](https://img.shields.io/nexus/s/io.github.aecsocket/rattle-api?label=snapshot&server=https%3A%2F%2Fs01.oss.sonatype.org)](https://central.sonatype.com/artifact/io.github.aecsocket/rattle-api)
 
 ![Banner](static/banner.png)
 
