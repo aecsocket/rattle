@@ -73,7 +73,7 @@ class PaperRattlePlatform(
           if (plugin.settings.entities.enabled) {
             val entities = PaperEntityCollision(this, physics, plugin.settings.entities)
             // todo
-            //world.entities.forEach { entity -> entities.onAdd(entity) }
+            // world.entities.forEach { entity -> entities.onAdd(entity) }
             entities
           } else {
             null
