@@ -19,5 +19,5 @@ jobs:
         ./gradlew --info --stacktrace build reobfJar
     - uses: actions/upload-artifact@v3
       with:
-        name: artifacts
+        name: rattle
         path: "rattle-*/build/libs/*.jar"

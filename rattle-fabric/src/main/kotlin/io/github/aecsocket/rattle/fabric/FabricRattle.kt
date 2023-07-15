@@ -34,7 +34,6 @@ import org.spongepowered.configurate.objectmapping.ObjectMapper
 lateinit var Rattle: FabricRattle
   private set
 
-@Suppress("UnstableApiUsage")
 class FabricRattle :
     AlexandriaMod<RattleHook.Settings>(
         manifest = rattleManifest,
