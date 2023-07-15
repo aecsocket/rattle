@@ -1,6 +1,8 @@
 package io.github.aecsocket.rattle
 
 import io.github.aecsocket.klam.*
+import kotlin.math.max
+import kotlin.math.min
 
 /**
  * An object which is tied to a resource that must be manually destroyed after use. You must only
@@ -142,5 +144,5 @@ interface PhysicsEngine : Destroyable {
 fun numThreads(raw: Int, target: Int) =
     if (raw > 0) raw
     else {
-      clamp(target, 1, Runtime.getRuntime().availableProcessors() - 2)
+      max(Runtime.getRuntime().availableProcessors() - 2, min(1, target))
     }
