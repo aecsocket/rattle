@@ -148,9 +148,16 @@ class FabricRattle :
                   FabricSimpleBodies(platform, physics, world, this.settings.simpleBodies)
               val terrain =
                   if (settings.terrain.enabled) {
-                    FabricDynamicTerrain(platform, physics, world, settings.terrain)
-                  } else null
-              val entities: FabricEntityStrategy? = null // TODO
+                    FabricTerrainCollision(platform, physics, world, settings.terrain)
+                  } else {
+                    null
+                  }
+              val entities =
+                  if (settings.entities.enabled) {
+                    FabricEntityCollision(platform, physics, settings.entities)
+                  } else {
+                    null
+                  }
 
               Locked(FabricWorldPhysics(physics, terrain, entities, simpleBodies, world), lock)
                   .also { world.rattle_setPhysics(it) }

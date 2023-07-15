@@ -11,8 +11,9 @@ import io.github.aecsocket.glossa.messageProxy
 import io.github.aecsocket.klam.FVec3
 import io.github.aecsocket.rattle.*
 import io.github.aecsocket.rattle.rapier.RapierEngine
-import io.github.aecsocket.rattle.world.DynamicTerrain
+import io.github.aecsocket.rattle.world.EntityCollision
 import io.github.aecsocket.rattle.world.SimpleBodies
+import io.github.aecsocket.rattle.world.TerrainCollision
 import io.github.oshai.kotlinlogging.KLogger
 import java.util.*
 import java.util.concurrent.ExecutorService
@@ -40,7 +41,8 @@ abstract class RattleHook {
       val defaultTimescale: Double = 1.0,
       val worldPhysics: Map<String, PhysicsSpace.Settings> = emptyMap(),
       val simpleBodies: SimpleBodies.Settings = SimpleBodies.Settings(),
-      val terrain: DynamicTerrain.Settings = DynamicTerrain.Settings(),
+      val terrain: TerrainCollision.Settings = TerrainCollision.Settings(),
+      val entities: EntityCollision.Settings = EntityCollision.Settings(),
       val stats: Stats = Stats(),
       val jobs: Jobs = Jobs(),
       val draw: Draw = Draw(),

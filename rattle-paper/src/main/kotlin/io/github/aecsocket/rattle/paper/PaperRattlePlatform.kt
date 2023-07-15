@@ -1,5 +1,7 @@
 package io.github.aecsocket.rattle.paper
 
+import com.destroystokyo.paper.event.entity.EntityAddToWorldEvent
+import com.destroystokyo.paper.event.entity.EntityRemoveFromWorldEvent
 import io.github.aecsocket.alexandria.paper.extension.forWorld
 import io.github.aecsocket.alexandria.paper.extension.position
 import io.github.aecsocket.alexandria.paper.extension.registerEvents
@@ -16,6 +18,7 @@ import java.util.concurrent.locks.ReentrantLock
 import org.bukkit.Bukkit
 import org.bukkit.World
 import org.bukkit.block.Block
+import org.bukkit.entity.Entity
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
@@ -62,9 +65,18 @@ class PaperRattlePlatform(
       val simpleBodies = PaperSimpleBodies(this, physics, world, plugin.settings.simpleBodies)
       val terrain =
           if (plugin.settings.terrain.enabled) {
-            PaperDynamicTerrain(this, physics, world, plugin.settings.terrain)
-          } else null
-      val entities: PaperEntityStrategy? = null // TODO
+            PaperTerrainCollision(this, physics, world, plugin.settings.terrain)
+          } else {
+            null
+          }
+      val entities =
+          if (plugin.settings.entities.enabled) {
+            val entities = PaperEntityCollision(this, physics, plugin.settings.entities)
+            world.entities.forEach { entity -> entities.onAdd(entity) }
+            entities
+          } else {
+            null
+          }
 
       Locked(PaperWorldPhysics(this, physics, terrain, entities, simpleBodies, world), lock)
     }
@@ -123,7 +135,7 @@ class PaperRattlePlatform(
 
           // terrain
 
-          private fun terrain(world: World, fn: PaperDynamicTerrain.() -> Unit) {
+          private fun terrain(world: World, fn: PaperTerrainCollision.() -> Unit) {
             plugin.runTask {
               physicsOrNull(world)?.withLock { physics -> physics.terrain?.let(fn) }
             }
@@ -151,6 +163,26 @@ class PaperRattlePlatform(
           @EventHandler
           fun on(event: BlockPlaceEvent) {
             terrainUpdate(event.block)
+          }
+
+          // entities
+
+          private fun entities(entity: Entity, fn: PaperEntityCollision.() -> Unit) {
+            plugin.runTask {
+              physicsOrNull(entity.world)?.withLock { physics -> physics.entities?.let(fn) }
+            }
+          }
+
+          @EventHandler
+          fun on(event: EntityAddToWorldEvent) {
+            val entity = event.entity
+            entities(entity) { onAdd(entity) }
+          }
+
+          @EventHandler
+          fun on(event: EntityRemoveFromWorldEvent) {
+            val entity = event.entity
+            entities(entity) { onRemove(entity) }
           }
         })
   }

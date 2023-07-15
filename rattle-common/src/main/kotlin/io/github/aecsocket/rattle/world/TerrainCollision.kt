@@ -16,10 +16,9 @@ import org.spongepowered.configurate.objectmapping.ConfigSerializable
 
 const val TILES_IN_SLICE = 16 * 16 * 16
 
-abstract class DynamicTerrain(
+abstract class TerrainCollision(
     protected open val platform: RattlePlatform,
-    // SAFETY: while a caller has access to a DynamicTerrain object, they also have access to the
-    // containing
+    // SAFETY: while a caller has access to this object, they also have access to the containing
     // WorldPhysics, and therefore the PhysicsSpace is locked
     private val physics: PhysicsSpace,
     val settings: Settings = Settings(),
@@ -537,6 +536,6 @@ private fun enclosedPoints(b: DAabb3): Iterable<IVec3> {
 }
 
 val terrainLayerSerializer = HierarchySerializer {
-  subType<_, DynamicTerrain.Layer.Solid>("solid")
-  subType<_, DynamicTerrain.Layer.Fluid>("fluid")
+  subType<_, TerrainCollision.Layer.Solid>("solid")
+  subType<_, TerrainCollision.Layer.Fluid>("fluid")
 }

@@ -6,8 +6,8 @@ import net.minecraft.server.level.ServerLevel
 
 class FabricWorldPhysics(
     physics: PhysicsSpace,
-    override val terrain: FabricDynamicTerrain?,
-    override val entities: FabricEntityStrategy?,
+    override val terrain: FabricTerrainCollision?,
+    override val entities: FabricEntityCollision?,
     override val simpleBodies: FabricSimpleBodies,
     val world: ServerLevel,
 ) : WorldPhysics(physics, terrain, entities, simpleBodies) {

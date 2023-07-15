@@ -8,8 +8,8 @@ class PaperWorldPhysics
 internal constructor(
     private val platform: PaperRattlePlatform,
     physics: PhysicsSpace,
-    override val terrain: PaperDynamicTerrain?,
-    override val entities: PaperEntityStrategy?,
+    override val terrain: PaperTerrainCollision?,
+    override val entities: PaperEntityCollision?,
     simpleBodies: PaperSimpleBodies,
     val world: World,
 ) : WorldPhysics(physics, terrain, entities, simpleBodies) {

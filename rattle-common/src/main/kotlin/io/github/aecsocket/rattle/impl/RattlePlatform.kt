@@ -61,17 +61,13 @@ abstract class RattlePlatform(
         worlds.sumOf { world ->
           val res: Int = run {
             // SAFETY: if some part of the program has screwed up, we will never be able to acquire
-            // this lock
-            // however we don't really care about this space anymore; we just want to attempt to
-            // clean it up.
+            // this lock, however we don't really care about this space anymore; we just want to
+            // attempt to clean it up.
             // If we cannot acquire a lock in time, we cannot destroy the object, therefore we leak
-            // memory.
-            // However, this is better than the alternative if we ignored the lock and destroyed the
-            // world
-            // immediately: if the native code is stuck somewhere, it has a high chance of just
-            // crashing
-            // the entire JVM, possibly before other world state has been saved.
-            // And anyway, on a server environment, we don't care.
+            // memory. However, this is better than the alternative if we ignored the lock and
+            // destroyed the world immediately: if the native code is stuck somewhere, it has a
+            // high chance of just crashing the entire JVM, possibly before other world state has
+            // been saved. And anyway, on a server environment, we don't care.
             physicsOrNull(world)?.let { lock ->
               lock
                   .tryLock(

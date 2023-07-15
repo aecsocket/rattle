@@ -6,8 +6,8 @@ import io.github.aecsocket.alexandria.paper.extension.sendPacket
 import io.github.aecsocket.alexandria.paper.extension.toDVec
 import io.github.aecsocket.klam.*
 import io.github.aecsocket.rattle.*
-import io.github.aecsocket.rattle.world.DynamicTerrain
 import io.github.aecsocket.rattle.world.TILES_IN_SLICE
+import io.github.aecsocket.rattle.world.TerrainCollision
 import io.github.aecsocket.rattle.world.posInChunk
 import org.bukkit.Chunk
 import org.bukkit.Material
@@ -119,12 +119,12 @@ all NMS SoundType's:
     DECORATED_POT
  */
 
-class PaperDynamicTerrain(
+class PaperTerrainCollision(
     override val platform: PaperRattlePlatform,
     physics: PhysicsSpace,
     val world: World,
     settings: Settings = Settings(),
-) : DynamicTerrain(platform, physics, settings) {
+) : TerrainCollision(platform, physics, settings) {
   private val yIndices = (world.minHeight / 16) until (world.maxHeight / 16)
   private val layerByBlock = HashMap<Material, Int>()
 
@@ -237,13 +237,13 @@ class PaperDynamicTerrain(
     ChunkTracking.trackedChunks(player).forEach { chunk -> hideChunkDebug(player, chunk) }
   }
 
-  fun onTrackChunk(player: Player, chunk: Chunk) {
+  internal fun onTrackChunk(player: Player, chunk: Chunk) {
     if (platform.drawPlayers[player]?.terrain != true) {
       showChunkDebug(player, chunk)
     }
   }
 
-  fun onUntrackChunk(player: Player, chunk: Chunk) {
+  internal fun onUntrackChunk(player: Player, chunk: Chunk) {
     if (platform.drawPlayers[player]?.terrain == true) {
       hideChunkDebug(player, chunk)
     }

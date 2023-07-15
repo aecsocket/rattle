@@ -30,8 +30,8 @@ import java.util.concurrent.atomic.AtomicLong
  */
 abstract class WorldPhysics(
     val physics: PhysicsSpace,
-    open val terrain: DynamicTerrain?,
-    open val entities: EntityStrategy?,
+    open val terrain: TerrainCollision?,
+    open val entities: EntityCollision?,
     open val simpleBodies: SimpleBodies,
 ) : Destroyable {
   private val destroyed = DestroyFlag()

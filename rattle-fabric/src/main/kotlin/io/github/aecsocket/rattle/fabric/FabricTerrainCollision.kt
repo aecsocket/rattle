@@ -11,8 +11,8 @@ import io.github.aecsocket.klam.DVec3
 import io.github.aecsocket.klam.IVec3
 import io.github.aecsocket.rattle.Compound
 import io.github.aecsocket.rattle.PhysicsSpace
-import io.github.aecsocket.rattle.world.DynamicTerrain
 import io.github.aecsocket.rattle.world.TILES_IN_SLICE
+import io.github.aecsocket.rattle.world.TerrainCollision
 import io.github.aecsocket.rattle.world.posInChunk
 import net.fabricmc.fabric.api.networking.v1.PlayerLookup
 import net.minecraft.core.BlockPos
@@ -24,12 +24,12 @@ import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.chunk.ChunkAccess
 import net.minecraft.world.level.chunk.ChunkStatus
 
-class FabricDynamicTerrain(
+class FabricTerrainCollision(
     platform: FabricRattlePlatform,
     physics: PhysicsSpace,
     val world: ServerLevel,
     settings: Settings = Settings(),
-) : DynamicTerrain(platform, physics, settings) {
+) : TerrainCollision(platform, physics, settings) {
   private val toSnapshot = Locked(HashSet<IVec3>())
   private val layerByBlock = HashMap<Block, Int>()
 

@@ -6,7 +6,7 @@ dokka = "1.8.20"
 klam = "0.4.0"
 configurate = "4.1.2"
 alexandria = "0.1.2-SNAPSHOT"
-rapier = "0.2.0-SNAPSHOT"
+rapier = "0.2.1-SNAPSHOT"
 
 paper = "1.19.4"
 
@@ -26,6 +26,7 @@ klam = { group = "io.github.aecsocket", name = "klam", version.ref = "klam" }
 configurate-core = { group = "org.spongepowered", name = "configurate-core", version.ref = "configurate" }
 rapier = { group = "io.github.aecsocket", name = "rapier-java-dim3-f64", version.ref = "rapier" }
 rapier-linux-x86 = { group = "io.github.aecsocket", name = "rapier-java-dim3-f64-linux-x86", version.ref = "rapier" }
+rapier-linux-aarch64 = { group = "io.github.aecsocket", name = "rapier-java-dim3-f64-linux-aarch64", version.ref = "rapier" }
 rapier-windows-x86 = { group = "io.github.aecsocket", name = "rapier-java-dim3-f64-windows-x86", version.ref = "rapier" }
 rapier-macos-x86 = { group = "io.github.aecsocket", name = "rapier-java-dim3-f64-macos-x86", version.ref = "rapier" }
 alexandria-api = { group = "io.github.aecsocket", name = "alexandria-api", version.ref = "alexandria" }
