@@ -24,6 +24,20 @@ abstract class RattlePlatform(
   val onPreStep: EventDispatch<OnPreStep>
     get() = _onPreStep
 
+  var timescale: Double = rattle.settings.defaultTimescale
+    set(value) {
+      require(value >= 0.0) { "value >= 0.0" }
+      field = value
+    }
+
+  private val stepping = AtomicBoolean(false)
+  val isStepping: Boolean
+    get() = stepping.get()
+
+  private val _engineTimings = TimestampedList<Long>(timingsBufferSize())
+  val engineTimings: TimestampedList<Long>
+    get() = _engineTimings
+
   abstract fun key(world: World): Key
 
   abstract fun physicsOrNull(world: World): Sync<out WorldPhysics>?
@@ -35,14 +49,6 @@ abstract class RattlePlatform(
   abstract fun asPlayer(sender: CommandSource): RattlePlayer?
 
   abstract fun setPlayerDraw(player: RattlePlayer, draw: RattlePlayer.Draw?)
-
-  private val stepping = AtomicBoolean(false)
-  val isStepping: Boolean
-    get() = stepping.get()
-
-  private val _engineTimings = TimestampedList<Long>(timingsBufferSize())
-  val engineTimings: TimestampedList<Long>
-    get() = _engineTimings
 
   private fun timingsBufferSize() = (rattle.settings.stats.timingBuffers.max() * 1000).toLong()
 
@@ -96,7 +102,7 @@ abstract class RattlePlatform(
       if (stepping.getAndSet(true)) return@runTask
       val start = System.nanoTime()
       try {
-        val dt = 0.05 * rattle.settings.timeStepMultiplier
+        val dt = 0.05 * timescale
         _onPreStep.dispatch(OnPreStep(dt = dt))
 
         // SAFETY: we lock all worlds in a batch at once, so no other thread can access it
@@ -106,7 +112,6 @@ abstract class RattlePlatform(
         val worlds = locks.map { it.lock() }
 
         worlds.forEach { it.onPhysicsStep() }
-
         rattle.engine.stepSpaces(dt, worlds.map { it.physics })
 
         locks.forEach { it.unlock() }

@@ -73,6 +73,16 @@ interface RattleMessages {
       }
     }
 
+    val timescale: Timescale
+
+    interface Timescale {
+      fun set(
+          timescale: Double,
+      ): Message
+
+      fun reset(): Message
+    }
+
     val stats: Stats
 
     interface Stats {

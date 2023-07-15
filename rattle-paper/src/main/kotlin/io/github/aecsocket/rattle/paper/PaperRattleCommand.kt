@@ -28,7 +28,7 @@ internal class PaperRattleCommand(
 
   override fun CommandContext<CommandSender>.getWorld(key: String) = get<World>(key).wrap()
 
-  override val CommandContext<CommandSender>.server: RattlePlatform
+  override val CommandContext<CommandSender>.platform: RattlePlatform
     get() = rattle.platform
 
   override fun CommandSender.source() = wrap()

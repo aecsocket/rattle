@@ -37,7 +37,7 @@ abstract class RattleHook {
   @ConfigSerializable
   data class Settings(
       override val defaultLocale: Locale = AlexandriaHook.fallbackLocale,
-      val timeStepMultiplier: Double = 1.0,
+      val defaultTimescale: Double = 1.0,
       val worldPhysics: Map<String, PhysicsSpace.Settings> = emptyMap(),
       val simpleBodies: SimpleBodies.Settings = SimpleBodies.Settings(),
       val terrain: DynamicTerrain.Settings = DynamicTerrain.Settings(),

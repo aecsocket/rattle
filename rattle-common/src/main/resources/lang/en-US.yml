@@ -54,6 +54,12 @@ translations:
               other {<p1>#</p1> bodies}
             } in <p1>{world}</p1>
 
+      timescale:
+        set: >-
+          <p2>Set timescale to <p1>{timescale}</p1>x
+        reset: >-
+          <p2>Reset timescale to default
+
       stats:
         timings_header: >-
           <p2>Timings for the last...

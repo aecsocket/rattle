@@ -45,7 +45,7 @@ internal class FabricRattleCommand(
     return handle.wrap()
   }
 
-  override val CommandContext<CommandSourceStack>.server: FabricRattlePlatform
+  override val CommandContext<CommandSourceStack>.platform: FabricRattlePlatform
     get() = sender.server.rattle()
 
   override fun CommandSourceStack.source() = wrap()

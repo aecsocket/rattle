@@ -44,12 +44,14 @@ private const val LOCATION = "location"
 private const val MASS = "mass"
 private const val NO_CCD = "no-ccd"
 private const val RADIUS = "radius"
+private const val RESET = "reset"
 private const val RESTITUTION = "restitution"
 private const val SPACE = "space"
 private const val SPHERE = "sphere"
 private const val SPREAD = "spread"
 private const val STATS = "stats"
 private const val TERRAIN = "terrain"
+private const val TIMESCALE = "timescale"
 private const val VELOCITY = "velocity"
 private const val VIRTUAL = "virtual"
 private const val WORLD = "world"
@@ -67,7 +69,7 @@ abstract class RattleCommand<C : Audience>(
 
   protected abstract fun CommandContext<C>.getWorld(key: String): World
 
-  protected abstract val CommandContext<C>.server: RattlePlatform
+  protected abstract val CommandContext<C>.platform: RattlePlatform
 
   protected abstract fun C.source(): CommandSource
 
@@ -155,6 +157,13 @@ abstract class RattleCommand<C : Audience>(
         }
       }
 
+      literal(TIMESCALE).axPermission(TIMESCALE).run {
+        manager.command(
+            argument(DoubleArgument.builder<C>(TIMESCALE).withMin(0)).axHandler(::timescale))
+
+        manager.command(literal(RESET).axHandler(::timescaleReset))
+      }
+
       literal(STATS).axPermission(STATS).run {
         manager.command(this.axHandler(::stats))
 
@@ -213,39 +222,39 @@ abstract class RattleCommand<C : Audience>(
   }
 
   private fun spaceCreate(ctx: CommandContext<C>) {
-    val server = ctx.server
+    val platform = ctx.platform
     val sender = ctx.sender
     val messages = messages.forAudience(sender)
     val world = ctx.getWorld(WORLD)
 
-    if (server.hasPhysics(world)) {
-      error(messages.error.space.alreadyExists(world = server.key(world).asString()))
+    if (platform.hasPhysics(world)) {
+      error(messages.error.space.alreadyExists(world = platform.key(world).asString()))
     }
 
-    server.physicsOrCreate(world)
+    platform.physicsOrCreate(world)
 
     messages.command.space
         .create(
-            world = server.key(world).asString(),
+            world = platform.key(world).asString(),
         )
         .sendTo(sender)
   }
 
   private fun spaceDestroy(ctx: CommandContext<C>) {
-    val server = ctx.server
+    val platform = ctx.platform
     val sender = ctx.sender
     val messages = messages.forAudience(sender)
     val world = ctx.getWorld(WORLD)
 
     val lock =
-        server.physicsOrNull(world)
-            ?: error(messages.error.space.doesNotExist(world = server.key(world).asString()))
+        platform.physicsOrNull(world)
+            ?: error(messages.error.space.doesNotExist(world = platform.key(world).asString()))
     ctx.runTask {
       lock.withLock { physics -> physics.destroy() }
 
       messages.command.space
           .destroy(
-              world = server.key(world).asString(),
+              world = platform.key(world).asString(),
           )
           .sendTo(sender)
     }
@@ -262,7 +271,7 @@ abstract class RattleCommand<C : Audience>(
       ctx: CommandContext<C>,
       createDesc: (PhysicsMaterial, Collider.Mass, Visibility) -> SimpleBodyDesc,
   ): BodyCreateInfo {
-    val server = ctx.server
+    val platform = ctx.platform
     val location = ctx.getLocation(LOCATION)
     val count = ctx.flag(COUNT) ?: 1
     val spread = ctx.flag(SPREAD) ?: 0.0
@@ -283,7 +292,7 @@ abstract class RattleCommand<C : Audience>(
     val desc = createDesc(material, mass, visibility)
 
     ctx.runTask {
-      server.physicsOrCreate(location.world).withLock { physics ->
+      platform.physicsOrCreate(location.world).withLock { physics ->
         repeat(count) {
           val offset = (Random.nextDVec3() * 2.0 - 1.0) * spread
 
@@ -422,14 +431,14 @@ abstract class RattleCommand<C : Audience>(
   }
 
   private fun bodyDestroyAll(ctx: CommandContext<C>) {
-    val server = ctx.server
+    val platform = ctx.platform
     val sender = ctx.sender
     val messages = messages.forAudience(sender)
     val world = ctx.getWorld(WORLD)
 
     val lock =
-        server.physicsOrNull(world)
-            ?: error(messages.error.space.doesNotExist(world = server.key(world).asString()))
+        platform.physicsOrNull(world)
+            ?: error(messages.error.space.doesNotExist(world = platform.key(world).asString()))
 
     ctx.runTask {
       lock.withLock { physics ->
@@ -437,7 +446,7 @@ abstract class RattleCommand<C : Audience>(
         physics.simpleBodies.removeAll()
         messages.command.body.destroy
             .all(
-                world = server.key(world).asString(),
+                world = platform.key(world).asString(),
                 count = count,
             )
             .sendTo(sender)
@@ -445,8 +454,31 @@ abstract class RattleCommand<C : Audience>(
     }
   }
 
+  private fun timescale(ctx: CommandContext<C>) {
+    val platform = ctx.platform
+    val sender = ctx.sender
+    val messages = messages.forAudience(sender)
+    val timescale = ctx.get<Double>(TIMESCALE)
+
+    platform.timescale = timescale
+    messages.command.timescale
+        .set(
+            timescale = timescale,
+        )
+        .sendTo(sender)
+  }
+
+  private fun timescaleReset(ctx: CommandContext<C>) {
+    val platform = ctx.platform
+    val sender = ctx.sender
+    val messages = messages.forAudience(sender)
+
+    platform.timescale = rattle.settings.defaultTimescale
+    messages.command.timescale.reset().sendTo(sender)
+  }
+
   private fun stats(ctx: CommandContext<C>) {
-    val server = ctx.server
+    val platform = ctx.platform
     val sender = ctx.sender
     val messages = messages.forAudience(sender)
 
@@ -454,7 +486,7 @@ abstract class RattleCommand<C : Audience>(
 
     rattle.settings.stats.timingBuffers.forEach { buffer ->
       val (median, best5, worst5) =
-          timingStatsOf(server.engineTimings.getLast((buffer * 1000).toLong()))
+          timingStatsOf(platform.engineTimings.getLast((buffer * 1000).toLong()))
       messages.command.stats
           .timing(
               buffer = buffer,
@@ -466,7 +498,7 @@ abstract class RattleCommand<C : Audience>(
     }
 
     val worlds =
-        server.worlds.mapNotNull { world -> server.physicsOrNull(world)?.let { world to it } }
+        platform.worlds.mapNotNull { world -> platform.physicsOrNull(world)?.let { world to it } }
 
     messages.command.stats
         .spacesHeader(
@@ -484,7 +516,7 @@ abstract class RattleCommand<C : Audience>(
         physics.withLock { (space) ->
           messages.command.stats
               .space(
-                  world = server.key(world).asString(),
+                  world = platform.key(world).asString(),
                   colliders = space.colliders.count,
                   rigidBodies = space.rigidBodies.count,
                   activeRigidBodies = space.rigidBodies.activeCount,
@@ -496,16 +528,16 @@ abstract class RattleCommand<C : Audience>(
   }
 
   private fun statsEnable(ctx: CommandContext<C>) {
-    val server = ctx.server
-    val sender = server.asPlayer(ctx.sender.source()) ?: mustBePlayer(ctx.sender)
+    val platform = ctx.platform
+    val sender = platform.asPlayer(ctx.sender.source()) ?: mustBePlayer(ctx.sender)
     val enabled = ctx.get<Boolean>(ENABLED)
 
     sender.showStatsBar(enabled)
   }
 
   private fun launcherDisable(ctx: CommandContext<C>) {
-    val server = ctx.server
-    val sender = server.asPlayer(ctx.sender.source()) ?: mustBePlayer(ctx.sender)
+    val platform = ctx.platform
+    val sender = platform.asPlayer(ctx.sender.source()) ?: mustBePlayer(ctx.sender)
     val messages = messages.forAudience(sender)
 
     if (sender.launcher != null) {
@@ -536,8 +568,8 @@ abstract class RattleCommand<C : Audience>(
   }
 
   private fun launcherSphere(ctx: CommandContext<C>) {
-    val server = ctx.server
-    val sender = server.asPlayer(ctx.sender.source()) ?: mustBePlayer(ctx.sender)
+    val platform = ctx.platform
+    val sender = platform.asPlayer(ctx.sender.source()) ?: mustBePlayer(ctx.sender)
     val messages = messages.forAudience(sender)
 
     if (sender.launcher == null) {
@@ -547,8 +579,8 @@ abstract class RattleCommand<C : Audience>(
   }
 
   private fun launcherBox(ctx: CommandContext<C>) {
-    val server = ctx.server
-    val sender = server.asPlayer(ctx.sender.source()) ?: mustBePlayer(ctx.sender)
+    val platform = ctx.platform
+    val sender = platform.asPlayer(ctx.sender.source()) ?: mustBePlayer(ctx.sender)
     val messages = messages.forAudience(sender)
 
     if (sender.launcher == null) {
@@ -558,13 +590,13 @@ abstract class RattleCommand<C : Audience>(
   }
 
   private fun draw(ctx: CommandContext<C>) {
-    val server = ctx.server
-    val sender = server.asPlayer(ctx.sender.source()) ?: mustBePlayer(ctx.sender)
+    val platform = ctx.platform
+    val sender = platform.asPlayer(ctx.sender.source()) ?: mustBePlayer(ctx.sender)
 
     val draw =
         RattlePlayer.Draw(
             terrain = ctx.hasFlag(TERRAIN),
         )
-    server.setPlayerDraw(sender, if (draw.isEmpty()) null else draw)
+    platform.setPlayerDraw(sender, if (draw.isEmpty()) null else draw)
   }
 }
