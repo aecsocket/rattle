@@ -55,18 +55,20 @@ class PaperSimpleBodies(
         val instKey = instances.add(inst)
 
         platform.plugin.scheduling.onChunk(world, position.translation).runLater {
-          val tracker = world.spawnTracker(position.translation)
+          val tracker =
+              world.spawnTracker(position.translation) { tracker ->
+                EntityTracking.register(tracker)
+                EntityTracking.onTrack(tracker).run { player ->
+                  inst.onTrack(render.withReceiver(player.packetReceiver()))
+                }
+                EntityTracking.onUntrack(tracker).run { player ->
+                  inst.onUntrack(render.withReceiver(player.packetReceiver()))
+                }
+                render.receiver = PacketReceiver { packet ->
+                  EntityTracking.trackedPlayers(tracker).forEach { it.sendPacket(packet) }
+                }
+              }
           val trackerId = tracker.uniqueId
-          EntityTracking.register(tracker)
-          EntityTracking.onTrack(tracker).invoke { player ->
-            inst.onTrack(render.withReceiver(player.packetReceiver()))
-          }
-          EntityTracking.onUntrack(tracker).invoke { player ->
-            inst.onUntrack(render.withReceiver(player.packetReceiver()))
-          }
-          render.receiver = PacketReceiver { packet ->
-            EntityTracking.trackedPlayers(tracker).forEach { it.sendPacket(packet) }
-          }
 
           platform.plugin.scheduling
               .onEntity(
