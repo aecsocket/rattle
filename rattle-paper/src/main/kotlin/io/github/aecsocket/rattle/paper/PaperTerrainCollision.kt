@@ -146,7 +146,7 @@ class PaperTerrainCollision(
   }
 
   private fun createSnapshot(chunk: Chunk, pos: IVec3): SliceState.Snapshot {
-    if (pos.y < -world.minHeight / 16 || pos.y >= world.maxHeight / 16) {
+    if (pos.y < world.minHeight / 16 || pos.y >= world.maxHeight / 16) {
       return SliceState.Snapshot.Empty
     }
     // TODO if chunk is empty, we don't snapshot
@@ -238,7 +238,7 @@ class PaperTerrainCollision(
   }
 
   internal fun onTrackChunk(player: Player, chunk: Chunk) {
-    if (platform.drawPlayers[player]?.terrain != true) {
+    if (platform.drawPlayers[player]?.terrain == true) {
       showChunkDebug(player, chunk)
     }
   }
